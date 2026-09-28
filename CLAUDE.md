@@ -12,7 +12,8 @@ function** for GRPO training of a small model. Understanding beats speed: Najeeb
 every line in an interview.
 
 ## Working protocol (strict)
-- **Explain in very simple English**, with short sentences and analogies. Give check questions as multiple choice (A/B/C/D) in plain text.
+- **Explain in very simple English**, with short sentences. Give check questions as multiple choice (A/B/C/D) in plain text.
+- **Use real-life scenarios for hard ideas** (e.g. "teacher room / exam room", "checking a grocery bag against the order"). Always also give the real technical term, and say briefly where the analogy stops being true.
 - **Every step starts in plan mode.** Present the plan for the step and get approval before writing
   code. (Najeeb's request, 2026-09-28.)
 - Work in small numbered steps (Section 9 of the brief). Never do more than one step without stopping.
@@ -128,6 +129,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-28: `execute()` is public in grader.py, so fill_expected.py (Step 3) uses the same execution path as grade().
 - 2026-09-28: Najeeb asked Claude to write the Step 2 TODO (`_unordered_equal`) too. Keep offering TODOs, but make them small, and explain the idea simply first.
 - 2026-09-28: Najeeb asked for simpler explanations and multiple-choice check questions. Use short sentences, everyday analogies (e.g. "teacher room / exam room" for parent/child), and give check questions as A/B/C/D options in text.
+- 2026-09-28: Najeeb asked for real-life scenarios for hard ideas. Each analogy comes with the real term and where it breaks down, so it works in interviews and doesn't teach anything wrong.
 - 2026-09-28: Exclude `docs/` and `tests/submissions/` from ruff. Ruff 0.16 formats code blocks inside Markdown (which would change KICKOFF.md), and the submissions folder holds deliberately broken code.
 
 ## Open questions
