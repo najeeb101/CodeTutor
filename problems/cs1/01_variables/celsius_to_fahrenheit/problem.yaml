@@ -1,0 +1,27 @@
+id: cs1.variables.celsius_to_fahrenheit
+version: 1
+title: Celsius to Fahrenheit
+module: 1
+module_name: Variables & Arithmetic
+order: 1
+difficulty: easy
+concepts: [arithmetic]
+function_name: celsius_to_fahrenheit
+description_en: |
+  Write a function `celsius_to_fahrenheit(c)` that converts a temperature from
+  degrees Celsius to degrees Fahrenheit and returns it.
+
+  The formula is:  F = C × 9/5 + 32
+
+  - `c` is a number (int or float). It can be negative or have decimals.
+  - Return a float. Small rounding differences (like 98.60000000000001) are accepted.
+
+  Examples:
+    celsius_to_fahrenheit(0)   -> 32.0
+    celsius_to_fahrenheit(100) -> 212.0
+description_ar: null
+hints:
+  - "Write the conversion formula on paper first, then turn it into one line of Python."
+  - "Multiply the Celsius value by 9, divide by 5, then add 32. Check which division operator gives decimals in Python."
+  - "Compute c times 9, divide that by 5 using normal division (a single slash, not a double slash), add 32, and return the result."
+author: claude

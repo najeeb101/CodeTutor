@@ -1,0 +1,31 @@
+id: cs1.lists.second_largest
+version: 1
+title: Second Largest Value
+module: 5
+module_name: Lists
+order: 1
+difficulty: medium
+concepts: [lists, sorting, edge_cases]
+function_name: second_largest
+description_en: |
+  Write a function `second_largest(nums)` that returns the second largest
+  **distinct** value in the list `nums`.
+
+  - `nums` is a list of integers. It can be empty, and it can contain duplicates
+    and negative numbers.
+  - "Distinct" means duplicates count only once: in [5, 5, 4] the largest value is 5
+    and the second largest is 4.
+  - If there is no second largest value (the list is empty or all values are the
+    same), return `None`.
+  - Do not change the list you are given.
+
+  Examples:
+    second_largest([3, 1, 4, 1, 5]) -> 4
+    second_largest([10, 20])        -> 10
+    second_largest([7, 7, 7])       -> None
+description_ar: null
+hints:
+  - "Duplicates matter: the second largest must be a different value from the largest one."
+  - "Get rid of duplicate values first, then find the second biggest value that is left. Also think about lists with fewer than two different values."
+  - "Turn the list into a set to drop duplicates and sort what is left. If at least two values remain, return the one just before the last; otherwise return None."
+author: claude

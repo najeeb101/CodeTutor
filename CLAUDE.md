@@ -93,9 +93,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 ---
 
 ## Status
-- **Done:** Step 0 (environment check, skeleton, tooling, CLAUDE.md, README).
+- **Done:** Step 0 (skeleton, tooling). Step 1 (schema, loader, 3 example problems with inputs only,
+  62 tests, docs/problem-format.md).
 - **In progress:** nothing.
-- **Next action:** Step 1 (problem format: schema + loader + 3 example problems). Start in plan mode.
+- **Next action:** Step 2 (the grader). Start in plan mode.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -104,6 +105,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-28: Use hatchling as the build backend (a build-time tool only, not a runtime dependency), because it is uv's default and supports the src layout.
 - 2026-09-28: Added a one-line smoke test so `make test` really passes (pytest exits with code 5 when it collects no tests).
 - 2026-09-28: Every step starts in plan mode, at Najeeb's request.
+- 2026-09-28: Test `hidden` and `compare` fields are required (no defaults), so forgetting one can never silently make a hidden test visible.
+- 2026-09-28: All schema models use `extra="forbid"` (typos are errors) and `frozen=True` (loaded problems can't be changed by accident; note frozen is shallow).
+- 2026-09-28: "Expected missing" is tracked with pydantic's `model_fields_set`, not with None, because None/null is a real expected value for some problems.
+- 2026-09-28: The student view excludes hints as well as the solution, buggy code and hidden tests. The tutor gives hints one at a time, and evals give models the student view.
+- 2026-09-28: The problem id must match the folder path (`cs1/03_loops/x` ↔ `cs1.loops.x`, module 3). Resolves Q10.
+- 2026-09-28: Example problems keep inputs only in tests.yaml until fill_expected.py (Step 3); tests load them with `require_expected=False`.
+- 2026-09-28: The default problems root is found from the package location, not the current directory. This only works for source/editable installs, which is fine for this project.
+- 2026-09-28: Najeeb chose to have Claude write the Step 1 TODO (`_check_id_matches_folder`) and study it instead. Keep offering TODOs in later steps.
 - 2026-09-28: Exclude `docs/` and `tests/submissions/` from ruff. Ruff 0.16 formats code blocks inside Markdown (which would change KICKOFF.md), and the submissions folder holds deliberately broken code.
 
 ## Open questions
@@ -114,7 +123,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Q7 (Step 4): `merge_sorted` timing tests cannot detect use of `sort()`, because `sorted(a + b)` runs in C and beats a Python merge. They can only catch O(n²) solutions. Proposed: change the spec text so we don't claim this.
 - Q8 (Step 4): Naive `fibonacci(35)` takes ~1.5–3 s, which is too close to the 2 s limit and would be flaky. Proposed: hidden n = 40. Measure on this machine first.
 - Q9 (Step 3): `fill_expected.py` rewrites `tests.yaml`, and PyYAML deletes comments. Proposed: no comments in `tests.yaml`, all explanations in the `note` field (no ruamel.yaml dependency).
-- Q10 (Step 1): The loader should check that a problem's `id` matches its folder (`03_loops/sum_of_evens` ↔ `cs1.loops.sum_of_evens`).
 
 ## Known limitations
+- The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
+- Tests import helpers from `tests/conftest.py` directly (`from conftest import ...`). This works with pytest's default rootdir import mode; move them to a helpers module if that ever breaks.
 - The sandbox is not implemented yet. When it is (Step 2), the subprocess sandbox will NOT be secure: no filesystem or network isolation. Docker is required before untrusted strangers submit code.

@@ -1,0 +1,11 @@
+tests:
+  - {id: t01, input: [0], hidden: false, compare: float, note: "example 1: freezing point"}
+  - {id: t02, input: [100], hidden: false, compare: float, note: "example 2: boiling point"}
+  - {id: t03, input: [-40], hidden: false, compare: float, note: "C and F are equal at -40"}
+  - {id: t04, input: [20], hidden: false, compare: float, note: "room temperature"}
+  - {id: t05, input: [37], hidden: true, compare: float, note: "body temperature, not a multiple of 5"}
+  - {id: t06, input: [36.6], hidden: true, compare: float, note: "decimal input"}
+  - {id: t07, input: [-273.15], hidden: true, compare: float, note: "edge: absolute zero"}
+  - {id: t08, input: [0.5], hidden: true, compare: float, note: "edge: small fraction"}
+  - {id: t09, input: [-1], hidden: true, compare: float, note: "edge: small negative"}
+  - {id: t10, input: [1000000], hidden: true, compare: float, note: "large value"}
