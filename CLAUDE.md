@@ -12,6 +12,7 @@ function** for GRPO training of a small model. Understanding beats speed: Najeeb
 every line in an interview.
 
 ## Working protocol (strict)
+- **Explain in very simple English**, with short sentences and analogies. Give check questions as multiple choice (A/B/C/D) in plain text.
 - **Every step starts in plan mode.** Present the plan for the step and get approval before writing
   code. (Najeeb's request, 2026-09-28.)
 - Work in small numbered steps (Section 9 of the brief). Never do more than one step without stopping.
@@ -93,10 +94,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 ---
 
 ## Status
-- **Done:** Step 0 (skeleton, tooling). Step 1 (schema, loader, 3 example problems with inputs only,
-  62 tests, docs/problem-format.md).
+- **Done:** Step 0 (skeleton, tooling). Step 1 (schema, loader, 3 example problems with inputs only).
+  Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
+  157 tests in ~11 s; docs/grader.md).
 - **In progress:** nothing.
-- **Next action:** Step 2 (the grader). Start in plan mode.
+- **Next action:** Step 3 (validator, fill_expected, grade CLI, dataset build). Start in plan mode.
+  Explain in very simple English (see protocol note below).
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -113,13 +116,21 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-28: Example problems keep inputs only in tests.yaml until fill_expected.py (Step 3); tests load them with `require_expected=False`.
 - 2026-09-28: The default problems root is found from the package location, not the current directory. This only works for source/editable installs, which is fine for this project.
 - 2026-09-28: Najeeb chose to have Claude write the Step 1 TODO (`_check_id_matches_folder`) and study it instead. Keep offering TODOs in later steps.
+- 2026-09-28: Q3 resolved. The total time limit is automatic (n_tests × per_test + 3 s), so per-test timeouts can't add up to a total timeout; a total timeout or crash still gives reward 0 (brief's rule). Chosen over streaming per-test results because it is simpler.
+- 2026-09-28: Q6 resolved. No RLIMIT_NPROC (it is per-user: 25 processes already running). Rely on killing the process group; Docker `--pids-limit` later.
+- 2026-09-28: The child runs with `python -S -s -P` and env `{PYTHONHASHSEED: 0}`, not `-I`. Checked by running it: `-I` ignores PYTHONHASHSEED, so set order changes between runs.
+- 2026-09-28: The runner sets its own rlimits instead of `preexec_fn` (preexec_fn is unsafe when the parent uses threads, and grade_many uses threads).
+- 2026-09-28: Exact mode treats int and float as different (30.0 ≠ 30), as well as bool and int. Float answers use float mode.
+- 2026-09-28: Bad return types (set, NaN, objects) become wrong_answer with an explanation, never a repr string (a repr could equal an expected string).
+- 2026-09-28: Print output is captured per test. With reveal_hidden=False, hidden-test output is dropped and hidden-test errors are shortened to the exception type (side-channel leaks of hidden inputs).
+- 2026-09-28: The parent reads child output with size caps (32 MB stdout); student code can bypass print capture with os.write(1, ...).
+- 2026-09-28: compile_error / crashed / total timeout return `tests=[]`. The added `GradeResult.error` field gives the reason for crashed/timeout; `TestResult.revealed` says whether details are present.
+- 2026-09-28: `execute()` is public in grader.py, so fill_expected.py (Step 3) uses the same execution path as grade().
+- 2026-09-28: Najeeb asked Claude to write the Step 2 TODO (`_unordered_equal`) too. Keep offering TODOs, but make them small, and explain the idea simply first.
+- 2026-09-28: Najeeb asked for simpler explanations and multiple-choice check questions. Use short sentences, everyday analogies (e.g. "teacher room / exam room" for parent/child), and give check questions as A/B/C/D options in text.
 - 2026-09-28: Exclude `docs/` and `tests/submissions/` from ruff. Ruff 0.16 formats code blocks inside Markdown (which would change KICKOFF.md), and the submissions folder holds deliberately broken code.
 
 ## Open questions
-- Q3 (Step 2): A total timeout loses partial credit, because the runner writes its result only at the end. Options: (a) total limit ≈ n_tests × per_test + margin; (b) runner streams one result line per test. Leaning toward (b).
-- Q4 (Step 2): Student code can catch the per-test alarm exception or replace the SIGALRM handler, and then only the total timeout stops it. Plan: document it as a limitation. The parent must never trust pass/fail flags from the child; it always compares values itself.
-- Q5 (Step 2): The token can be read from memory by student code, so it is not a real secret. The real defense is that the child never sees expected outputs. Say this honestly in `docs/grader.md`.
-- Q6 (Step 2): RLIMIT_NPROC counts all processes of the Linux user (the VS Code WSL server alone uses many), so a low limit can break every run. Recommendation: don't set it in the subprocess sandbox; rely on killpg now and Docker `--pids-limit` later.
 - Q7 (Step 4): `merge_sorted` timing tests cannot detect use of `sort()`, because `sorted(a + b)` runs in C and beats a Python merge. They can only catch O(n²) solutions. Proposed: change the spec text so we don't claim this.
 - Q8 (Step 4): Naive `fibonacci(35)` takes ~1.5–3 s, which is too close to the 2 s limit and would be flaky. Proposed: hidden n = 40. Measure on this machine first.
 - Q9 (Step 3): `fill_expected.py` rewrites `tests.yaml`, and PyYAML deletes comments. Proposed: no comments in `tests.yaml`, all explanations in the `note` field (no ruamel.yaml dependency).
@@ -127,4 +138,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
 - Tests import helpers from `tests/conftest.py` directly (`from conftest import ...`). This works with pytest's default rootdir import mode; move them to a helpers module if that ever breaks.
-- The sandbox is not implemented yet. When it is (Step 2), the subprocess sandbox will NOT be secure: no filesystem or network isolation. Docker is required before untrusted strangers submit code.
+- The subprocess sandbox is NOT secure: student code can read the user's files and use the network; fork bombs and setsid() escapes are not stopped. Docker is required before strangers submit code (docs/grader.md, threat model).
+- Student code can catch the per-test timeout with a bare `except:` in a loop; only the total limit stops it (was Q4).
+- The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
+- Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load.
