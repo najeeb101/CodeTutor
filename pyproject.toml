@@ -1,0 +1,42 @@
+[project]
+name = "codetutor"
+version = "0.1.0"
+description = "CS1 Python problem bank and auto-grader: the shared core for a tutor, model evals and RL training."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Najeeb Abdi" }]
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-timeout>=2",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codetutor"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+# docs/: ruff also formats code blocks in Markdown, but docs/KICKOFF.md must stay unchanged.
+# tests/submissions/: deliberately broken student code (syntax errors etc.) for grader tests.
+extend-exclude = ["docs", "tests/submissions"]
+
+[tool.ruff.lint]
+# E/F: pycodestyle + pyflakes, I: import order, B: common bugs, UP: modern syntax
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Safety net: a broken sandbox must never hang the whole test suite.
+timeout = 60

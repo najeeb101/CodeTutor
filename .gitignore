@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# Secrets (never commit)
+.env
+
+# Generated build output
+dist/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+
+# ML experiment tracking and model checkpoints (Weeks 6–7)
+wandb/
+*.safetensors
+*.bin
