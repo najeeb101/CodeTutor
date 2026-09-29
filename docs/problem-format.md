@@ -118,4 +118,8 @@ Rules:
 4. Write 1–3 buggy solutions in `buggy/`, named after the mistake.
 5. Check it loads:
    `uv run python -c "from codetutor.problems import load_problem; from pathlib import Path; print(load_problem(Path('problems/cs1/03_loops/sum_of_evens'), require_expected=False).title)"`
-6. *(Coming in Step 3)* `python scripts/fill_expected.py <folder>`, then `make validate`.
+6. `uv run python scripts/fill_expected.py <folder>` (writes `expected`; the file is fully
+   regenerated, so `#` comments are lost; use `note`).
+7. `make validate`. Fix every ❌. A buggy solution that passes all tests means a test is missing.
+8. Try it like a student: `uv run python scripts/grade_cli.py <problem_id> <file.py>`.
+9. `make build` writes `dist/problems.jsonl` and `dist/problems_student.jsonl`.

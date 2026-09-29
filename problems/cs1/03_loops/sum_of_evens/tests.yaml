@@ -1,10 +1,10 @@
 tests:
-  - {id: t01, input: [10], hidden: false, compare: exact, note: "example 1"}
-  - {id: t02, input: [7], hidden: false, compare: exact, note: "example 2, odd n"}
-  - {id: t03, input: [2], hidden: false, compare: exact, note: "smallest even"}
-  - {id: t04, input: [1], hidden: false, compare: exact, note: "no evens"}
-  - {id: t05, input: [0], hidden: true, compare: exact, note: "edge: zero"}
-  - {id: t06, input: [-5], hidden: true, compare: exact, note: "edge: negative"}
-  - {id: t07, input: [100], hidden: true, compare: exact, note: "larger n"}
-  - {id: t08, input: [11], hidden: true, compare: exact, note: "odd n after even"}
-  - {id: t09, input: [1000000], hidden: true, compare: exact, note: "big n, still fast"}
+  - {id: "t01", input: [10], expected: 30, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [7], expected: 12, hidden: false, compare: "exact", note: "example 2, odd n"}
+  - {id: "t03", input: [2], expected: 2, hidden: false, compare: "exact", note: "smallest even"}
+  - {id: "t04", input: [1], expected: 0, hidden: false, compare: "exact", note: "no evens"}
+  - {id: "t05", input: [0], expected: 0, hidden: true, compare: "exact", note: "edge: zero"}
+  - {id: "t06", input: [-5], expected: 0, hidden: true, compare: "exact", note: "edge: negative"}
+  - {id: "t07", input: [100], expected: 2550, hidden: true, compare: "exact", note: "larger n"}
+  - {id: "t08", input: [11], expected: 30, hidden: true, compare: "exact", note: "odd n after even"}
+  - {id: "t09", input: [1000000], expected: 250000500000, hidden: true, compare: "exact", note: "big n, still fast"}

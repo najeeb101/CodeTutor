@@ -68,3 +68,21 @@ Same code + same problem version → same result. We fix PYTHONHASHSEED so the o
 is stable. (A surprise we found by running it: Python's `-I` flag silently ignores PYTHONHASHSEED.)
 We record grader_version and problem version in every result. Only exception: timeouts on a
 heavily loaded machine. For RL this matters: a noisy reward is a worse training signal.
+
+## Mutation testing with buggy solutions (Week 1, Step 3)
+How do you know your tests are good? Passing the reference solution proves nothing: an empty test
+list also "passes". So every problem has 2–3 buggy solutions with realistic student mistakes
+(off-by-one, forgetting the empty list). The validator requires that every buggy solution fails at
+least one test. This is a simple, hand-made form of *mutation testing*: you measure a test suite by
+the mistakes it catches. For RL it matters directly: a weak test suite is a hackable reward, because
+a wrong program can get reward 1.0. We also track bugs that only hidden tests catch, to check that
+the hidden tests add something beyond the visible ones.
+
+## Content hashing and data versioning (Week 1, Step 3)
+Each problem line in dist/problems.jsonl carries a sha256 `content_hash` of its files. An eval or
+training run records the hashes it used, so later you can prove which exact data produced a number.
+The `version` field is a promise made by a human ("I bumped it"); the hash is a check done by a
+machine (any change shows up, even a forgotten bump). Details matter: hash a fixed file list (so
+junk files don't count), include file names (so renames count), and separate the parts clearly (so
+"ab"+"c" and "a"+"bc" give different hashes). Same idea as git commit ids and dataset lineage in
+ML pipelines.

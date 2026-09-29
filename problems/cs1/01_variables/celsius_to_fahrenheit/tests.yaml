@@ -1,11 +1,11 @@
 tests:
-  - {id: t01, input: [0], hidden: false, compare: float, note: "example 1: freezing point"}
-  - {id: t02, input: [100], hidden: false, compare: float, note: "example 2: boiling point"}
-  - {id: t03, input: [-40], hidden: false, compare: float, note: "C and F are equal at -40"}
-  - {id: t04, input: [20], hidden: false, compare: float, note: "room temperature"}
-  - {id: t05, input: [37], hidden: true, compare: float, note: "body temperature, not a multiple of 5"}
-  - {id: t06, input: [36.6], hidden: true, compare: float, note: "decimal input"}
-  - {id: t07, input: [-273.15], hidden: true, compare: float, note: "edge: absolute zero"}
-  - {id: t08, input: [0.5], hidden: true, compare: float, note: "edge: small fraction"}
-  - {id: t09, input: [-1], hidden: true, compare: float, note: "edge: small negative"}
-  - {id: t10, input: [1000000], hidden: true, compare: float, note: "large value"}
+  - {id: "t01", input: [0], expected: 32.0, hidden: false, compare: "float", note: "example 1: freezing point"}
+  - {id: "t02", input: [100], expected: 212.0, hidden: false, compare: "float", note: "example 2: boiling point"}
+  - {id: "t03", input: [-40], expected: -40.0, hidden: false, compare: "float", note: "C and F are equal at -40"}
+  - {id: "t04", input: [20], expected: 68.0, hidden: false, compare: "float", note: "room temperature"}
+  - {id: "t05", input: [37], expected: 98.6, hidden: true, compare: "float", note: "body temperature, not a multiple of 5"}
+  - {id: "t06", input: [36.6], expected: 97.88000000000001, hidden: true, compare: "float", note: "decimal input"}
+  - {id: "t07", input: [-273.15], expected: -459.66999999999996, hidden: true, compare: "float", note: "edge: absolute zero"}
+  - {id: "t08", input: [0.5], expected: 32.9, hidden: true, compare: "float", note: "edge: small fraction"}
+  - {id: "t09", input: [-1], expected: 30.2, hidden: true, compare: "float", note: "edge: small negative"}
+  - {id: "t10", input: [1000000], expected: 1800032.0, hidden: true, compare: "float", note: "large value"}

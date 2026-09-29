@@ -1,11 +1,11 @@
 tests:
-  - {id: t01, input: [[3, 1, 4, 1, 5]], hidden: false, compare: exact, note: "example 1"}
-  - {id: t02, input: [[10, 20]], hidden: false, compare: exact, note: "example 2: two values"}
-  - {id: t03, input: [[7, 7, 7]], hidden: false, compare: exact, note: "example 3: all equal -> None"}
-  - {id: t04, input: [[8, 3, 6]], hidden: false, compare: exact, note: "unsorted, no duplicates"}
-  - {id: t05, input: [[]], hidden: true, compare: exact, note: "edge: empty list"}
-  - {id: t06, input: [[42]], hidden: true, compare: exact, note: "edge: single element"}
-  - {id: t07, input: [[5, 5, 4]], hidden: true, compare: exact, note: "edge: largest is duplicated"}
-  - {id: t08, input: [[-5, -2, -9]], hidden: true, compare: exact, note: "edge: all negative"}
-  - {id: t09, input: [[0, 0, -1]], hidden: true, compare: exact, note: "edge: zero and negative"}
-  - {id: t10, input: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9]], hidden: true, compare: exact, note: "longer list with duplicates at the end"}
+  - {id: "t01", input: [[3, 1, 4, 1, 5]], expected: 4, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [[10, 20]], expected: 10, hidden: false, compare: "exact", note: "example 2: two values"}
+  - {id: "t03", input: [[7, 7, 7]], expected: null, hidden: false, compare: "exact", note: "example 3: all equal -> None"}
+  - {id: "t04", input: [[8, 3, 6]], expected: 6, hidden: false, compare: "exact", note: "unsorted, no duplicates"}
+  - {id: "t05", input: [[]], expected: null, hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[42]], expected: null, hidden: true, compare: "exact", note: "edge: single element"}
+  - {id: "t07", input: [[5, 5, 4]], expected: 4, hidden: true, compare: "exact", note: "edge: largest is duplicated"}
+  - {id: "t08", input: [[-5, -2, -9]], expected: -5, hidden: true, compare: "exact", note: "edge: all negative"}
+  - {id: "t09", input: [[0, 0, -1]], expected: -1, hidden: true, compare: "exact", note: "edge: zero and negative"}
+  - {id: "t10", input: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9]], expected: 9, hidden: true, compare: "exact", note: "longer list with duplicates at the end"}

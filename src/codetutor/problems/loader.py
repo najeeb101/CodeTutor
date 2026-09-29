@@ -141,6 +141,14 @@ def load_problem(path: Path, *, require_expected: bool = True) -> Problem:
     return problem
 
 
+def find_problem_folders(root: Path | None = None) -> list[Path]:
+    """Return every folder under `root` that contains a problem.yaml, sorted by path."""
+    root = DEFAULT_PROBLEMS_ROOT if root is None else Path(root)
+    if not root.is_dir():
+        raise ProblemLoadError(f"{root}: problems root directory not found")
+    return [meta_file.parent for meta_file in sorted(root.rglob("problem.yaml"))]
+
+
 def load_all(root: Path | None = None, *, require_expected: bool = True) -> list[Problem]:
     """Load every problem under `root`, sorted by module then order.
 
@@ -148,12 +156,9 @@ def load_all(root: Path | None = None, *, require_expected: bool = True) -> list
     (module, order) position.
     """
     root = DEFAULT_PROBLEMS_ROOT if root is None else Path(root)
-    if not root.is_dir():
-        raise ProblemLoadError(f"{root}: problems root directory not found")
-
     problems = [
-        load_problem(meta_file.parent, require_expected=require_expected)
-        for meta_file in sorted(root.rglob("problem.yaml"))
+        load_problem(folder, require_expected=require_expected)
+        for folder in find_problem_folders(root)
     ]
 
     seen_ids: set[str] = set()
