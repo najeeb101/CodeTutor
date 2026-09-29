@@ -97,10 +97,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 ## Status
 - **Done:** Step 0 (skeleton, tooling). Step 1 (schema, loader, 3 example problems with inputs only).
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
-  157 tests in ~11 s; docs/grader.md).
+  157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
+  dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
 - **In progress:** nothing.
-- **Next action:** Step 3 (validator, fill_expected, grade CLI, dataset build). Start in plan mode.
-  Explain in very simple English (see protocol note below).
+- **Next action:** Step 4 (full problem bank, one module per batch, STOP after each). Start in plan
+  mode. First decide Q7 and Q8. Explain in very simple English.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -131,11 +132,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-28: Najeeb asked for simpler explanations and multiple-choice check questions. Use short sentences, everyday analogies (e.g. "teacher room / exam room" for parent/child), and give check questions as A/B/C/D options in text.
 - 2026-09-28: Najeeb asked for real-life scenarios for hard ideas. Each analogy comes with the real term and where it breaks down, so it works in interviews and doesn't teach anything wrong.
 - 2026-09-28: Exclude `docs/` and `tests/submissions/` from ruff. Ruff 0.16 formats code blocks inside Markdown (which would change KICKOFF.md), and the submissions folder holds deliberately broken code.
+- 2026-09-29: Step 3 logic lives in `src/codetutor/bank/` (expected, validate, build); `scripts/` are thin wrappers, so tests call the logic directly.
+- 2026-09-29: Q9 resolved. `fill_expected.py` fully regenerates `tests.yaml` (one flow-style line per test, all strings quoted); no `#` comments, explanations go in `note`. No ruamel.yaml. The new text is parsed and checked before the file is written.
+- 2026-09-29: `content_hash` = sha256 over a fixed file list (problem.yaml, tests.yaml, starter.py, solution.py, buggy/*.py), each as name + length + bytes. It is in both jsonl files. dist output is deterministic (`sort_keys=True`).
+- 2026-09-29: Najeeb asked Claude to write the Step 3 TODO (`content_hash`) too.
 
 ## Open questions
 - Q7 (Step 4): `merge_sorted` timing tests cannot detect use of `sort()`, because `sorted(a + b)` runs in C and beats a Python merge. They can only catch O(n²) solutions. Proposed: change the spec text so we don't claim this.
 - Q8 (Step 4): Naive `fibonacci(35)` takes ~1.5–3 s, which is too close to the 2 s limit and would be flaky. Proposed: hidden n = 40. Measure on this machine first.
-- Q9 (Step 3): `fill_expected.py` rewrites `tests.yaml`, and PyYAML deletes comments. Proposed: no comments in `tests.yaml`, all explanations in the `note` field (no ruamel.yaml dependency).
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
@@ -144,3 +148,4 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Student code can catch the per-test timeout with a bare `except:` in a loop; only the total limit stops it (was Q4).
 - The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load.
+- The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
