@@ -99,8 +99,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Modules 1-2 done (8 problems); Najeeb's TODO: `triangle_type/buggy/one_direction_inequality.py`.
-- **Next action:** Step 4, module 3 (loops). Start in plan mode. Explain in very simple English.
+- **In progress:** Step 4. Modules 1-3 done (12 problems; 13 in the bank with the `second_largest`
+  example). Najeeb's TODO: `fizzbuzz/buggy/stops_before_n.py`.
+- **Next action:** Step 4, module 4 (strings). Start in plan mode. Explain in very simple English.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -139,6 +140,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-29: Q7 resolved. merge_sorted has no timing test: `sorted(a+b)` (C) beats a correct Python merge, and `pop(0)`-style O(n²) is fast C memmove. The spec asks for no sort() and honestly says it is not checked. AST check idea is in docs/ideas.md.
 - 2026-09-29: two_sum's large hidden test is `[1]*19998 + [2, 3]`, target 5: the only answer is at the end, naive takes ~7 s, and the file stays ~60 KB (no generated-input feature needed).
 - 2026-09-29: average_of_three tests avoid averages ending exactly in .xx5 (float round() can go either way there).
+- 2026-09-29: Najeeb skipped the Module 2 check questions and the `one_direction_inequality` TODO; triangle_type keeps 3 buggy files.
+- 2026-09-29: No buggy file that times out, except in problems where speed is the lesson (is_prime, two_sum, fibonacci). A timeout costs 2 s per test on every validate run, and `make all` validates twice.
+- 2026-09-29: factorial allows n <= 1100 and tests 1100 (hidden). Measured: recursion fails above Python's limit of 1000; 1100! has 2870 digits, safely under Python's 4300-digit int↔str limit (JSON and YAML both hit it). It tests a stated constraint, not a hidden trick.
+- 2026-09-29: count_digits hides 999999999999999 (15 nines): `int(math.log10(n)) + 1` returns 16 there (measured), because the float log10 rounds up to 15.0.
+- 2026-09-29: fizzbuzz has no multiple of 15 in the visible tests, so the classic "check % 3 first" bug is hidden-only. The rule for 15 is stated in the description, and hint 1 points at it.
 
 ## Open questions
 - Q10 (Step 4, module 5): "don't mutate the input" (remove_duplicates) can't be checked: the runner only compares the return value. Options: (A) say it in the spec with an honest note, or (B) let the runner also report the inputs after the call (grader change, needs OK). Decide at module 5.
@@ -151,3 +157,4 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load.
 - The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
+- `test_memory_bomb[memory_bomb_growing]` is flaky: once (2026-09-29, in a full `make all`) it gave `timeout` instead of a memory error; it passed 6/6 alone and on the next full run. Allocating memory was slower than the 0.5 s per-test limit under load.

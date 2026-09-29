@@ -1,0 +1,30 @@
+id: cs1.loops.fizzbuzz
+version: 1
+title: FizzBuzz
+module: 3
+module_name: Loops
+order: 4
+difficulty: easy
+concepts: [for_loops, conditionals, lists]
+function_name: fizzbuzz
+description_en: |
+  Write a function `fizzbuzz(n)` that returns a list of strings, one for each number from
+  1 to `n` (both included), in order. For each number:
+
+  - if it is divisible by both 3 and 5, the string is "FizzBuzz" (for example 15),
+  - else if it is divisible by 3, the string is "Fizz",
+  - else if it is divisible by 5, the string is "Buzz",
+  - otherwise, the string is the number itself, for example "7".
+
+  - `n` is an integer. If `n` is 0 or negative, return an empty list.
+  - Every item in the list must be a string: "1", not 1.
+
+  Examples:
+    fizzbuzz(5) -> ["1", "2", "Fizz", "4", "Buzz"]
+    fizzbuzz(1) -> ["1"]
+description_ar: null
+hints:
+  - "What should a number like 15 give? It is divisible by both 3 and 5. Check that your code really gives that."
+  - "In an if/elif chain, only the first true branch runs. So the check for 'both 3 and 5' must come before the separate checks for 3 and for 5."
+  - "Loop over range(1, n + 1). First check number % 15 == 0 for 'FizzBuzz', then % 3 for 'Fizz', then % 5 for 'Buzz', else append str(number)."
+author: claude

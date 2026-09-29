@@ -1,0 +1,26 @@
+id: cs1.loops.count_digits
+version: 1
+title: Count Digits
+module: 3
+module_name: Loops
+order: 3
+difficulty: easy
+concepts: [while_loops, arithmetic, edge_cases]
+function_name: count_digits
+description_en: |
+  Write a function `count_digits(n)` that returns how many digits the integer `n` has.
+
+  - `n` is an integer. It can be 0, negative, or very big (more than 20 digits).
+  - The minus sign is not a digit: -123 has 3 digits.
+  - 0 has 1 digit.
+  - Return an integer.
+
+  Examples:
+    count_digits(12345) -> 5
+    count_digits(7)     -> 1
+description_ar: null
+hints:
+  - "Test your idea on the unusual inputs from the description: 0, a negative number and a very big number."
+  - "Integer division by 10 removes the last digit: 1234 // 10 is 123. Count how many times you can do this. Make n positive first, and be careful with 0."
+  - "Set n to abs(n) and start a counter at 1. While n is 10 or more, do n //= 10 and add 1 to the counter. Return the counter."
+author: claude

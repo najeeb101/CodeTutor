@@ -1,0 +1,29 @@
+id: cs1.loops.factorial
+version: 1
+title: Factorial
+module: 3
+module_name: Loops
+order: 2
+difficulty: easy
+concepts: [for_loops, arithmetic, edge_cases]
+function_name: factorial
+description_en: |
+  Write a function `factorial(n)` that returns n! ("n factorial").
+
+  n! is the product of all whole numbers from 1 to n. For example,
+  5! = 1 * 2 * 3 * 4 * 5 = 120. By definition, 0! = 1.
+
+  - `n` is an integer with 0 <= n <= 1100.
+  - Return an integer. The answers get very big, but Python integers have no size limit.
+  - Use a loop. Try to solve it without `math.factorial`. (This is not checked; the grader
+    only checks your answers.)
+
+  Examples:
+    factorial(5) -> 120
+    factorial(1) -> 1
+description_ar: null
+hints:
+  - "Look at the smallest values of n. What should 0! be, and does your code give that?"
+  - "Keep a running product. Think about its starting value: if it starts at 0, every multiplication gives 0."
+  - "Start result at 1. Loop over range(2, n + 1) and multiply result by each number. Return result at the end; for n = 0 and n = 1 the loop does nothing, so you get 1."
+author: claude

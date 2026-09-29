@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: [12345], expected: 5, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [7], expected: 1, hidden: false, compare: "exact", note: "example 2: one digit"}
+  - {id: "t03", input: [1000], expected: 4, hidden: false, compare: "exact", note: "zeros inside the number count"}
+  - {id: "t04", input: [99], expected: 2, hidden: false, compare: "exact", note: "two digits"}
+  - {id: "t05", input: [0], expected: 1, hidden: true, compare: "exact", note: "edge: 0 has one digit"}
+  - {id: "t06", input: [-123], expected: 3, hidden: true, compare: "exact", note: "negative: the minus sign is not a digit"}
+  - {id: "t07", input: [-8], expected: 1, hidden: true, compare: "exact", note: "negative, one digit"}
+  - {id: "t08", input: [10], expected: 2, hidden: true, compare: "exact", note: "boundary: smallest two-digit number"}
+  - {id: "t09", input: [9], expected: 1, hidden: true, compare: "exact", note: "boundary: largest one-digit number"}
+  - {id: "t10", input: [999999999999999], expected: 15, hidden: true, compare: "exact", note: "15 nines: float log10 rounds this up to 15.0"}
+  - {id: "t11", input: [100000000000000000000], expected: 21, hidden: true, compare: "exact", note: "very big: 10 to the power 20"}
