@@ -1,0 +1,11 @@
+tests:
+  - {id: "t01", input: [1, 2, 3], expected: 2.0, hidden: false, compare: "float", note: "example 1"}
+  - {id: "t02", input: [90, 85, 77], expected: 84.0, hidden: false, compare: "float", note: "example 2: exam scores"}
+  - {id: "t03", input: [0, 0, 0], expected: 0.0, hidden: false, compare: "float", note: "edge: all zero"}
+  - {id: "t04", input: [2.5, 3.5, 4.5], expected: 3.5, hidden: false, compare: "float", note: "decimal inputs"}
+  - {id: "t05", input: [1, 2, 2], expected: 1.67, hidden: true, compare: "float", note: "needs rounding up: 1.666... -> 1.67. No test ends exactly in .xx5: float round() can go either way there, so a correct answer could fail"}
+  - {id: "t06", input: [1, 1, 2], expected: 1.33, hidden: true, compare: "float", note: "needs rounding down: 1.333... -> 1.33"}
+  - {id: "t07", input: [-1, -2, -2], expected: -1.67, hidden: true, compare: "float", note: "negative, needs rounding"}
+  - {id: "t08", input: [100, 0, 0], expected: 33.33, hidden: true, compare: "float", note: "33.333... -> 33.33"}
+  - {id: "t09", input: [0.1, 0.2, 0.3], expected: 0.2, hidden: true, compare: "float", note: "float sum is 0.6000000000000001"}
+  - {id: "t10", input: [1000000, 2000000, 3000001], expected: 2000000.33, hidden: true, compare: "float", note: "large values, needs rounding"}

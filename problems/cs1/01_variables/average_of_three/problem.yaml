@@ -1,0 +1,27 @@
+id: cs1.variables.average_of_three
+version: 1
+title: Average of Three Numbers
+module: 1
+module_name: Variables & Arithmetic
+order: 4
+difficulty: easy
+concepts: [arithmetic]
+function_name: average_of_three
+description_en: |
+  Write a function `average_of_three(a, b, c)` that returns the average of three
+  numbers, rounded to 2 decimal places.
+
+  - `a`, `b` and `c` are numbers (int or float). They can be negative or have decimals.
+  - The average is the sum of the three numbers divided by 3.
+  - Round the result to 2 decimal places: an average of 1.6666... becomes 1.67.
+  - Return a float.
+
+  Examples:
+    average_of_three(1, 2, 3)    -> 2.0
+    average_of_three(90, 85, 77) -> 84.0
+description_ar: null
+hints:
+  - "First add the three numbers, then divide. Be careful about the order Python does these operations in."
+  - "Python does division before addition, so you need brackets around the sum. Then look for a built-in function that rounds a number to a given number of decimals."
+  - "Put the sum of a, b and c in brackets, divide it by 3, and pass that result to round() with 2 as the second argument."
+author: claude

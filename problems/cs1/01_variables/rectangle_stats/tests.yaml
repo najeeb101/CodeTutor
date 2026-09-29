@@ -1,0 +1,11 @@
+tests:
+  - {id: "t01", input: [3, 4], expected: [12, 14], hidden: false, compare: "float", note: "example 1"}
+  - {id: "t02", input: [1, 1], expected: [1, 4], hidden: false, compare: "float", note: "example 2: unit square"}
+  - {id: "t03", input: [0, 5], expected: [0, 10], hidden: false, compare: "float", note: "edge: zero width"}
+  - {id: "t04", input: [10, 2], expected: [20, 24], hidden: false, compare: "float", note: "wide rectangle"}
+  - {id: "t05", input: [2.5, 4], expected: [10.0, 13.0], hidden: true, compare: "float", note: "decimal width"}
+  - {id: "t06", input: [0.5, 0.5], expected: [0.25, 2.0], hidden: true, compare: "float", note: "small decimals"}
+  - {id: "t07", input: [1.5, 2.25], expected: [3.375, 7.5], hidden: true, compare: "float", note: "both decimal"}
+  - {id: "t08", input: [7, 7], expected: [49, 28], hidden: true, compare: "float", note: "square"}
+  - {id: "t09", input: [0, 0], expected: [0, 0], hidden: true, compare: "float", note: "edge: both zero"}
+  - {id: "t10", input: [1000000, 3000], expected: [3000000000, 2006000], hidden: true, compare: "float", note: "large values"}

@@ -1,0 +1,27 @@
+id: cs1.variables.seconds_to_hms
+version: 1
+title: Seconds to Hours, Minutes and Seconds
+module: 1
+module_name: Variables & Arithmetic
+order: 2
+difficulty: easy
+concepts: [arithmetic]
+function_name: seconds_to_hms
+description_en: |
+  Write a function `seconds_to_hms(seconds)` that converts a number of seconds
+  into hours, minutes and seconds, and returns them as a list `[hours, minutes, seconds]`.
+
+  - `seconds` is an integer, 0 or more.
+  - `minutes` and `seconds` in the answer are always between 0 and 59.
+  - `hours` can be any size: this is a duration, not a clock time, so 25 hours stays 25.
+  - Return a list of three integers (for example `[1, 1, 1]`, not `[1.0, 1.0, 1.0]`).
+
+  Examples:
+    seconds_to_hms(3661) -> [1, 1, 1]
+    seconds_to_hms(59)   -> [0, 0, 59]
+description_ar: null
+hints:
+  - "One hour is 3600 seconds and one minute is 60 seconds. Work out the hours first, then deal with what is left over."
+  - "Python has two operators you need here: one gives the whole number result of a division, and one gives the remainder."
+  - "Use // 3600 to get the hours. Take the remainder with % 3600, then use // 60 and % 60 on it to get the minutes and the seconds."
+author: claude

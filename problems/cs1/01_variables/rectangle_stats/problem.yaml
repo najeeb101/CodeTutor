@@ -1,0 +1,27 @@
+id: cs1.variables.rectangle_stats
+version: 1
+title: Rectangle Area and Perimeter
+module: 1
+module_name: Variables & Arithmetic
+order: 3
+difficulty: easy
+concepts: [arithmetic]
+function_name: rectangle_stats
+description_en: |
+  Write a function `rectangle_stats(width, height)` that returns the area and the
+  perimeter of a rectangle, as a list `[area, perimeter]`.
+
+  - `width` and `height` are numbers (int or float), 0 or more. They can have decimals.
+  - The area is width × height.
+  - The perimeter is the total length of all four sides.
+  - Small rounding differences (like 13.000000000000002) are accepted.
+
+  Examples:
+    rectangle_stats(3, 4) -> [12, 14]
+    rectangle_stats(1, 1) -> [1, 4]
+description_ar: null
+hints:
+  - "Draw the rectangle and label its four sides. Which sides have the same length?"
+  - "The area uses multiplication. The perimeter adds up four sides: two of them are the width and two are the height."
+  - "Compute the area as width times height and the perimeter as 2 times (width plus height), then return them in a list with the area first."
+author: claude

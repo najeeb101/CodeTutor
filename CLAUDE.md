@@ -99,9 +99,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** nothing.
-- **Next action:** Step 4 (full problem bank, one module per batch, STOP after each). Start in plan
-  mode. First decide Q7 and Q8. Explain in very simple English.
+- **In progress:** Step 4. Module 1 done (4 problems); Najeeb's TODO: `seconds_to_hms/buggy/hours_wrap_24.py`.
+- **Next action:** Step 4, module 2 (conditions). Start in plan mode. Explain in very simple English.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -136,10 +135,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-29: Q9 resolved. `fill_expected.py` fully regenerates `tests.yaml` (one flow-style line per test, all strings quoted); no `#` comments, explanations go in `note`. No ruamel.yaml. The new text is parsed and checked before the file is written.
 - 2026-09-29: `content_hash` = sha256 over a fixed file list (problem.yaml, tests.yaml, starter.py, solution.py, buggy/*.py), each as name + length + bytes. It is in both jsonl files. dist output is deterministic (`sort_keys=True`).
 - 2026-09-29: Najeeb asked Claude to write the Step 3 TODO (`content_hash`) too.
+- 2026-09-29: Q8 resolved. fibonacci hidden n = 40, not 35: naive fib(35) takes 0.87 s here (it would pass); fib(40) is about 10 s, so it always times out. Other fib tests use n <= 25.
+- 2026-09-29: Q7 resolved. merge_sorted has no timing test: `sorted(a+b)` (C) beats a correct Python merge, and `pop(0)`-style O(n²) is fast C memmove. The spec asks for no sort() and honestly says it is not checked. AST check idea is in docs/ideas.md.
+- 2026-09-29: two_sum's large hidden test is `[1]*19998 + [2, 3]`, target 5: the only answer is at the end, naive takes ~7 s, and the file stays ~60 KB (no generated-input feature needed).
+- 2026-09-29: average_of_three tests avoid averages ending exactly in .xx5 (float round() can go either way there).
 
 ## Open questions
-- Q7 (Step 4): `merge_sorted` timing tests cannot detect use of `sort()`, because `sorted(a + b)` runs in C and beats a Python merge. They can only catch O(n²) solutions. Proposed: change the spec text so we don't claim this.
-- Q8 (Step 4): Naive `fibonacci(35)` takes ~1.5–3 s, which is too close to the 2 s limit and would be flaky. Proposed: hidden n = 40. Measure on this machine first.
+- Q10 (Step 4, module 5): "don't mutate the input" (remove_duplicates) can't be checked: the runner only compares the return value. Options: (A) say it in the spec with an honest note, or (B) let the runner also report the inputs after the call (grader change, needs OK). Decide at module 5.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
