@@ -99,7 +99,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Module 1 done (4 problems); Najeeb's TODO: `seconds_to_hms/buggy/hours_wrap_24.py`.
+- **In progress:** Step 4. Module 1 done (4 problems).
 - **Next action:** Step 4, module 2 (conditions). Start in plan mode. Explain in very simple English.
 
 ## Decisions log
