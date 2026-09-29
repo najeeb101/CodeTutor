@@ -1,0 +1,13 @@
+tests:
+  - {id: "t01", input: ["hello"], expected: 2, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: ["Hello World"], expected: 3, hidden: false, compare: "exact", note: "example 2: the letter o appears twice"}
+  - {id: "t03", input: ["rhythm"], expected: 0, hidden: false, compare: "exact", note: "y is not a vowel"}
+  - {id: "t04", input: ["programming"], expected: 3, hidden: false, compare: "exact", note: "vowels in the middle"}
+  - {id: "t05", input: [""], expected: 0, hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t06", input: ["AEIOU"], expected: 5, hidden: true, compare: "exact", note: "uppercase vowels only"}
+  - {id: "t07", input: ["Apple Pie"], expected: 4, hidden: true, compare: "exact", note: "uppercase vowel at the start"}
+  - {id: "t08", input: ["aaa"], expected: 3, hidden: true, compare: "exact", note: "same vowel repeated"}
+  - {id: "t09", input: ["y"], expected: 0, hidden: true, compare: "exact", note: "just y"}
+  - {id: "t10", input: ["12345!?"], expected: 0, hidden: true, compare: "exact", note: "no letters at all"}
+  - {id: "t11", input: ["Queueing"], expected: 5, hidden: true, compare: "exact", note: "many vowels in a row"}
+  - {id: "t12", input: ["xyz"], expected: 0, hidden: true, compare: "exact", note: "consonants only"}

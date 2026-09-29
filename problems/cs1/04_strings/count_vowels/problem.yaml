@@ -1,0 +1,27 @@
+id: cs1.strings.count_vowels
+version: 1
+title: Count Vowels
+module: 4
+module_name: Strings
+order: 2
+difficulty: easy
+concepts: [strings, for_loops]
+function_name: count_vowels
+description_en: |
+  Write a function `count_vowels(s)` that returns how many vowels the text `s` contains.
+
+  - The vowels are a, e, i, o and u. Uppercase vowels count too: "A" is a vowel.
+  - "y" is not a vowel in this problem.
+  - Every vowel counts, also when the same vowel appears many times.
+  - `s` contains only ASCII characters. It can be empty.
+  - Return an integer.
+
+  Examples:
+    count_vowels("hello")       -> 2
+    count_vowels("Hello World") -> 3
+description_ar: null
+hints:
+  - "Test your code with capital vowels, with repeated vowels, and with a word that has a 'y' in it."
+  - "Look at every character of the text, one by one, and decide if it is a vowel. Making the text lowercase first means you only need to check five letters."
+  - "Start count at 0. Loop over s.lower(), and when a character is in the string 'aeiou', add 1 to count. Return count."
+author: claude

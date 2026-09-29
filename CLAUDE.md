@@ -99,9 +99,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Modules 1-3 done (12 problems; 13 in the bank with the `second_largest`
+- **In progress:** Step 4. Modules 1-4 done (16 problems; 17 in the bank with the `second_largest`
   example). Najeeb's TODO: `fizzbuzz/buggy/stops_before_n.py`.
-- **Next action:** Step 4, module 4 (strings). Start in plan mode. Explain in very simple English.
+- **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
+  Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
+  n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
+  Module 4: Q1 what `"a  b".split(" ")` returns; Q2 why compress appends after the loop;
+  Q3 what a student sees when count_vowels forgets `.lower()`.
+- **Next action:** Step 4, module 5 (lists). Start in plan mode. Decide Q10 there.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -145,6 +150,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-29: factorial allows n <= 1100 and tests 1100 (hidden). Measured: recursion fails above Python's limit of 1000; 1100! has 2870 digits, safely under Python's 4300-digit int↔str limit (JSON and YAML both hit it). It tests a stated constraint, not a hidden trick.
 - 2026-09-29: count_digits hides 999999999999999 (15 nines): `int(math.log10(n)) + 1` returns 16 there (measured), because the float log10 rounds up to 15.0.
 - 2026-09-29: fizzbuzz has no multiple of 15 in the visible tests, so the classic "check % 3 first" bug is hidden-only. The rule for 15 is stated in the description, and hint 1 points at it.
+- 2026-09-29: Najeeb answers check questions at the end, not at each STOP. Keep collecting them (Status lists the open ones). Only one open TODO at a time, so Module 4 added no new TODO.
+- 2026-09-29: String problems use ASCII-only test data, and the descriptions say so: `isalnum()`/`lower()` also accept letters like "é" or Arabic digits, and the spec should not have hidden surprises.
 
 ## Open questions
 - Q10 (Step 4, module 5): "don't mutate the input" (remove_duplicates) can't be checked: the runner only compares the return value. Options: (A) say it in the spec with an honest note, or (B) let the runner also report the inputs after the call (grader change, needs OK). Decide at module 5.

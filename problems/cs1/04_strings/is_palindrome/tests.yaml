@@ -1,0 +1,13 @@
+tests:
+  - {id: "t01", input: ["racecar"], expected: true, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: ["A man, a plan, a canal: Panama"], expected: true, hidden: false, compare: "exact", note: "example 2: case and punctuation"}
+  - {id: "t03", input: ["hello"], expected: false, hidden: false, compare: "exact", note: "example 3: not a palindrome"}
+  - {id: "t04", input: ["race a car"], expected: false, hidden: false, compare: "exact", note: "almost a palindrome"}
+  - {id: "t05", input: [""], expected: true, hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t06", input: ["!!!"], expected: true, hidden: true, compare: "exact", note: "edge: nothing left after cleaning"}
+  - {id: "t07", input: ["a"], expected: true, hidden: true, compare: "exact", note: "one character"}
+  - {id: "t08", input: ["0P"], expected: false, hidden: true, compare: "exact", note: "digits count: 0p is not a palindrome"}
+  - {id: "t09", input: ["12321"], expected: true, hidden: true, compare: "exact", note: "digits only"}
+  - {id: "t10", input: ["1a2"], expected: false, hidden: true, compare: "exact", note: "digits at both ends differ"}
+  - {id: "t11", input: ["Was it a car or a cat I saw?"], expected: true, hidden: true, compare: "exact", note: "case, spaces and a question mark"}
+  - {id: "t12", input: ["abca"], expected: false, hidden: true, compare: "exact", note: "ends match, middle does not"}

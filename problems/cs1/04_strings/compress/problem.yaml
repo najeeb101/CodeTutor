@@ -1,0 +1,32 @@
+id: cs1.strings.compress
+version: 1
+title: String Compression
+module: 4
+module_name: Strings
+order: 4
+difficulty: medium
+concepts: [strings, for_loops, edge_cases]
+function_name: compress
+description_en: |
+  Write a function `compress(s)` that compresses a string with run-length encoding.
+
+  Every group of the same letter, one right after the other, becomes the letter followed by
+  the size of the group. For example "aaabcc" has the groups "aaa", "b" and "cc", so the
+  answer is "a3b1c2".
+
+  - A group of one letter still gets its count: "abc" -> "a1b1c1".
+  - A count can have more than one digit: twelve a's in a row -> "a12".
+  - The same letter can start a new group later: "aabaa" -> "a2b1a2".
+  - Uppercase and lowercase letters are different: "aA" -> "a1A1".
+  - `s` contains only English letters. If `s` is empty, return "".
+  - Return a string.
+
+  Examples:
+    compress("aaabcc") -> "a3b1c2"
+    compress("abc")    -> "a1b1c1"
+description_ar: null
+hints:
+  - "Check your code with an empty string, a single letter, and text where a letter comes back later, like 'aabaa'."
+  - "Walk through the text and remember the current letter and how many times you have seen it in a row. When the letter changes, the group is finished. Do not forget the very last group."
+  - "Keep current and count. When the next letter is the same, add 1 to count. Otherwise, save current + str(count) and start a new group. After the loop ends, save the last group too."
+author: claude

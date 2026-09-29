@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: ["aaabcc"], expected: "a3b1c2", hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: ["abc"], expected: "a1b1c1", hidden: false, compare: "exact", note: "example 2: groups of one"}
+  - {id: "t03", input: ["zzzz"], expected: "z4", hidden: false, compare: "exact", note: "one group"}
+  - {id: "t04", input: ["aabbb"], expected: "a2b3", hidden: false, compare: "exact", note: "two groups"}
+  - {id: "t05", input: [""], expected: "", hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t06", input: ["a"], expected: "a1", hidden: true, compare: "exact", note: "edge: one letter"}
+  - {id: "t07", input: ["aabaa"], expected: "a2b1a2", hidden: true, compare: "exact", note: "a letter starts a new group later"}
+  - {id: "t08", input: ["aaaaaaaaaaaa"], expected: "a12", hidden: true, compare: "exact", note: "twelve a's: a two-digit count"}
+  - {id: "t09", input: ["aAa"], expected: "a1A1a1", hidden: true, compare: "exact", note: "uppercase and lowercase are different"}
+  - {id: "t10", input: ["abab"], expected: "a1b1a1b1", hidden: true, compare: "exact", note: "letters alternate"}
+  - {id: "t11", input: ["bbbbbbbbbbbbbbbbbbbbbbbbc"], expected: "b24c1", hidden: true, compare: "exact", note: "a long group, then one letter"}

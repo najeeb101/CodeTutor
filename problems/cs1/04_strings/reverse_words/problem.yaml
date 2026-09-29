@@ -1,0 +1,31 @@
+id: cs1.strings.reverse_words
+version: 1
+title: Reverse Words
+module: 4
+module_name: Strings
+order: 3
+difficulty: medium
+concepts: [strings, lists, edge_cases]
+function_name: reverse_words
+description_en: |
+  Write a function `reverse_words(sentence)` that returns the words of `sentence` in
+  reverse order.
+
+  - A word is any group of characters without a space. Punctuation stays with its word:
+    in "Hello, World!" the words are "Hello," and "World!".
+  - Words can be separated by more than one space, and the sentence can start or end with
+    spaces.
+  - In the result, the words are separated by exactly one space, with no spaces at the start
+    or the end.
+  - Do not reverse the letters inside a word.
+  - `sentence` contains only ASCII characters. If it has no words, return "".
+
+  Examples:
+    reverse_words("hello world")     -> "world hello"
+    reverse_words("the sky is blue") -> "blue is sky the"
+description_ar: null
+hints:
+  - "Test your code with extra spaces between the words, spaces at the start and end, and an empty string."
+  - "First split the sentence into a list of words, then reverse the list, then join it back together. Check what your split does when there are two spaces in a row."
+  - "The str.split() method with no argument splits on any number of spaces and drops empty pieces. Reverse that list and join it with ' '.join(words)."
+author: claude

@@ -1,0 +1,30 @@
+id: cs1.strings.is_palindrome
+version: 1
+title: Palindrome Check
+module: 4
+module_name: Strings
+order: 1
+difficulty: easy
+concepts: [strings, edge_cases]
+function_name: is_palindrome
+description_en: |
+  Write a function `is_palindrome(s)` that returns True if `s` is a palindrome, and False
+  otherwise. A palindrome reads the same forwards and backwards.
+
+  - Ignore uppercase/lowercase: "A" and "a" are the same.
+  - Ignore every character that is not a letter or a digit (spaces, commas, "!", ":" and so on).
+    Digits are kept and do count.
+  - If nothing is left after this (for example "" or "!!!"), return True.
+  - `s` contains only ASCII characters: English letters, digits, spaces and punctuation.
+  - Return a bool (True or False).
+
+  Examples:
+    is_palindrome("racecar")                        -> True
+    is_palindrome("A man, a plan, a canal: Panama") -> True
+    is_palindrome("hello")                          -> False
+description_ar: null
+hints:
+  - "Try your code on text with capital letters, punctuation, digits, and on the empty string."
+  - "First build a cleaned version of the text that keeps only letters and digits, all in lowercase. Then compare it with its reverse."
+  - "Loop over s and keep each character where char.isalnum() is True, as char.lower(). Return whether the cleaned text equals cleaned[::-1]."
+author: claude

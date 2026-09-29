@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: ["hello world"], expected: "world hello", hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: ["the sky is blue"], expected: "blue is sky the", hidden: false, compare: "exact", note: "example 2"}
+  - {id: "t03", input: ["a b c"], expected: "c b a", hidden: false, compare: "exact", note: "one-letter words"}
+  - {id: "t04", input: ["Python"], expected: "Python", hidden: false, compare: "exact", note: "one word stays the same"}
+  - {id: "t05", input: ["  hello world  "], expected: "world hello", hidden: true, compare: "exact", note: "spaces at the start and end"}
+  - {id: "t06", input: ["a   good    example"], expected: "example good a", hidden: true, compare: "exact", note: "several spaces between words"}
+  - {id: "t07", input: [""], expected: "", hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t08", input: ["     "], expected: "", hidden: true, compare: "exact", note: "edge: only spaces"}
+  - {id: "t09", input: ["Hello, World!"], expected: "World! Hello,", hidden: true, compare: "exact", note: "punctuation stays with its word"}
+  - {id: "t10", input: ["1 2 3 4 5"], expected: "5 4 3 2 1", hidden: true, compare: "exact", note: "digits as words"}
+  - {id: "t11", input: ["  x  "], expected: "x", hidden: true, compare: "exact", note: "one word with spaces around it"}
