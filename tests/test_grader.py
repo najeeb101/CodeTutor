@@ -212,6 +212,35 @@ def test_returning_set_explains_why(evens_problem: Problem) -> None:
     assert "return a list instead" in result.tests[0].error
 
 
+# --- Optional check: the function must not change its input (check_input_unchanged) ---
+# Off by default: test_mutating_input_does_not_affect_other_tests shows the same code accepted.
+
+
+def test_changing_the_input_fails_when_the_problem_checks_it(evens_problem: Problem) -> None:
+    checked = evens_problem.model_copy(update={"check_input_unchanged": True})
+    result = grade(checked, submission("evens_correct"), limits=FAST)  # right answers, clears nums
+    assert result.status == GradeStatus.WRONG_ANSWER
+    assert "changed its input" in result.tests[0].error
+    assert statuses(result)["t05"] == TestStatus.PASSED  # input []: clear() changes nothing
+    # The message says nothing about the input, so hidden tests may show it too.
+    hidden = result.tests[5]
+    assert not hidden.revealed
+    assert "changed its input" in hidden.error
+
+
+def test_input_check_gives_no_false_alarm(evens_problem: Problem) -> None:
+    checked = evens_problem.model_copy(update={"check_input_unchanged": True})
+    result = grade(checked, checked.solution_code, limits=FAST)
+    assert result.status == GradeStatus.ACCEPTED
+
+
+def test_input_check_survives_objects_whose_equality_raises(evens_problem: Problem) -> None:
+    checked = evens_problem.model_copy(update={"check_input_unchanged": True})
+    result = grade(checked, submission("input_eq_raises"), limits=FAST)
+    assert result.status == GradeStatus.WRONG_ANSWER  # not crashed
+    assert "changed its input" in result.tests[0].error
+
+
 def test_big_file_is_stopped(sum_problem: Problem) -> None:
     result = grade(sum_problem, submission("big_file"), limits=FAST, reveal_hidden=True)
     assert result.status in {GradeStatus.RUNTIME_ERROR, GradeStatus.CRASHED}

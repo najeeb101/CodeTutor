@@ -30,6 +30,8 @@ from codetutor.grader.sandbox import Sandbox, SubprocessSandbox
 from codetutor.problems.schema import Problem, TestCase
 
 TRUNCATION_NOTE = "\n[output truncated]"
+# Safe to show for hidden tests too: it says nothing about the input.
+INPUT_CHANGED_ERROR = "your function changed its input; build and return a new list instead"
 
 
 class GraderError(Exception):
@@ -109,7 +111,9 @@ def _crash_reason(raw: RawResult) -> str:
     return f"exited with code {raw.returncode} without a result"
 
 
-def _test_status(test: TestCase, report: TestReport) -> tuple[TestStatus, str | None]:
+def _test_status(
+    test: TestCase, report: TestReport, check_input: bool
+) -> tuple[TestStatus, str | None]:
     """Decide the status of one test. The comparison with `expected` happens only here."""
     if report.outcome == "timeout":
         return TestStatus.TIMEOUT, report.error
@@ -117,14 +121,18 @@ def _test_status(test: TestCase, report: TestReport) -> tuple[TestStatus, str | 
         return TestStatus.RUNTIME_ERROR, report.error
     if report.outcome == "bad_return":
         return TestStatus.WRONG_ANSWER, report.error
+    if check_input and report.input_changed:
+        return TestStatus.WRONG_ANSWER, INPUT_CHANGED_ERROR
     if outputs_match(report.actual, test.expected, test.compare):
         return TestStatus.PASSED, None
     return TestStatus.WRONG_ANSWER, None
 
 
-def _test_result(test: TestCase, report: TestReport, reveal_hidden: bool) -> tuple[TestResult, str]:
+def _test_result(
+    test: TestCase, report: TestReport, reveal_hidden: bool, check_input: bool
+) -> tuple[TestResult, str]:
     """Build one TestResult and return it with the stdout the student may see for this test."""
-    status, error = _test_status(test, report)
+    status, error = _test_status(test, report, check_input)
     revealed = reveal_hidden or not test.hidden
     if not revealed and error is not None and status == TestStatus.RUNTIME_ERROR:
         # Keep only the exception type: a message could contain the hidden input.
@@ -213,7 +221,9 @@ def grade(
     results: list[TestResult] = []
     stdout_parts = [report.load.stdout]
     for test, test_report in zip(problem.tests, report.tests, strict=True):
-        result, visible_stdout = _test_result(test, test_report, reveal_hidden)
+        result, visible_stdout = _test_result(
+            test, test_report, reveal_hidden, problem.check_input_unchanged
+        )
         results.append(result)
         stdout_parts.append(visible_stdout)
 

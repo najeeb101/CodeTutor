@@ -86,3 +86,13 @@ machine (any change shows up, even a forgotten bump). Details matter: hash a fix
 junk files don't count), include file names (so renames count), and separate the parts clearly (so
 "ab"+"c" and "a"+"bc" give different hashes). Same idea as git commit ids and dataset lineage in
 ML pipelines.
+
+## Checking side effects, not just return values (Week 1, Step 4)
+A function can return the right answer and still be wrong: `nums.pop(i)` inside remove_duplicates
+gives the correct list back, but it also destroys the caller's data. A grader that only compares
+return values scores that as 1.0. So the grader can also check that the arguments are unchanged
+after the call (`check_input_unchanged`, turned on per problem, because the spec must state the
+rule). Design: the sandboxed child only *reports* "input changed"; the parent *decides*, same as for
+answers. For evals and RL this is the general lesson: the reward must check every property the
+task asks for, or a model learns the shortcut (right output, bad behavior). Limits worth saying out
+loud: it compares with `==`, so it catches honest mistakes, not a determined attacker.

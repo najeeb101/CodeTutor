@@ -38,12 +38,14 @@ Code: `src/codetutor/grader/`
    │                                                       copy input, start timer
    │                                                       value = function(*input)
    │                                                       → returned / bad_return / error / timeout
+   │                                                       input_changed = input != original copy
    │ ◄──── stdout: "...student noise...\n" + TOKEN + {report as JSON} ──
    │                                                    os._exit(0)
    │ wait (max total time) → kill whole process group
    ▼
  parse text after the LAST token; validate with pydantic
    │ for each test: compare(actual, expected)   ← only the parent knows expected
+   │   (if problem.check_input_unchanged and input_changed → wrong_answer)
    │ status = accepted, or the status of the first failing test
    │ reward = passed / total
    ▼
@@ -90,6 +92,10 @@ Whole submission:
 
 Bad return types are `wrong_answer` with an explanation, e.g. "returned a set; return a list instead".
 
+If a problem sets `check_input_unchanged: true` and the function changed its input (for example
+sorted the list in place), that test is `wrong_answer` with "your function changed its input;
+build and return a new list instead", **even if the returned answer is right**.
+
 **Partial credit as a reward.** `reward = passed / total` gives a learning signal even when a
 solution is not fully correct. For RL this matters: with only 0/1 rewards, a small model that
 rarely solves a problem completely gets almost no signal. The downside is that partial credit can
@@ -118,6 +124,11 @@ be gamed (hard-code the visible tests, get a few points). Hidden tests limit tha
   `print(n)` or `raise ValueError(n)` would show students the hidden inputs.
 - **Deep copy of every input** (`json.loads(json.dumps(...))`). Each test already gets its own
   objects, so this is defense in depth.
+- **Side effects are checked only when the problem asks (`check_input_unchanged`).** The child
+  compares the arguments with the job's untouched copy after the call and only *reports*
+  `input_changed`; the parent decides. It is off by default, because a rule the description does
+  not state would be a hidden surprise. The error message contains no input, so hidden tests
+  show it too. (Added in grader 0.2.0.)
 - **`Sandbox` is a Protocol.** `grade(..., sandbox=...)` accepts any object with
   `run(job) -> RawResult`, so a Docker sandbox can replace the subprocess one (Step 5).
 - **`grade_many` uses threads**, not processes: each grade spends its time waiting for a child
@@ -154,3 +165,6 @@ strangers submit code.**
   extremely unlikely on Linux; noted for completeness.
 - Output limits count characters, not exact bytes.
 - The runner's own internal errors (after it captures output) show up as `crashed` with little detail.
+- The input check uses `==`, so `[1]` and `[True]` count as equal, and a change that is undone
+  before the function returns is not seen. It catches honest mistakes, not attackers: code that
+  finds the runner's original copy in memory could change that too.

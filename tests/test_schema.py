@@ -30,6 +30,7 @@ def test_valid_problem_builds() -> None:
     assert len(problem.visible_tests) == 4
     assert len(problem.hidden_tests) == 4
     assert problem.time_limit_s == 2.0  # default
+    assert problem.check_input_unchanged is False  # default: old problems are not affected
 
 
 def test_problem_is_frozen() -> None:
@@ -195,6 +196,11 @@ def test_student_view_hides_secrets() -> None:
         assert secret not in dumped
     assert [example.id for example in view.examples] == ["t01", "t02", "t03", "t04"]
     assert "sum(range(2, n + 1, 2))" not in view.model_dump_json()
+
+
+def test_student_view_shows_the_input_rule() -> None:
+    # It is a rule the student must follow, like the time limit, so they are allowed to see it.
+    assert build(check_input_unchanged=True).to_student_view().check_input_unchanged is True
 
 
 def test_internal_view_is_json_serializable() -> None:

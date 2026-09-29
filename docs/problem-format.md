@@ -44,6 +44,7 @@ can never drift apart.
 | `description_ar` | text or `null` | Arabic version, later. |
 | `hints` | list of exactly 3 | (1) a nudge, (2) a more specific approach, (3) almost pseudocode, but **not code**. |
 | `time_limit_s` | number, optional | Per-test time limit in seconds (default 2.0, max 10). |
+| `check_input_unchanged` | bool, optional | Default `false`. If `true`, a test fails when the function changed its input (e.g. `nums.sort()`), even if the answer is right. The description must say "do not change the list". |
 | `author` | `najeeb` / `claude` | Who wrote the problem. |
 
 Unknown keys are **errors**. A typo such as `dificulty:` is reported instead of being silently

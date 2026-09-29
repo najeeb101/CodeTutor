@@ -8,7 +8,8 @@ The parent reads only the text after the LAST token.
 Rules for this file:
 - Standard library only. It must never import `codetutor` (it runs with site-packages disabled).
 - It never receives expected outputs, so student code can't read the answers from memory.
-- It does not decide pass/fail. It reports return values; the parent compares.
+- It does not decide pass/fail. It reports return values (and whether the input changed);
+  the parent compares.
 """
 
 import io
@@ -137,6 +138,20 @@ def _load(code, function_name):
     return function, None
 
 
+def _input_changed(args, original):
+    """True if the function changed its arguments, e.g. sorted the input list in place.
+
+    `args` is the copy the student's function received; `original` is the job's own copy, which
+    student code is never given. Only a report: the parent decides if it matters (problem setting).
+    """
+    try:
+        return bool(args != original)
+    except BaseException:
+        # BaseException on purpose: the student may have put their own objects into the list, and
+        # their == can raise anything. A list we can't even compare has certainly changed.
+        return True
+
+
 def _run_test(function, test, timeout_s, max_return_bytes):
     """Call the function on one test input and describe what happened."""
     # A fresh copy of the input for every test, so mutating it can't affect anything else.
@@ -158,6 +173,7 @@ def _run_test(function, test, timeout_s, max_return_bytes):
         # KeyboardInterrupt. Those must become a runtime error for this test, not stop the runner.
         report.update(outcome="error", error=_short_error(exc))
     else:
+        report["input_changed"] = _input_changed(args, test["input"])
         try:
             actual = _to_json_value(value)
             if len(json.dumps(actual)) > max_return_bytes:

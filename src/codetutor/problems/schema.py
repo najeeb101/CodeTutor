@@ -151,6 +151,7 @@ class StudentProblem(BaseModel):
     description_ar: str | None
     starter_code: str
     time_limit_s: float
+    check_input_unchanged: bool
     examples: list[VisibleTest]
 
 
@@ -173,6 +174,9 @@ class Problem(BaseModel):
     description_ar: str | None = None
     hints: Annotated[list[str], Field(min_length=NUM_HINTS, max_length=NUM_HINTS)]
     time_limit_s: Annotated[float, Field(gt=0, le=10)] = DEFAULT_TIME_LIMIT_S
+    # True: a test fails if the function changed its arguments (e.g. sorted the input list in
+    # place), even when the returned answer is right. Off by default; the spec must say so.
+    check_input_unchanged: bool = False
     author: Literal["najeeb", "claude"]
 
     # --- from tests.yaml and the .py files ---
@@ -263,5 +267,6 @@ class Problem(BaseModel):
             description_ar=self.description_ar,
             starter_code=self.starter_code,
             time_limit_s=self.time_limit_s,
+            check_input_unchanged=self.check_input_unchanged,
             examples=examples,
         )
