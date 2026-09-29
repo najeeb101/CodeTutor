@@ -1,0 +1,11 @@
+tests:
+  - {id: "t01", input: [[3, 1, 3, 2, 1]], expected: [3, 1, 2], hidden: false, compare: "exact", note: "example 1: keep the first-seen order"}
+  - {id: "t02", input: [[5, 5, 5, 5]], expected: [5], hidden: false, compare: "exact", note: "example 2: all the same"}
+  - {id: "t03", input: [[1, 2, 3]], expected: [1, 2, 3], hidden: false, compare: "exact", note: "no duplicates"}
+  - {id: "t04", input: [[4, 2, 4, 2]], expected: [4, 2], hidden: false, compare: "exact", note: "order is not sorted order"}
+  - {id: "t05", input: [[]], expected: [], hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[7]], expected: [7], hidden: true, compare: "exact", note: "edge: one value"}
+  - {id: "t07", input: [[-1, 0, -1, 0]], expected: [-1, 0], hidden: true, compare: "exact", note: "negative and zero"}
+  - {id: "t08", input: [[0, 0, 1]], expected: [0, 1], hidden: true, compare: "exact", note: "zero repeated"}
+  - {id: "t09", input: [[2, 1, 2, 1, 3, 3]], expected: [2, 1, 3], hidden: true, compare: "exact", note: "duplicates far apart and side by side"}
+  - {id: "t10", input: [[10, -10, 10, -10, 0]], expected: [10, -10, 0], hidden: true, compare: "exact", note: "a value and its negative are different"}

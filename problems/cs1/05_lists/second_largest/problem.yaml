@@ -1,5 +1,5 @@
 id: cs1.lists.second_largest
-version: 1
+version: 2
 title: Second Largest Value
 module: 5
 module_name: Lists
@@ -17,7 +17,8 @@ description_en: |
     and the second largest is 4.
   - If there is no second largest value (the list is empty or all values are the
     same), return `None`.
-  - Do not change the list you are given.
+  - Do not change the list you are given (for example, do not call `nums.sort()`).
+    This is checked: a test fails if `nums` is different after your function returns.
 
   Examples:
     second_largest([3, 1, 4, 1, 5]) -> 4
@@ -28,4 +29,5 @@ hints:
   - "Duplicates matter: the second largest must be a different value from the largest one."
   - "Get rid of duplicate values first, then find the second biggest value that is left. Also think about lists with fewer than two different values."
   - "Turn the list into a set to drop duplicates and sort what is left. If at least two values remain, return the one just before the last; otherwise return None."
+check_input_unchanged: true
 author: claude

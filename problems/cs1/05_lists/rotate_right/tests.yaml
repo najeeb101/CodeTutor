@@ -1,0 +1,13 @@
+tests:
+  - {id: "t01", input: [[1, 2, 3, 4, 5], 2], expected: [4, 5, 1, 2, 3], hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [[1, 2, 3], 1], expected: [3, 1, 2], hidden: false, compare: "exact", note: "example 2"}
+  - {id: "t03", input: [[1, 2, 3, 4], 0], expected: [1, 2, 3, 4], hidden: false, compare: "exact", note: "k = 0: no change"}
+  - {id: "t04", input: [[10, 20, 30], 3], expected: [10, 20, 30], hidden: false, compare: "exact", note: "k = length: back to the start"}
+  - {id: "t05", input: [[], 3], expected: [], hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[], 0], expected: [], hidden: true, compare: "exact", note: "edge: empty list, k = 0"}
+  - {id: "t07", input: [[7], 5], expected: [7], hidden: true, compare: "exact", note: "one item never moves"}
+  - {id: "t08", input: [[1, 2, 3], 4], expected: [3, 1, 2], hidden: true, compare: "exact", note: "k a bit bigger than the length"}
+  - {id: "t09", input: [[1, 2, 3, 4], 10], expected: [3, 4, 1, 2], hidden: true, compare: "exact", note: "k more than twice the length"}
+  - {id: "t10", input: [[1, 2, 3], 1000000000], expected: [3, 1, 2], hidden: true, compare: "exact", note: "huge k: rotating one step at a time is too slow"}
+  - {id: "t11", input: [[-1, -2, -3, -4, -5, -6], 5], expected: [-2, -3, -4, -5, -6, -1], hidden: true, compare: "exact", note: "negative values"}
+  - {id: "t12", input: [[1, 1, 2, 2], 1], expected: [2, 1, 1, 2], hidden: true, compare: "exact", note: "repeated values"}

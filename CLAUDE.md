@@ -99,14 +99,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Modules 1-4 done (16 problems; 17 in the bank with the `second_largest`
-  example). Najeeb's TODO: `fizzbuzz/buggy/stops_before_n.py`.
+- **In progress:** Step 4. Modules 1-5 done (20 problems). Grader 0.2.0 adds the optional
+  `check_input_unchanged` check. Najeeb's TODO: `fizzbuzz/buggy/stops_before_n.py`.
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
   Module 4: Q1 what `"a  b".split(" ")` returns; Q2 why compress appends after the loop;
   Q3 what a student sees when count_vowels forgets `.lower()`.
-- **Next action:** Step 4, module 5 (lists). Start in plan mode. Decide Q10 there.
+  Module 5: Q1 why `mutates_input` passes `[1, 2, 3]` but fails `[3, 1, 3, 2, 1]`; Q2 why the
+  input check is off by default; Q3 what rotate_right without `% len(nums)` gives for ([1,2,3], 4).
+- **Next action:** Step 4, module 6 (functions: is_prime, gcd, primes_up_to, running_total).
+  Start in plan mode. is_prime's hidden 1e9+7 test is an efficiency test (timeout bug allowed).
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -152,9 +155,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-29: fizzbuzz has no multiple of 15 in the visible tests, so the classic "check % 3 first" bug is hidden-only. The rule for 15 is stated in the description, and hint 1 points at it.
 - 2026-09-29: Najeeb answers check questions at the end, not at each STOP. Keep collecting them (Status lists the open ones). Only one open TODO at a time, so Module 4 added no new TODO.
 - 2026-09-29: String problems use ASCII-only test data, and the descriptions say so: `isalnum()`/`lower()` also accept letters like "é" or Arabic digits, and the spec should not have hidden surprises.
+- 2026-09-29: Q10 resolved (B, Najeeb's choice). New optional problem field `check_input_unchanged` (default false; also in the student view). The runner reports `input_changed` (args vs the job's untouched copy, compared with `==`; any error while comparing counts as changed); the parent turns it into `wrong_answer` "your function changed its input; build and return a new list instead" only when the problem sets the flag. The message contains no input, so hidden tests show it too. GRADER_VERSION 0.1.0 → 0.2.0.
+- 2026-09-29: The input check is on for remove_duplicates and second_largest only (their specs state the rule). second_largest bumped to version 2 because its grading changed. merge_sorted and rotate_right don't state the rule, so it stays off there.
+- 2026-09-29: rotate_right allows k up to 10^9 and hides k = 10^9 (a one-step-at-a-time loop times out; no buggy file for it, so no suite cost). Found while testing: without `k % len(nums)` the code is still right while k < 2 × len, because negative slice indexes count from the end; t09 (k = 10, len 4) catches it.
 
 ## Open questions
-- Q10 (Step 4, module 5): "don't mutate the input" (remove_duplicates) can't be checked: the runner only compares the return value. Options: (A) say it in the spec with an honest note, or (B) let the runner also report the inputs after the call (grader change, needs OK). Decide at module 5.
+- None right now.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
@@ -164,4 +170,5 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load.
 - The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
+- The input check compares with `==`: `[1]` and `[True]` count as equal, and a change undone before the function returns is not seen. It catches honest mistakes, not attackers.
 - `test_memory_bomb[memory_bomb_growing]` is flaky: once (2026-09-29, in a full `make all`) it gave `timeout` instead of a memory error; it passed 6/6 alone and on the next full run. Allocating memory was slower than the 0.5 s per-test limit under load.

@@ -1,0 +1,30 @@
+id: cs1.lists.rotate_right
+version: 1
+title: Rotate a List Right
+module: 5
+module_name: Lists
+order: 3
+difficulty: medium
+concepts: [lists, arithmetic, edge_cases]
+function_name: rotate_right
+description_en: |
+  Write a function `rotate_right(nums, k)` that returns the list `nums` rotated `k` places
+  to the right.
+
+  Rotating right by 1 moves every item one place to the right, and the last item comes back
+  at the start: [1, 2, 3] -> [3, 1, 2]. Rotating by k does this k times.
+
+  - `nums` is a list of integers. It can be empty; then return [].
+  - `k` is an integer with 0 <= k <= 1000000000. It can be much bigger than the length of
+    the list.
+  - Return a list.
+
+  Examples:
+    rotate_right([1, 2, 3, 4, 5], 2) -> [4, 5, 1, 2, 3]
+    rotate_right([1, 2, 3], 1)       -> [3, 1, 2]
+description_ar: null
+hints:
+  - "Try a k that is much bigger than the list, and try an empty list. What does rotating a list of length 3 by 3 places give?"
+  - "Rotating by the length of the list gives the same list back, so only the remainder of k divided by the length matters. Then the answer is the last k items followed by the rest."
+  - "If nums is empty, return []. Set k to k % len(nums) and split to len(nums) - k. Return nums[split:] + nums[:split]."
+author: claude

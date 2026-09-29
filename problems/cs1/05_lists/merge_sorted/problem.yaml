@@ -1,0 +1,28 @@
+id: cs1.lists.merge_sorted
+version: 1
+title: Merge Two Sorted Lists
+module: 5
+module_name: Lists
+order: 4
+difficulty: medium
+concepts: [lists, while_loops, sorting]
+function_name: merge_sorted
+description_en: |
+  Write a function `merge_sorted(a, b)` that merges two sorted lists into one sorted list.
+
+  - `a` and `b` are lists of integers, each sorted from small to large. Either one can be
+    empty, and they can have different lengths.
+  - Return one list, sorted from small to large, with every value from both lists.
+    Duplicates are kept: merging [2] and [2] gives [2, 2].
+  - The goal is to practise walking through two lists at the same time, so try to solve it
+    without `sort()` or `sorted()`. (This is not checked; the grader only checks your answers.)
+
+  Examples:
+    merge_sorted([1, 3, 5], [2, 4, 6]) -> [1, 2, 3, 4, 5, 6]
+    merge_sorted([1, 2, 3], [4, 5, 6]) -> [1, 2, 3, 4, 5, 6]
+description_ar: null
+hints:
+  - "Check what happens when one list is empty, when one list runs out before the other, and when both lists contain the same value."
+  - "Keep one position in each list. Each step, compare the two current values and take the smaller one. When one list is used up, everything left in the other list is already in order."
+  - "Use i for a and j for b. While both i < len(a) and j < len(b), append the smaller of a[i] and b[j] and move that position forward. After the loop, add a[i:] and b[j:]."
+author: claude

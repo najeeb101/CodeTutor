@@ -1,0 +1,29 @@
+id: cs1.lists.remove_duplicates
+version: 1
+title: Remove Duplicates
+module: 5
+module_name: Lists
+order: 2
+difficulty: easy
+concepts: [lists, for_loops, edge_cases]
+function_name: remove_duplicates
+description_en: |
+  Write a function `remove_duplicates(nums)` that returns a new list with every value of
+  `nums` only once.
+
+  - Keep the first time each value appears, and keep the original order:
+    [3, 1, 3, 2, 1] -> [3, 1, 2].
+  - `nums` is a list of integers. It can be empty and it can contain negative numbers.
+  - Do not change the list you are given: build and return a new list.
+    This is checked: a test fails if `nums` is different after your function returns.
+
+  Examples:
+    remove_duplicates([3, 1, 3, 2, 1]) -> [3, 1, 2]
+    remove_duplicates([5, 5, 5, 5])    -> [5]
+description_ar: null
+hints:
+  - "Check three things: is the order the same as the first time each value appears, does an empty list work, and is nums unchanged after the call?"
+  - "Walk through nums from left to right and add each value to a new list only the first time you see it. You need a way to remember which values you have already seen."
+  - "Start with an empty result list and an empty set called seen. For each number, if it is not in seen, add it to seen and append it to result. Return result."
+check_input_unchanged: true
+author: claude
