@@ -1,0 +1,30 @@
+id: cs1.conditions.is_leap_year
+version: 1
+title: Leap Year
+module: 2
+module_name: Conditions
+order: 1
+difficulty: easy
+concepts: [conditionals, arithmetic, edge_cases]
+function_name: is_leap_year
+description_en: |
+  Write a function `is_leap_year(year)` that returns `True` if `year` is a leap
+  year, and `False` if it is not.
+
+  The rules (Gregorian calendar):
+  - A year divisible by 4 is a leap year,
+  - EXCEPT a year divisible by 100 is NOT a leap year,
+  - EXCEPT a year divisible by 400 IS a leap year after all.
+
+  - `year` is an integer, 1 or more.
+  - Return a boolean (`True` or `False`), not a number or a string.
+
+  Examples:
+    is_leap_year(2024) -> True
+    is_leap_year(1900) -> False
+description_ar: null
+hints:
+  - "There are three rules and each one is an exception to the one before. Try some years by hand first: 2024, 1900 and 2000."
+  - "Use the remainder operator to test if a number divides evenly. Think about which rule to check first so the exceptions win."
+  - "Check divisible by 400 first (leap), then divisible by 100 (not leap), then divisible by 4 (leap). Anything else is not a leap year."
+author: claude

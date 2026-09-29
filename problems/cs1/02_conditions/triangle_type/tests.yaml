@@ -1,0 +1,14 @@
+tests:
+  - {id: "t01", input: [3, 4, 5], expected: "scalene", hidden: false, compare: "exact", note: "example 1: scalene"}
+  - {id: "t02", input: [1, 2, 10], expected: "invalid", hidden: false, compare: "exact", note: "example 2: one side far too long"}
+  - {id: "t03", input: [3, 3, 3], expected: "equilateral", hidden: false, compare: "exact", note: "equilateral"}
+  - {id: "t04", input: [5, 5, 8], expected: "isosceles", hidden: false, compare: "exact", note: "isosceles, first two equal"}
+  - {id: "t05", input: [0, 0, 0], expected: "invalid", hidden: true, compare: "exact", note: "invalid: all zero, even though all equal"}
+  - {id: "t06", input: [2, 2, 5], expected: "invalid", hidden: true, compare: "exact", note: "invalid: two equal sides, but too short"}
+  - {id: "t07", input: [1, 2, 3], expected: "invalid", hidden: true, compare: "exact", note: "invalid: flat triangle (1 + 2 == 3)"}
+  - {id: "t08", input: [8, 5, 5], expected: "isosceles", hidden: true, compare: "exact", note: "isosceles, last two equal"}
+  - {id: "t09", input: [5, 8, 5], expected: "isosceles", hidden: true, compare: "exact", note: "isosceles, first and last equal"}
+  - {id: "t10", input: [-3, 4, 5], expected: "invalid", hidden: true, compare: "exact", note: "invalid: negative side"}
+  - {id: "t11", input: [10, 1, 1], expected: "invalid", hidden: true, compare: "exact", note: "invalid: the FIRST side is too long"}
+  - {id: "t12", input: [2.5, 2.5, 2.5], expected: "equilateral", hidden: true, compare: "exact", note: "equilateral with decimals (exact in binary)"}
+  - {id: "t13", input: [1.5, 2, 2.5], expected: "scalene", hidden: true, compare: "exact", note: "scalene with decimals (exact in binary)"}

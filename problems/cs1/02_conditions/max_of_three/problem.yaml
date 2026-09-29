@@ -1,0 +1,27 @@
+id: cs1.conditions.max_of_three
+version: 1
+title: Largest of Three
+module: 2
+module_name: Conditions
+order: 3
+difficulty: easy
+concepts: [conditionals, edge_cases]
+function_name: max_of_three
+description_en: |
+  Write a function `max_of_three(a, b, c)` that returns the largest of three integers.
+
+  - `a`, `b` and `c` are integers. They can be negative, and two or three of them
+    can be equal.
+  - Return the largest value (an integer).
+  - The goal is to practise `if` statements, so try to solve it without the built-in
+    `max()` function. (This is not checked; the grader only checks your answers.)
+
+  Examples:
+    max_of_three(1, 2, 3)    -> 3
+    max_of_three(-1, -5, -3) -> -1
+description_ar: null
+hints:
+  - "Think about what should happen when two of the numbers are the same, and when all of them are negative."
+  - "One simple plan: keep a variable with the biggest number seen so far. Start it with the first number, not with 0, then compare it with the others."
+  - "Set largest to a. If b is bigger than largest, set largest to b. Do the same with c, then return largest."
+author: claude

@@ -99,8 +99,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Module 1 done (4 problems).
-- **Next action:** Step 4, module 2 (conditions). Start in plan mode. Explain in very simple English.
+- **In progress:** Step 4. Modules 1-2 done (8 problems); Najeeb's TODO: `triangle_type/buggy/one_direction_inequality.py`.
+- **Next action:** Step 4, module 3 (loops). Start in plan mode. Explain in very simple English.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).

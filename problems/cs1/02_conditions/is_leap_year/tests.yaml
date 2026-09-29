@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: [2024], expected: true, hidden: false, compare: "exact", note: "example 1: divisible by 4"}
+  - {id: "t02", input: [1900], expected: false, hidden: false, compare: "exact", note: "example 2: divisible by 100 but not 400"}
+  - {id: "t03", input: [2023], expected: false, hidden: false, compare: "exact", note: "not divisible by 4"}
+  - {id: "t04", input: [2020], expected: true, hidden: false, compare: "exact", note: "divisible by 4"}
+  - {id: "t05", input: [2000], expected: true, hidden: true, compare: "exact", note: "divisible by 400"}
+  - {id: "t06", input: [1600], expected: true, hidden: true, compare: "exact", note: "divisible by 400"}
+  - {id: "t07", input: [2400], expected: true, hidden: true, compare: "exact", note: "divisible by 400, in the future"}
+  - {id: "t08", input: [2100], expected: false, hidden: true, compare: "exact", note: "divisible by 100 but not 400"}
+  - {id: "t09", input: [1999], expected: false, hidden: true, compare: "exact", note: "odd year"}
+  - {id: "t10", input: [1996], expected: true, hidden: true, compare: "exact", note: "divisible by 4"}
+  - {id: "t11", input: [4], expected: true, hidden: true, compare: "exact", note: "edge: a very early year"}

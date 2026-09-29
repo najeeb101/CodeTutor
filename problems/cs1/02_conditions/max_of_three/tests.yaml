@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: [1, 2, 3], expected: 3, hidden: false, compare: "exact", note: "example 1: largest is last"}
+  - {id: "t02", input: [-1, -5, -3], expected: -1, hidden: false, compare: "exact", note: "example 2: all negative"}
+  - {id: "t03", input: [3, 2, 1], expected: 3, hidden: false, compare: "exact", note: "largest is first"}
+  - {id: "t04", input: [2, 9, 4], expected: 9, hidden: false, compare: "exact", note: "largest is in the middle"}
+  - {id: "t05", input: [5, 5, 1], expected: 5, hidden: true, compare: "exact", note: "tie for the largest (first two)"}
+  - {id: "t06", input: [1, 5, 5], expected: 5, hidden: true, compare: "exact", note: "tie for the largest (last two)"}
+  - {id: "t07", input: [5, 1, 5], expected: 5, hidden: true, compare: "exact", note: "tie for the largest (first and last)"}
+  - {id: "t08", input: [7, 7, 7], expected: 7, hidden: true, compare: "exact", note: "all equal"}
+  - {id: "t09", input: [-3, -2, -1], expected: -1, hidden: true, compare: "exact", note: "all negative, largest is last"}
+  - {id: "t10", input: [0, -1, -2], expected: 0, hidden: true, compare: "exact", note: "zero is the largest"}
+  - {id: "t11", input: [1000000000000, 1000000000001, -1000000000000], expected: 1000000000001, hidden: true, compare: "exact", note: "big numbers"}

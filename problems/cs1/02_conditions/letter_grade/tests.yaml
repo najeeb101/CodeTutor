@@ -1,0 +1,14 @@
+tests:
+  - {id: "t01", input: [95], expected: "A", hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [72], expected: "C", hidden: false, compare: "exact", note: "example 2"}
+  - {id: "t03", input: [85], expected: "B", hidden: false, compare: "exact", note: "middle of the B range"}
+  - {id: "t04", input: [30], expected: "F", hidden: false, compare: "exact", note: "fail"}
+  - {id: "t05", input: [90], expected: "A", hidden: true, compare: "exact", note: "boundary: exactly 90 is an A"}
+  - {id: "t06", input: [89], expected: "B", hidden: true, compare: "exact", note: "boundary: just below A"}
+  - {id: "t07", input: [80], expected: "B", hidden: true, compare: "exact", note: "boundary: exactly 80 is a B"}
+  - {id: "t08", input: [60], expected: "D", hidden: true, compare: "exact", note: "boundary: exactly 60 is a D"}
+  - {id: "t09", input: [59], expected: "F", hidden: true, compare: "exact", note: "boundary: just below D"}
+  - {id: "t10", input: [100], expected: "A", hidden: true, compare: "exact", note: "edge: highest valid score"}
+  - {id: "t11", input: [0], expected: "F", hidden: true, compare: "exact", note: "edge: lowest valid score"}
+  - {id: "t12", input: [101], expected: "Invalid", hidden: true, compare: "exact", note: "invalid: above 100"}
+  - {id: "t13", input: [-5], expected: "Invalid", hidden: true, compare: "exact", note: "invalid: negative"}

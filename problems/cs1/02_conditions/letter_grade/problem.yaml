@@ -1,0 +1,33 @@
+id: cs1.conditions.letter_grade
+version: 1
+title: Letter Grade
+module: 2
+module_name: Conditions
+order: 2
+difficulty: easy
+concepts: [conditionals, edge_cases]
+function_name: letter_grade
+description_en: |
+  Write a function `letter_grade(score)` that turns an exam score into a letter grade.
+
+  | Score        | Grade |
+  |--------------|-------|
+  | 90 or more   | "A"   |
+  | 80 to 89     | "B"   |
+  | 70 to 79     | "C"   |
+  | 60 to 69     | "D"   |
+  | below 60     | "F"   |
+
+  - `score` is an integer. A valid score is between 0 and 100 (both included).
+  - If the score is below 0 or above 100, return "Invalid".
+  - Return a string.
+
+  Examples:
+    letter_grade(95) -> "A"
+    letter_grade(72) -> "C"
+description_ar: null
+hints:
+  - "Be careful at the edges of each range. What grade should exactly 90 get? And exactly 80?"
+  - "Handle the invalid scores first. Then check the grades from the highest to the lowest, so each check only has to test one boundary."
+  - "Return 'Invalid' when the score is below 0 or above 100. Then use an if/elif chain with 'score >= 90', 'score >= 80', and so on, and return 'F' at the end."
+author: claude

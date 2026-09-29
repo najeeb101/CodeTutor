@@ -1,0 +1,35 @@
+id: cs1.conditions.triangle_type
+version: 1
+title: Triangle Type
+module: 2
+module_name: Conditions
+order: 4
+difficulty: medium
+concepts: [conditionals, edge_cases]
+function_name: triangle_type
+description_en: |
+  Write a function `triangle_type(a, b, c)` that gets the lengths of three sides and
+  says what kind of triangle they make.
+
+  Return one of these strings:
+  - "invalid" if the sides can't make a real triangle (see below),
+  - "equilateral" if all three sides are equal,
+  - "isosceles" if exactly two sides are equal,
+  - "scalene" if all three sides are different.
+
+  The sides are "invalid" if:
+  - any side is 0 or negative, OR
+  - any side is equal to or longer than the other two added together.
+    For example, 1, 2 and 3 are invalid: 1 + 2 = 3, so the "triangle" would be flat.
+
+  - `a`, `b` and `c` are numbers (int or float).
+
+  Examples:
+    triangle_type(3, 4, 5)  -> "scalene"
+    triangle_type(1, 2, 10) -> "invalid"
+description_ar: null
+hints:
+  - "Decide if the three sides make a real triangle BEFORE you decide what kind it is. Try (0, 0, 0) and (2, 2, 5) in your head."
+  - "A real triangle needs every side to be positive and every side to be shorter than the sum of the other two. Check all three sides, not just one."
+  - "Return 'invalid' if any side is 0 or less, or if a + b <= c, a + c <= b or b + c <= a. Then check all three equal, then any two equal, and otherwise return 'scalene'."
+author: claude
