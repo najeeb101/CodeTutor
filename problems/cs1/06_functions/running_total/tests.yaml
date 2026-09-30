@@ -1,0 +1,11 @@
+tests:
+  - {id: "t01", input: [[1, 2, 3, 4]], expected: [1, 3, 6, 10], hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [[5]], expected: [5], hidden: false, compare: "exact", note: "example 2: one number"}
+  - {id: "t03", input: [[3, -1, 2]], expected: [3, 2, 4], hidden: false, compare: "exact", note: "a negative number"}
+  - {id: "t04", input: [[10, 20, 30]], expected: [10, 30, 60], hidden: false, compare: "exact", note: "bigger numbers"}
+  - {id: "t05", input: [[]], expected: [], hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[-1, -2, -3]], expected: [-1, -3, -6], hidden: true, compare: "exact", note: "all negative"}
+  - {id: "t07", input: [[0, 0, 0]], expected: [0, 0, 0], hidden: true, compare: "exact", note: "all zero"}
+  - {id: "t08", input: [[1, -1, 1, -1]], expected: [1, 0, 1, 0], hidden: true, compare: "exact", note: "the total goes back to 0"}
+  - {id: "t09", input: [[1000000000, 1000000000]], expected: [1000000000, 2000000000], hidden: true, compare: "exact", note: "big numbers: Python ints do not overflow"}
+  - {id: "t10", input: [[2, 2, 2, 2, 2]], expected: [2, 4, 6, 8, 10], hidden: true, compare: "exact", note: "same number repeated"}

@@ -1,0 +1,30 @@
+id: cs1.functions.running_total
+version: 1
+title: Running Total
+module: 6
+module_name: Functions
+order: 4
+difficulty: easy
+concepts: [functions, lists, for_loops]
+function_name: running_total
+description_en: |
+  Write a function `running_total(nums)` that returns a new list where each item is the sum
+  of all numbers in `nums` up to and including that position.
+
+  For [1, 2, 3, 4] the answer is [1, 1+2, 1+2+3, 1+2+3+4] = [1, 3, 6, 10].
+
+  - `nums` is a list of integers. It can be empty; then return [].
+  - Do not change the list you are given: build and return a new list.
+    This is checked: a test fails if `nums` is different after your function returns.
+  - Return a list of integers, with the same length as `nums`.
+
+  Examples:
+    running_total([1, 2, 3, 4]) -> [1, 3, 6, 10]
+    running_total([5])          -> [5]
+description_ar: null
+hints:
+  - "Check the empty list, and check that nums is exactly the same after your function returns."
+  - "Keep one variable with the sum so far. Walk through nums, add each number to the sum, and record the sum after each step in a new list."
+  - "Start total at 0 and totals as an empty list. For each number in nums, first add it to total, then append total to totals. Return totals."
+check_input_unchanged: true
+author: claude

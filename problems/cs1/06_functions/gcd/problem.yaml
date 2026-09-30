@@ -1,0 +1,29 @@
+id: cs1.functions.gcd
+version: 1
+title: Greatest Common Divisor
+module: 6
+module_name: Functions
+order: 2
+difficulty: easy
+concepts: [functions, while_loops, arithmetic]
+function_name: gcd
+description_en: |
+  Write a function `gcd(a, b)` that returns the greatest common divisor of `a` and `b`:
+  the biggest whole number that divides both of them evenly. For example, gcd(12, 18) is 6.
+
+  - `a` and `b` are integers with 0 <= a, b <= 1000000.
+  - Zero is special: every number divides 0 evenly, so gcd(a, 0) is a and gcd(0, b) is b.
+    By definition, gcd(0, 0) is 0.
+  - Return an integer.
+  - Try to solve it without `math.gcd`. (This is not checked; the grader only checks your
+    answers.)
+
+  Examples:
+    gcd(12, 18) -> 6
+    gcd(17, 5)  -> 1
+description_ar: null
+hints:
+  - "Look at the special cases in the description: what should gcd(0, 5), gcd(7, 0) and gcd(0, 0) give? Does your code avoid dividing by zero?"
+  - "Euclid's idea: the gcd of a and b is the same as the gcd of b and the remainder a % b. Repeat this until the second number is 0; then the first number is the answer."
+  - "While b is not 0, set a, b = b, a % b. When the loop ends, return a. This also handles all the zero cases."
+author: claude

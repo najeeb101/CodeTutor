@@ -1,0 +1,14 @@
+tests:
+  - {id: "t01", input: [12, 18], expected: 6, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [17, 5], expected: 1, hidden: false, compare: "exact", note: "example 2: no common divisor except 1"}
+  - {id: "t03", input: [12, 6], expected: 6, hidden: false, compare: "exact", note: "one number divides the other"}
+  - {id: "t04", input: [100, 75], expected: 25, hidden: false, compare: "exact", note: "bigger numbers"}
+  - {id: "t05", input: [0, 0], expected: 0, hidden: true, compare: "exact", note: "edge: gcd(0, 0) is 0 by definition"}
+  - {id: "t06", input: [0, 5], expected: 5, hidden: true, compare: "exact", note: "edge: a is 0"}
+  - {id: "t07", input: [7, 0], expected: 7, hidden: true, compare: "exact", note: "edge: b is 0"}
+  - {id: "t08", input: [1071, 462], expected: 21, hidden: true, compare: "exact", note: "Euclid's own example"}
+  - {id: "t09", input: [1, 1], expected: 1, hidden: true, compare: "exact", note: "both 1"}
+  - {id: "t10", input: [13, 13], expected: 13, hidden: true, compare: "exact", note: "equal numbers"}
+  - {id: "t11", input: [1000000, 999999], expected: 1, hidden: true, compare: "exact", note: "largest allowed, neighbours share nothing"}
+  - {id: "t12", input: [1000000, 500000], expected: 500000, hidden: true, compare: "exact", note: "largest allowed, one divides the other"}
+  - {id: "t13", input: [48, 180], expected: 12, hidden: true, compare: "exact", note: "smaller number first"}

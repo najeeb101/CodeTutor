@@ -1,0 +1,30 @@
+id: cs1.functions.primes_up_to
+version: 1
+title: Primes Up To N
+module: 6
+module_name: Functions
+order: 3
+difficulty: medium
+concepts: [functions, lists, for_loops]
+function_name: primes_up_to
+description_en: |
+  Write a function `primes_up_to(n)` that returns a list of all prime numbers that are
+  less than or equal to `n`, from small to large.
+
+  A prime number is a whole number greater than 1 that can only be divided evenly by 1 and
+  by itself.
+
+  - `n` is an integer with n <= 10000. It can be 0 or negative.
+  - If there are no primes up to n (n is less than 2), return [].
+  - If `n` itself is prime, it is included.
+  - Return a list of integers.
+
+  Examples:
+    primes_up_to(10) -> [2, 3, 5, 7]
+    primes_up_to(1)  -> []
+description_ar: null
+hints:
+  - "Check the edges: is n itself included when it is prime? What happens for 2, for 1, and for 0 or negative n?"
+  - "One way: write a helper function that checks one number, and call it for every number from 2 to n. A faster way is the sieve of Eratosthenes: cross out the multiples of each prime."
+  - "Sieve: make a list of True values for 0..n and set positions 0 and 1 to False. For each number that is still True, set its multiples (starting at number * number) to False. Return the numbers that are still True."
+author: claude

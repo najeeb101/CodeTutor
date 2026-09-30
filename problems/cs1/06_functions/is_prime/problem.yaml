@@ -1,0 +1,31 @@
+id: cs1.functions.is_prime
+version: 1
+title: Prime Check
+module: 6
+module_name: Functions
+order: 1
+difficulty: medium
+concepts: [functions, efficiency, edge_cases]
+function_name: is_prime
+description_en: |
+  Write a function `is_prime(n)` that returns True if `n` is a prime number, and False
+  otherwise.
+
+  A prime number is a whole number greater than 1 that can only be divided evenly by 1 and
+  by itself. 2, 3, 5 and 7 are prime; 1, 4 and 9 are not.
+
+  - `n` is an integer. It can be 0 or negative (then the answer is False), and it can be
+    as big as 2000000000.
+  - Your function must be fast: each test has a time limit of 2 seconds, also for very big n.
+  - Return a bool (True or False).
+
+  Examples:
+    is_prime(7)  -> True
+    is_prime(10) -> False
+    is_prime(1)  -> False
+description_ar: null
+hints:
+  - "Test small numbers like 1, 4 and 9, and one very big prime. Checking every number up to n is correct but much too slow for n near 1000000000."
+  - "Divisors come in pairs: if 36 = 4 * 9, one of the two is at most the square root of 36. So you only need to try divisors up to the square root of n."
+  - "Return False if n < 2. Then try divisor = 2, 3, 4, ... while divisor * divisor <= n, and return False if n % divisor == 0. If no divisor works, return True."
+author: claude

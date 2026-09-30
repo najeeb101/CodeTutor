@@ -1,0 +1,15 @@
+tests:
+  - {id: "t01", input: [7], expected: true, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [10], expected: false, hidden: false, compare: "exact", note: "example 2"}
+  - {id: "t03", input: [1], expected: false, hidden: false, compare: "exact", note: "example 3: 1 is not prime"}
+  - {id: "t04", input: [2], expected: true, hidden: false, compare: "exact", note: "the smallest prime"}
+  - {id: "t05", input: [0], expected: false, hidden: true, compare: "exact", note: "edge: zero"}
+  - {id: "t06", input: [-7], expected: false, hidden: true, compare: "exact", note: "edge: negative"}
+  - {id: "t07", input: [3], expected: true, hidden: true, compare: "exact", note: "small prime"}
+  - {id: "t08", input: [4], expected: false, hidden: true, compare: "exact", note: "square of a prime: 2 * 2"}
+  - {id: "t09", input: [9], expected: false, hidden: true, compare: "exact", note: "square of a prime: 3 * 3"}
+  - {id: "t10", input: [25], expected: false, hidden: true, compare: "exact", note: "square of a prime: 5 * 5"}
+  - {id: "t11", input: [49], expected: false, hidden: true, compare: "exact", note: "square of a prime: 7 * 7"}
+  - {id: "t12", input: [97], expected: true, hidden: true, compare: "exact", note: "two-digit prime"}
+  - {id: "t13", input: [1000000007], expected: true, hidden: true, compare: "exact", note: "big prime: checking every number up to n times out"}
+  - {id: "t14", input: [1000000008], expected: false, hidden: true, compare: "exact", note: "big even number"}

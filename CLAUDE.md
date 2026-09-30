@@ -99,8 +99,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Step 2 (grader: models, compare, runner, sandbox, grade/grade_many; 26 adversarial submissions;
   157 tests in ~11 s; docs/grader.md). Step 3 (`src/codetutor/bank/`: fill_expected, validator,
   dataset build with content_hash; scripts for each + grade CLI; 175 tests in ~11 s; 3/3 valid).
-- **In progress:** Step 4. Modules 1-5 done (20 problems). Grader 0.2.0 adds the optional
+- **In progress:** Step 4. Modules 1-6 done (24 problems). Grader 0.2.0 adds the optional
   `check_input_unchanged` check. Najeeb's TODO: `fizzbuzz/buggy/stops_before_n.py`.
+  Suite: 179 tests in ~17–20 s; `make all` ~26–29 s (2026-09-30, right after a WSL restart).
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -108,8 +109,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q3 what a student sees when count_vowels forgets `.lower()`.
   Module 5: Q1 why `mutates_input` passes `[1, 2, 3]` but fails `[3, 1, 3, 2, 1]`; Q2 why the
   input check is off by default; Q3 what rotate_right without `% len(nums)` gives for ([1,2,3], 4).
-- **Next action:** Step 4, module 6 (functions: is_prime, gcd, primes_up_to, running_total).
-  Start in plan mode. is_prime's hidden 1e9+7 test is an efficiency test (timeout bug allowed).
+  Module 6: Q1 why is_prime can stop at `divisor * divisor <= n`; Q2 which input shows the
+  `divisor * divisor < n` bug; Q3 what reward 0.93 for the slow is_prime means for RL.
+- **Next action:** Step 4, module 7 (dicts: word_frequency, first_unique_char, group_anagrams,
+  two_sum). Start in plan mode. two_sum's big hidden test is an efficiency test (timeout bug allowed).
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -158,6 +161,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-29: Q10 resolved (B, Najeeb's choice). New optional problem field `check_input_unchanged` (default false; also in the student view). The runner reports `input_changed` (args vs the job's untouched copy, compared with `==`; any error while comparing counts as changed); the parent turns it into `wrong_answer` "your function changed its input; build and return a new list instead" only when the problem sets the flag. The message contains no input, so hidden tests show it too. GRADER_VERSION 0.1.0 → 0.2.0.
 - 2026-09-29: The input check is on for remove_duplicates and second_largest only (their specs state the rule). second_largest bumped to version 2 because its grading changed. merge_sorted and rotate_right don't state the rule, so it stays off there.
 - 2026-09-29: rotate_right allows k up to 10^9 and hides k = 10^9 (a one-step-at-a-time loop times out; no buggy file for it, so no suite cost). Found while testing: without `k % len(nums)` the code is still right while k < 2 × len, because negative slice indexes count from the end; t09 (k = 10, len 4) catches it.
+
+- 2026-09-30: is_prime has the first buggy file that times out (`naive_linear`, only on hidden 1000000007). Measured: the √n solution takes 4.6 ms there, the naive loop ~40 s. Only one test is slow, so validating is_prime costs ~2.2 s per run.
+- 2026-09-30: gcd inputs are capped at 10^6 on purpose, so a brute-force gcd still passes (33 ms measured): the brief doesn't ask gcd to test speed.
+- 2026-09-30: running_total turns on `check_input_unchanged` (its spec says "return a new list"): side effects are a core "functions" idea. `sums_in_place` returns the right numbers but changes nums.
+- 2026-09-30: Slow-but-correct is_prime scores 0.93 (13/14) under partial credit. Recorded in docs/ideas.md for Week 6 (weight efficiency tests or reward only full passes; measure first).
 
 ## Open questions
 - None right now.
