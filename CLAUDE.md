@@ -40,8 +40,10 @@ every line in an interview.
   AI tutor (LiteLLM + RAG + Langfuse, Wk 4), Postgres/Supabase + pgvector (Wk 3).
 - Lab half: eval harness (Wk 2), simulated students + integrity + quality estimates (Wk 5),
   dataset builder + GRPO with TRL on Qwen 0.5–1.5B (Wk 6–7).
-- Sandbox: Week 1 = subprocess + rlimits (NOT secure). Docker (no network, read-only, non-root,
-  limits) required before strangers submit code. Behind a `Sandbox` protocol so backends swap.
+- Sandbox: behind a `Sandbox` protocol so backends swap. `SubprocessSandbox` = subprocess + rlimits
+  (NOT secure; default, used by validator and `make all`). `DockerSandbox` (Step 5) = same runner in a
+  container (no network, no host files, read-only, non-root, pids limit); required before strangers
+  submit code. Containers share the kernel: gVisor/Firecracker at real scale.
 - Principles: hidden tests protect the reward; everything is data (structured, versioned);
   problem IDs are stable forever and `version` is bumped when tests change; deterministic grading;
   flags inform humans and never auto-punish; swappable parts behind small interfaces.
@@ -68,6 +70,8 @@ every line in an interview.
 - No global mutable state unless unavoidable (comment why). Limits/timeouts live in one place and are overridable.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate).
+  `test-docker` runs the hostile tests in Docker (opt-in, marker `docker`, ~1 min; run it after any
+  sandbox change). In this WSL session Docker needs `sg docker -c "..."` until the next login.
 
 ## 8-week plan
 | Week | Deliverable |
@@ -103,8 +107,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   hidden-only bug. Grader 0.2.0 adds the optional `check_input_unchanged` check (used by 4
   problems). Suite: 179 tests in ~27–29 s; `make all` ~42 s. Three problems have a timeout bug
   (is_prime, two_sum, fibonacci, ~2.2 s each per validate run).
-- **Open from Step 4:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; Q11 (suite time).
-  Q12 (flaky memory test) is fixed.
+- **Done (2026-10-01):** Week 1 wrap-up: README rewritten; `docs/notes/week1.md` skeleton (facts in
+  HTML comments, Najeeb writes the text later, then says "review"); stale TODO comments removed.
+  **Step 5 (optional) done:** `DockerSandbox` behind the `Sandbox` protocol, `make test-docker`
+  (32 tests, 3/3 runs green, 53–66 s), `scripts/bench_sandbox.py` (Docker adds ~1 s per
+  submission, ~12×). Default suite: 179 passed, 2 skipped, 1 xfailed, 32 deselected.
+- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text; Q11
+  (suite time, recommendation A: leave it); Q13 (SIGXCPU label in the subprocess sandbox).
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -119,9 +128,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   before adding the current number.
   Module 8: Q1 what goes wrong in `def flatten(nested, result=[])`; Q2 why naive fibonacci
   passes n = 25 but times out at n = 40; Q3 why counting brackets can't decide "([)]".
-- **Next action:** Najeeb decides Q11. Then the rest of the Week 1 definition of done:
-  README update, `docs/notes/week1.md` written with Najeeb, and answering the waiting check
-  questions. Step 5 (Docker) only if Najeeb says so. Start in plan mode.
+  Q12 fix: Q1 why not accept `timeout` as a pass in the memory-bomb test; Q2 what happens if the
+  memory limit stops working. README: Q1 why the CLI example grades a buggy file; Q2 why no
+  timing numbers; Q3 what protects your files when grading downloaded code. week1.md: Q1 why every
+  decision needs a cost; Q2 why the 60-second section has no facts. Stale comments: Q1 why a stale
+  comment is worse than none; Q2 why the Makefile fallback was left. Step 5: Q1 why `docker kill`
+  and not only killing the client; Q2 why `--init`; Q3 what a strict xfail does if it passes.
+  (30 in total.)
+- **Next action:** Najeeb writes `docs/notes/week1.md`, then says "review". After that, Week 2
+  (eval harness) starts in plan mode; it needs decisions on LLM providers, API keys and the
+  LiteLLM dependency (ask first). Najeeb: log out/in of WSL (or `wsl --shutdown`) so your
+  terminals get the docker group.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -187,13 +204,25 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-30: binary_search says "a simple scan also passes (not checked)": at these sizes timing can't tell binary search from a scan (same honesty rule as Q7).
 - 2026-09-30: Q12 resolved (Najeeb: "fix q12"). The growing memory bomb raced the 0.5 s per-test timer: filling 256 MB took median 186 ms but up to 503 ms (4/320 tests ≥ 450 ms, 4 gradings in parallel). The memory-bomb tests now use `MEMORY_TEST` (2 s per test; max seen 303 ms). The assertion is unchanged, so a broken memory limit would still fail the test (timeout). Rejected: accepting `timeout` (hides a broken limit) and a smaller memory limit (too close to Python's startup memory). After the fix: 25/25 runs alone and 2/2 `make all` green.
 
+- 2026-10-01: Step 5 started on Najeeb's "start with the next step". `DockerSandbox` lives in `sandbox.py`, behind the same `Sandbox` protocol; both backends share one helper (`_run_captured`) for pipes, timeouts and kills. `grade()` is unchanged; `grade_many()` and `grade_cli.py` gained an optional `sandbox`.
+- 2026-10-01: Docker is called through the `docker` CLI with `subprocess`, not the Docker SDK (no new Python dependency). Image `python:3.12-slim` pinned by digest (sha256:f77ac9e4…), so every run grades with the same Python (3.12.14; host 3.12.3).
+- 2026-10-01: Measured container start-up: median 0.73 s, max 1.2 s with 4 in parallel. The wall-clock limit gets +5 s (`DOCKER_START_MARGIN_S`) so students never pay for start-up.
+- 2026-10-01: `--init` is required. Measured without it: the runner is PID 1, Linux ignores its SIGXCPU (no handler), and the same endless loop ended as `timeout` in one run and `crashed` (SIGKILL) in the next. With `--init`, CPU-busy code is stopped by `RLIMIT_CPU` (~4.3 s for a 2 s total) and `DockerSandbox` reports SIGXCPU as a timeout. The subprocess sandbox is unchanged (SIGXCPU there is still `crashed`, only possible with several busy threads).
+- 2026-10-01: Docker exit codes 128+N are translated to -N (same messages as subprocess), only for real signal numbers: `signal.Signals(32)` raises ValueError, so a student's `os._exit(160)` would otherwise crash the grader.
+- 2026-10-01: `SandboxUnavailableError` (in sandbox.py, not `GraderError`, which would be a circular import). `DockerSandbox()` checks the image once, so a stopped daemon is a clear error, never "crashed, reward 0".
+- 2026-10-01: Docker tests are opt-in: marker `docker`, `addopts = "-m 'not docker'"`, `make test-docker` (32 tests, ~55–61 s; about 1.9 s per test with start-up, kill and the leftover check). `make all` stays Docker-free and < 60 s.
+- 2026-10-01: Three threat-model submissions prove what only Docker blocks: `reads_host_file` (subprocess: strict xfail, "STOLEN=top secret"; Docker: FileNotFoundError), `network_access` (Docker: OSError; skipped on subprocess so the suite never really connects), `many_processes` (Docker: stops at 62 of 200; skipped on subprocess, decision Q6). After every docker test a fixture checks that no labelled container is left.
+- 2026-10-01: Fixed a pre-existing race in the test helper `_process_is_gone`: a zombie can be reaped between `exists()` and `read_text()` of `/proc/<pid>/status` (ProcessLookupError; seen once in ~18 full runs). A second failure in that same run could not be identified.
+
 ## Open questions
+- Q13: should the subprocess sandbox also report SIGXCPU as `timeout` (as Docker now does)? Today it says `crashed`; it only happens with several busy threads. Reward is 0 either way; changing the label would bump GRADER_VERSION to 0.2.1. Recommendation: yes, before Week 2 failure-type statistics.
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
 - Tests import helpers from `tests/conftest.py` directly (`from conftest import ...`). This works with pytest's default rootdir import mode; move them to a helpers module if that ever breaks.
-- The subprocess sandbox is NOT secure: student code can read the user's files and use the network; fork bombs and setsid() escapes are not stopped. Docker is required before strangers submit code (docs/grader.md, threat model).
+- The subprocess sandbox is NOT secure: student code can read the user's files and use the network; fork bombs and setsid() escapes are not stopped. Use `DockerSandbox` for untrusted code (docs/grader.md, sections 5–6).
+- The Docker sandbox shares the host kernel (a kernel bug can let code out), and the Docker daemon is root-equivalent, so the Week 3 worker must never expose it. In Docker, code that sleeps at the top level runs up to 5 s past the total limit (start-up margin); a daemon that fails mid-run shows up as `crashed`.
 - Student code can catch the per-test timeout with a bare `except:` in a loop; only the total limit stops it (was Q4).
 - The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load. This also affects failure *labels*: a memory bomb can end as `timeout` or `runtime_error` depending on load (same reward, different label). Keep it in mind for Week 2 failure-type statistics.
