@@ -4,6 +4,7 @@ Usage:
     python scripts/grade_cli.py cs1.loops.sum_of_evens my_solution.py
     python scripts/grade_cli.py cs1.loops.sum_of_evens my_solution.py --reveal-hidden
     python scripts/grade_cli.py cs1.loops.sum_of_evens my_solution.py --json
+    python scripts/grade_cli.py cs1.loops.sum_of_evens my_solution.py --sandbox docker
 """
 
 from __future__ import annotations
@@ -12,7 +13,15 @@ import argparse
 import json
 from pathlib import Path
 
-from codetutor.grader import GradeResult, TestResult, TestStatus, grade
+from codetutor.grader import (
+    DockerSandbox,
+    GradeResult,
+    SandboxUnavailableError,
+    SubprocessSandbox,
+    TestResult,
+    TestStatus,
+    grade,
+)
 from codetutor.problems import ProblemError, get_problem
 
 MAX_VALUE_WIDTH = 40
@@ -66,6 +75,12 @@ def main() -> int:
     parser.add_argument("file", type=Path, help="the Python file to grade")
     parser.add_argument("--reveal-hidden", action="store_true", help="show hidden test details")
     parser.add_argument("--json", action="store_true", help="print the raw GradeResult as JSON")
+    parser.add_argument(
+        "--sandbox",
+        choices=["subprocess", "docker"],
+        default="subprocess",
+        help="where the code runs (docker: safer, ~1 s slower; needs Docker)",
+    )
     args = parser.parse_args()
 
     try:
@@ -76,7 +91,11 @@ def main() -> int:
         code = args.file.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         parser.error(f"cannot read {args.file}: {exc}")
-    result = grade(problem, code, reveal_hidden=args.reveal_hidden)
+    try:
+        sandbox = DockerSandbox() if args.sandbox == "docker" else SubprocessSandbox()
+    except SandboxUnavailableError as exc:
+        parser.error(str(exc))
+    result = grade(problem, code, reveal_hidden=args.reveal_hidden, sandbox=sandbox)
 
     if args.json:
         print(result.model_dump_json(indent=2))

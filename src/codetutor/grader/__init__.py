@@ -9,16 +9,23 @@ from codetutor.grader.models import (
     TestResult,
     TestStatus,
 )
-from codetutor.grader.sandbox import Sandbox, SubprocessSandbox
+from codetutor.grader.sandbox import (
+    DockerSandbox,
+    Sandbox,
+    SandboxUnavailableError,
+    SubprocessSandbox,
+)
 
 __all__ = [
     "GRADER_VERSION",
+    "DockerSandbox",
     "Execution",
     "GradeResult",
     "GradeStatus",
     "GraderError",
     "Limits",
     "Sandbox",
+    "SandboxUnavailableError",
     "SubprocessSandbox",
     "TestResult",
     "TestStatus",

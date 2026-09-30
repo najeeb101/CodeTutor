@@ -106,3 +106,17 @@ that bug would get reward 1.0. The cost: one test can affect the next. We reduce
 every test a fresh deep copy of its input, and the total time limit stops a test that breaks the
 process. For evals the lesson is general: how you isolate test cases changes what your metric
 measures, so write the choice down.
+
+## Security vs speed in sandboxes (Week 1, Step 5)
+The grader has two sandboxes behind one small interface (`Sandbox.run(job)`), so `grade()` never
+changes. The subprocess sandbox is fast (~0.1 s per submission here) but only limits resources:
+code can still read files and use the network. The Docker sandbox adds walls: no network, no host
+files, non-root, no capabilities, a process limit. It costs about 1 s per submission, almost all
+of it container start-up. So you choose by who wrote the code: our own tests and trusted model
+outputs → subprocess; strangers → Docker. At scale you remove the start-up cost with a pool of
+warm containers, and you reduce the shared-kernel risk with gVisor or Firecracker microVMs. Two
+lessons that transfer to eval and RL infrastructure: (1) prove every protection with a hostile
+test (our secret-file test reads the secret on subprocess and gets FileNotFoundError in Docker);
+(2) measure the details: without `--init`, the runner was PID 1 in the container, Linux ignored
+its CPU-limit signal, and the same endless loop was labelled `timeout` in one run and `crashed` in
+the next. Unstable labels would have corrupted the Week 2 failure-type statistics.

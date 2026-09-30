@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -13,14 +15,18 @@ import pytest
 
 from codetutor.grader import (
     GRADER_VERSION,
+    DockerSandbox,
     GraderError,
     GradeResult,
     GradeStatus,
     Limits,
+    Sandbox,
+    SubprocessSandbox,
     TestStatus,
     grade,
     grade_many,
 )
+from codetutor.grader.sandbox import DOCKER_LABEL, DOCKER_PIDS_LIMIT, DOCKER_START_MARGIN_S
 from codetutor.problems import Problem
 from conftest import valid_problem_data
 
@@ -79,30 +85,76 @@ def statuses(result: GradeResult) -> dict[str, TestStatus]:
     return {test.test_id: test.status for test in result.tests}
 
 
+# --- Sandbox backends: the adversarial tests run on both ---
+# The docker ones are opt-in (`make test-docker`): each container start costs ~0.7 s.
+BACKENDS = ["subprocess", pytest.param("docker", marks=pytest.mark.docker)]
+
+
+def _leftover_containers() -> list[str]:
+    """Names of our sandbox containers that still exist (running or stopped)."""
+    ps = subprocess.run(
+        ["docker", "ps", "-a", "--filter", f"label={DOCKER_LABEL}", "--format", "{{.Names}}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return ps.stdout.split()
+
+
+@pytest.fixture(scope="module")
+def docker_sandbox() -> DockerSandbox:
+    return DockerSandbox()  # fails loudly without Docker: you asked for the docker tests
+
+
+@pytest.fixture(params=BACKENDS)
+def sandbox(request: pytest.FixtureRequest) -> Iterator[Sandbox]:
+    if request.param == "subprocess":
+        yield SubprocessSandbox()
+        return
+    yield request.getfixturevalue("docker_sandbox")
+    # Nothing may be left behind: a container that is still running keeps the student's code
+    # alive. (--rm removes stopped containers in the background, so allow a moment.)
+    deadline = time.monotonic() + 5
+    while _leftover_containers() and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert _leftover_containers() == [], "a sandbox container was left behind"
+
+
+def start_margin_s(sandbox: Sandbox) -> float:
+    """Extra time a backend needs before student code starts (Docker: starting the container)."""
+    return DOCKER_START_MARGIN_S if isinstance(sandbox, DockerSandbox) else 0.0
+
+
 # --- The adversarial table (brief section 2.5) ---
 
 
-def test_correct_solution(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("correct"), limits=FAST)
+def test_correct_solution(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("correct"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
     assert result.reward == 1.0
     assert result.passed == result.total == 8
 
 
-def test_off_by_one_gets_partial_credit(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("off_by_one"), limits=FAST)
+def test_off_by_one_gets_partial_credit(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("off_by_one"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.WRONG_ANSWER
     assert 0 < result.reward < 1
 
 
-def test_returns_none(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("returns_none"), limits=FAST)
+def test_returns_none(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("returns_none"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.WRONG_ANSWER
     assert result.reward == 0.0
 
 
-def test_index_error_on_some_tests(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("index_error_some"), limits=FAST, reveal_hidden=True)
+def test_index_error_on_some_tests(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(
+        sum_problem,
+        submission("index_error_some"),
+        limits=FAST,
+        sandbox=sandbox,
+        reveal_hidden=True,
+    )
     # Odd inputs (7, 1, -5, 11) raise; the even ones are still graded and pass.
     assert result.status == GradeStatus.RUNTIME_ERROR  # first failing test (t02) is an error
     assert statuses(result)["t02"] == TestStatus.RUNTIME_ERROR
@@ -111,8 +163,8 @@ def test_index_error_on_some_tests(sum_problem: Problem) -> None:
     assert "IndexError" in result.tests[1].error
 
 
-def test_syntax_error_reports_line(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("syntax_error"), limits=FAST)
+def test_syntax_error_reports_line(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("syntax_error"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.COMPILE_ERROR
     assert result.reward == 0.0
     assert result.tests == []
@@ -120,99 +172,111 @@ def test_syntax_error_reports_line(sum_problem: Problem) -> None:
     assert "line 2" in result.compile_error
 
 
-def test_misspelled_function(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("misspelled"), limits=FAST)
+def test_misspelled_function(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("misspelled"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.COMPILE_ERROR
     assert result.compile_error == "Function 'sum_of_evens' was not defined."
 
 
-def test_top_level_code_raises(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("toplevel_raises"), limits=FAST)
+def test_top_level_code_raises(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("toplevel_raises"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.COMPILE_ERROR
     assert result.compile_error == "RuntimeError: boom at import time"
 
 
-def test_infinite_loop_in_function_times_out_only_that_test(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("infinite_loop_some"), limits=FAST)
+def test_infinite_loop_in_function_times_out_only_that_test(
+    sum_problem: Problem, sandbox: Sandbox
+) -> None:
+    result = grade(sum_problem, submission("infinite_loop_some"), limits=FAST, sandbox=sandbox)
     assert statuses(result)["t06"] == TestStatus.TIMEOUT  # input -5
     assert result.passed == 7  # the other tests still ran
     assert result.status == GradeStatus.TIMEOUT
     assert result.reward == 0.875
 
 
-def test_infinite_loop_at_top_level(sum_problem: Problem) -> None:
+def test_infinite_loop_at_top_level(sum_problem: Problem, sandbox: Sandbox) -> None:
     start = time.perf_counter()
-    result = grade(sum_problem, submission("infinite_loop_toplevel"), limits=SHORT_TOTAL)
+    result = grade(
+        sum_problem, submission("infinite_loop_toplevel"), limits=SHORT_TOTAL, sandbox=sandbox
+    )
     assert result.status == GradeStatus.TIMEOUT
     assert result.reward == 0.0
     assert "Total time limit" in result.error
-    assert time.perf_counter() - start < 5  # the grader doesn't hang
+    assert time.perf_counter() - start < 5 + start_margin_s(sandbox)  # the grader doesn't hang
 
 
-def test_deep_recursion(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("deep_recursion"), limits=FAST, reveal_hidden=True)
+def test_deep_recursion(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(
+        sum_problem, submission("deep_recursion"), limits=FAST, sandbox=sandbox, reveal_hidden=True
+    )
     assert result.status == GradeStatus.RUNTIME_ERROR
     assert "RecursionError" in result.tests[0].error
 
 
 @pytest.mark.parametrize("name", ["memory_bomb", "memory_bomb_growing"])
-def test_memory_bomb(sum_problem: Problem, name: str) -> None:
-    result = grade(sum_problem, submission(name), limits=MEMORY_TEST, reveal_hidden=True)
+def test_memory_bomb(sum_problem: Problem, name: str, sandbox: Sandbox) -> None:
+    result = grade(
+        sum_problem, submission(name), limits=MEMORY_TEST, sandbox=sandbox, reveal_hidden=True
+    )
     # If the memory limit stopped working, the bomb would hit the 2 s timer (timeout) and fail.
     assert result.status in {GradeStatus.RUNTIME_ERROR, GradeStatus.CRASHED}
     if result.status == GradeStatus.RUNTIME_ERROR:
         assert "MemoryError" in result.tests[0].error
 
 
-def test_print_flood_is_truncated(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("print_flood"), limits=FAST)
+def test_print_flood_is_truncated(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("print_flood"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
     assert len(result.stdout) <= FAST.max_output_bytes + 100
     assert result.stdout.endswith("[output truncated]")
 
 
-def test_fake_token_is_ignored(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("fake_token"), limits=FAST)
+def test_fake_token_is_ignored(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("fake_token"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.WRONG_ANSWER
     assert result.reward == 0.0
 
 
-def test_writing_to_real_stdout_is_ignored(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("write_real_stdout"), limits=FAST)
+def test_writing_to_real_stdout_is_ignored(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("write_real_stdout"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
 
 
-def test_sys_exit_in_function(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("sys_exit"), limits=FAST, reveal_hidden=True)
+def test_sys_exit_in_function(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(
+        sum_problem, submission("sys_exit"), limits=FAST, sandbox=sandbox, reveal_hidden=True
+    )
     assert result.status == GradeStatus.RUNTIME_ERROR
     assert "SystemExit" in result.tests[0].error
 
 
-def test_os_exit_in_function(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("os_exit"), limits=FAST)
+def test_os_exit_in_function(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("os_exit"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.CRASHED
     assert result.reward == 0.0
 
 
-def test_mutating_input_does_not_affect_other_tests(evens_problem: Problem) -> None:
-    result = grade(evens_problem, submission("evens_correct"), limits=FAST)
+def test_mutating_input_does_not_affect_other_tests(
+    evens_problem: Problem, sandbox: Sandbox
+) -> None:
+    result = grade(evens_problem, submission("evens_correct"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
 
 
-def test_returning_bool_instead_of_int(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("returns_bool"), limits=FAST)
+def test_returning_bool_instead_of_int(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("returns_bool"), limits=FAST, sandbox=sandbox)
     # n = 1, 0 and -5 expect 0 but get False.
     assert statuses(result)["t04"] == TestStatus.WRONG_ANSWER
     assert result.passed == 5
 
 
-def test_returning_tuple_instead_of_list(evens_problem: Problem) -> None:
-    result = grade(evens_problem, submission("returns_tuple"), limits=FAST)
+def test_returning_tuple_instead_of_list(evens_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(evens_problem, submission("returns_tuple"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
 
 
-def test_returning_set_explains_why(evens_problem: Problem) -> None:
-    result = grade(evens_problem, submission("returns_set"), limits=FAST)
+def test_returning_set_explains_why(evens_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(evens_problem, submission("returns_set"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.WRONG_ANSWER
     assert "return a list instead" in result.tests[0].error
 
@@ -221,9 +285,13 @@ def test_returning_set_explains_why(evens_problem: Problem) -> None:
 # Off by default: test_mutating_input_does_not_affect_other_tests shows the same code accepted.
 
 
-def test_changing_the_input_fails_when_the_problem_checks_it(evens_problem: Problem) -> None:
+def test_changing_the_input_fails_when_the_problem_checks_it(
+    evens_problem: Problem, sandbox: Sandbox
+) -> None:
     checked = evens_problem.model_copy(update={"check_input_unchanged": True})
-    result = grade(checked, submission("evens_correct"), limits=FAST)  # right answers, clears nums
+    result = grade(
+        checked, submission("evens_correct"), limits=FAST, sandbox=sandbox
+    )  # right answers, clears nums
     assert result.status == GradeStatus.WRONG_ANSWER
     assert "changed its input" in result.tests[0].error
     assert statuses(result)["t05"] == TestStatus.PASSED  # input []: clear() changes nothing
@@ -233,28 +301,32 @@ def test_changing_the_input_fails_when_the_problem_checks_it(evens_problem: Prob
     assert "changed its input" in hidden.error
 
 
-def test_input_check_gives_no_false_alarm(evens_problem: Problem) -> None:
+def test_input_check_gives_no_false_alarm(evens_problem: Problem, sandbox: Sandbox) -> None:
     checked = evens_problem.model_copy(update={"check_input_unchanged": True})
-    result = grade(checked, checked.solution_code, limits=FAST)
+    result = grade(checked, checked.solution_code, limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
 
 
-def test_input_check_survives_objects_whose_equality_raises(evens_problem: Problem) -> None:
+def test_input_check_survives_objects_whose_equality_raises(
+    evens_problem: Problem, sandbox: Sandbox
+) -> None:
     checked = evens_problem.model_copy(update={"check_input_unchanged": True})
-    result = grade(checked, submission("input_eq_raises"), limits=FAST)
+    result = grade(checked, submission("input_eq_raises"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.WRONG_ANSWER  # not crashed
     assert "changed its input" in result.tests[0].error
 
 
-def test_big_file_is_stopped(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("big_file"), limits=FAST, reveal_hidden=True)
+def test_big_file_is_stopped(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(
+        sum_problem, submission("big_file"), limits=FAST, sandbox=sandbox, reveal_hidden=True
+    )
     assert result.status in {GradeStatus.RUNTIME_ERROR, GradeStatus.CRASHED}
     if result.status == GradeStatus.RUNTIME_ERROR:
         assert "File too large" in result.tests[0].error
 
 
-def test_sleep_at_top_level(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("sleep_toplevel"), limits=SHORT_TOTAL)
+def test_sleep_at_top_level(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("sleep_toplevel"), limits=SHORT_TOTAL, sandbox=sandbox)
     assert result.status == GradeStatus.TIMEOUT
 
 
@@ -262,17 +334,20 @@ def _process_is_gone(pid: int) -> bool:
     """True if the process no longer exists (or is a zombie waiting to be cleaned up)."""
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+        return "State:\tZ" in Path(f"/proc/{pid}/status").read_text()
+    except (ProcessLookupError, FileNotFoundError):
+        # Gone, possibly between the two checks: a zombie can be cleaned up at any moment, and
+        # reading its /proc file then raises ProcessLookupError (seen once in a full run).
         return True
-    status = Path(f"/proc/{pid}/status")
-    return status.exists() and "State:\tZ" in status.read_text()
 
 
-def test_spawned_process_is_killed(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("spawn_forever"), limits=FAST)
+def test_spawned_process_is_killed(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("spawn_forever"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
     match = re.search(r"CHILD_PID=(\d+)", result.stdout)
     assert match, result.stdout
+    if isinstance(sandbox, DockerSandbox):
+        return  # that PID exists only inside the container; the fixture checks it is gone
     pid = int(match.group(1))
     deadline = time.monotonic() + 2
     while not _process_is_gone(pid) and time.monotonic() < deadline:
@@ -280,10 +355,48 @@ def test_spawned_process_is_killed(sum_problem: Problem) -> None:
     assert _process_is_gone(pid), f"process {pid} is still running"
 
 
-def test_thread_left_running_does_not_cause_timeout(sum_problem: Problem) -> None:
-    result = grade(sum_problem, submission("thread_forever"), limits=FAST)
+def test_thread_left_running_does_not_cause_timeout(sum_problem: Problem, sandbox: Sandbox) -> None:
+    result = grade(sum_problem, submission("thread_forever"), limits=FAST, sandbox=sandbox)
     assert result.status == GradeStatus.ACCEPTED
-    assert result.duration_ms < 3000
+    assert result.duration_ms < 3000 + 1000 * start_margin_s(sandbox)
+
+
+# --- Threat model: what only Docker blocks (docs/grader.md, section 5) ---
+
+
+def test_host_files_are_not_readable(
+    sum_problem: Problem, sandbox: Sandbox, tmp_path: Path, request: pytest.FixtureRequest
+) -> None:
+    if isinstance(sandbox, SubprocessSandbox):
+        # Strict: if this ever passes, the limitation is gone and the docs must change.
+        reason = "known limitation: the subprocess sandbox can read your files"
+        request.applymarker(pytest.mark.xfail(strict=True, reason=reason))
+    secret = tmp_path / "secret.txt"
+    secret.write_text("top secret", encoding="utf-8")
+    code = submission("reads_host_file").replace("__SECRET_PATH__", str(secret))
+    result = grade(sum_problem, code, limits=FAST, sandbox=sandbox)
+    assert result.status == GradeStatus.ACCEPTED
+    assert "STOLEN" not in result.stdout
+    assert "BLOCKED=FileNotFoundError" in result.stdout
+
+
+def test_network_is_blocked(sum_problem: Problem, sandbox: Sandbox) -> None:
+    if isinstance(sandbox, SubprocessSandbox):
+        pytest.skip("known limitation; the test would really connect to the internet")
+    result = grade(sum_problem, submission("network_access"), limits=FAST, sandbox=sandbox)
+    assert result.status == GradeStatus.ACCEPTED
+    assert "CONNECTED" not in result.stdout
+    assert "BLOCKED=" in result.stdout
+
+
+def test_process_limit_stops_fork_bombs(sum_problem: Problem, sandbox: Sandbox) -> None:
+    if isinstance(sandbox, SubprocessSandbox):
+        pytest.skip("no process limit in the subprocess sandbox (decision Q6)")
+    result = grade(sum_problem, submission("many_processes"), limits=FAST, sandbox=sandbox)
+    assert result.status == GradeStatus.ACCEPTED
+    match = re.search(r"STARTED=(\d+)", result.stdout)
+    assert match, result.stdout
+    assert 0 < int(match.group(1)) < DOCKER_PIDS_LIMIT
 
 
 # --- Hidden tests don't leak ---
@@ -319,7 +432,7 @@ def test_result_is_json_serializable(sum_problem: Problem) -> None:
     assert GradeResult.model_validate_json(text) == result
 
 
-def test_grading_is_deterministic(sum_problem: Problem) -> None:
+def test_grading_is_deterministic(sum_problem: Problem, sandbox: Sandbox) -> None:
     def without_durations(result: GradeResult) -> dict[str, Any]:
         data = result.model_dump(exclude={"duration_ms"})
         for test in data["tests"]:
@@ -327,8 +440,8 @@ def test_grading_is_deterministic(sum_problem: Problem) -> None:
         return data
 
     code = submission("index_error_some")
-    first = grade(sum_problem, code, limits=FAST, reveal_hidden=True)
-    second = grade(sum_problem, code, limits=FAST, reveal_hidden=True)
+    first = grade(sum_problem, code, limits=FAST, reveal_hidden=True, sandbox=sandbox)
+    second = grade(sum_problem, code, limits=FAST, reveal_hidden=True, sandbox=sandbox)
     assert without_durations(first) == without_durations(second)
 
 

@@ -9,7 +9,7 @@ Code: `src/codetutor/grader/`
 | File | Runs in | Job |
 |---|---|---|
 | `grader.py` | parent | Public API: `grade()`, `grade_many()`, `execute()`. Builds the job, parses the report, compares, scores. |
-| `sandbox.py` | parent | Starts the child process with limits, feeds it the job, collects its output, kills it. |
+| `sandbox.py` | parent | Starts the child (a process, or a Docker container) with limits, feeds it the job, collects its output, kills it. |
 | `runner.py` | **child** | Loads the student code, calls the function on each input, reports return values. |
 | `compare.py` | parent | Decides whether an actual value matches the expected value. |
 | `models.py` | both sides' data | Limits, results, job and report shapes, constants. |
@@ -61,7 +61,7 @@ Code: `src/codetutor/grader/`
 | `memory_mb` | 512 | `RLIMIT_AS` | usually `MemoryError` → `runtime_error` |
 | `max_file_mb` | 1 | `RLIMIT_FSIZE` | `OSError: File too large` → `runtime_error` |
 | `max_output_bytes` | 64 000 | runner's capped writer | print output is cut, marked `[output truncated]` |
-| CPU time | total + 1 s | `RLIMIT_CPU` | backstop if the wall-clock limit fails |
+| CPU time | total + 1 s | `RLIMIT_CPU` | backstop if the wall-clock limit fails (in Docker usually the limit that fires; section 6) |
 | open files | 64 | `RLIMIT_NOFILE` | |
 | return value | 1 MB of JSON | runner | that test → `wrong_answer` "return value is too large" |
 | child output read by the parent | 32 MB stdout / 64 KB stderr | parent's capped readers | `crashed`: "output limit exceeded" |
@@ -130,7 +130,8 @@ be gamed (hard-code the visible tests, get a few points). Hidden tests limit tha
   not state would be a hidden surprise. The error message contains no input, so hidden tests
   show it too. (Added in grader 0.2.0.)
 - **`Sandbox` is a Protocol.** `grade(..., sandbox=...)` accepts any object with
-  `run(job) -> RawResult`, so a Docker sandbox can replace the subprocess one (Step 5).
+  `run(job) -> RawResult`, so `DockerSandbox` (section 6) replaces the subprocess one without any
+  change to `grade()`.
 - **`grade_many` uses threads**, not processes: each grade spends its time waiting for a child
   process, which doesn't hold the GIL. `ThreadPoolExecutor.map` keeps the input order.
 
@@ -155,16 +156,97 @@ be gamed (hard-code the visible tests, get a few points). Hidden tests limit tha
 - **a determined attacker** in general (e.g. ctypes tricks, reading the token from memory).
 
 **Conclusion:** good enough for Najeeb, friends, and AI-model outputs on this machine.
-**A Docker sandbox (no network, read-only filesystem, non-root, pids limit) is required before
-strangers submit code.**
+**For code from strangers, use the Docker sandbox (section 6).** It closes the first three holes
+above; it is still not a perfect boundary.
 
-## 6. Known limitations
+## 6. Docker sandbox (`DockerSandbox`)
+
+Use it for code you don't trust: `grade(problem, code, sandbox=DockerSandbox())`, or
+`scripts/grade_cli.py <id> <file> --sandbox docker`. It runs the **same runner** inside a
+container, so the grading is the same; only the walls around it change. It needs Docker and the
+image (`docker pull python:3.12-slim`; the code pins the exact digest). The validator and
+`make all` keep using the subprocess sandbox, because it is much faster.
+
+| `docker run` option | Blocks |
+|---|---|
+| `--network none` | sending data out, downloading things |
+| only `runner.py` is mounted (read-only) | reading the host's files (`~/.ssh`, `problems/` with all solutions) |
+| `--read-only` + `--tmpfs /tmp:size=…` | changing the image's files, filling the disk |
+| `--user 65534:65534` ("nobody") | being root inside the container |
+| `--cap-drop ALL`, `--security-opt no-new-privileges` | special kernel permissions, also through setuid programs |
+| `--pids-limit 64` | fork bombs (measured: a bomb stops at 62 processes) |
+| `--memory` = `--memory-swap` = limit + 64 MB | memory bombs, as a backstop behind `RLIMIT_AS` |
+| `--cpus 1` | one submission using all CPU cores |
+| `--init` | PID-1 signal problems (see the design notes) |
+| `--rm`, `--name`, `--label` | leftover containers; lets us `docker kill` it, and tests check that nothing is left |
+
+**What it closes** (see section 5): reading host files, network access, fork bombs, and `setsid()`
+escapes (nothing survives the container). Tests prove it: `make test-docker` runs every hostile
+submission in Docker, plus three that only Docker blocks (`reads_host_file`, `network_access`,
+`many_processes`). The file test also runs on the subprocess sandbox as a strict `xfail`: it
+proves the hole is real there (the secret is read), and it fails loudly if that ever changes.
+
+**Still open:**
+- A container shares the host's **kernel**. A kernel bug can let code out. Big platforms add a
+  stronger wall: gVisor (a kernel in user space) or Firecracker (tiny virtual machines).
+- The Docker daemon runs as root: anyone who can run `docker` is effectively root. The grading
+  worker (Week 3) must never let users talk to Docker directly.
+- The token can still be found in memory. Harmless for the same reason as before (section 4).
+
+**Design notes (each one found by measuring):**
+- **Killing the `docker` client does not stop the container.** On a timeout or an output overflow
+  the sandbox runs `docker kill <name>`. After a normal exit this isn't needed: when the runner
+  exits, everything else in the container dies with it.
+- **Start-up time is not charged to the student.** Starting a container took 0.73 s (median; max
+  1.2 s with 4 in parallel), so the wall-clock limit gets +5 s (`DOCKER_START_MARGIN_S`). CPU-busy
+  code is still stopped on time by the runner's CPU limit (`RLIMIT_CPU`, total + 1 s), which
+  doesn't count start-up; the sandbox reports that SIGXCPU as a timeout. Code that sleeps is
+  stopped by the wall-clock limit.
+- **`--init`.** Without it the runner is PID 1 in the container, and Linux ignores signals that
+  PID 1 has no handler for, like the CPU limit's SIGXCPU. Measured: the same endless loop ended as
+  `timeout` in one run and as `crashed` (SIGKILL) in the next. With `--init`, a tiny init process is
+  PID 1, and the result is the same every time.
+- **Exit codes.** Docker reports "killed by signal N" as exit code 128 + N. The sandbox turns it
+  back into −N, so both backends give the same messages. Only real signal numbers are translated:
+  otherwise a student's `os._exit(160)` would become "signal 32", which doesn't exist.
+- **The image is pinned by digest**, not only by tag, so every run uses exactly the same Python
+  (3.12.14 in the image; the host has 3.12.3).
+- **Docker missing → a clear error.** `DockerSandbox()` checks for the image once and raises
+  `SandboxUnavailableError`, so a stopped daemon never becomes "crashed, reward 0" for a student.
+
+**Cost** (measured with `scripts/bench_sandbox.py` on 2026-10-01: the fizzbuzz reference solution,
+10 tests, 20 runs one at a time, WSL2 + Docker Desktop):
+
+| sandbox | first run | median | p90 | max |
+|---|---|---|---|---|
+| subprocess | 126 ms | 93 ms | 122 ms | 123 ms |
+| Docker | 1376 ms | 1098 ms | 1380 ms | 1576 ms |
+
+Docker adds about **1 s per submission** (about 12× slower), almost all of it container start-up.
+That's fine for a student waiting for a result. It's too slow for the validator (163 gradings
+per run) and for RL training (thousands of gradings). Timings on this machine are noisy: the same
+subprocess grading took 34 ms on 2026-09-30 and 67–93 ms on 2026-10-01 while Docker Desktop was
+running. An A/B test showed the Step 5 refactor did not change it (old and new code: median 67 vs
+68 ms).
+
+**At scale** you would not start a cold container for every submission. You would keep a pool of
+warm containers (or microVMs), give each one a single job, and throw it away afterwards. That keeps
+the isolation and removes most of the start-up cost.
+
+## 7. Known limitations
 - Timeouts depend on machine load: a slow or busy machine can turn a borderline solution into a
   timeout. Grading is deterministic *except* for timeouts under heavy load.
 - The process-group id could in theory be reused between the child exiting and the kill. This is
   extremely unlikely on Linux; noted for completeness.
 - Output limits count characters, not exact bytes.
 - The runner's own internal errors (after it captures output) show up as `crashed` with little detail.
+- **Docker:** code that *sleeps* at the top level runs up to 5 s longer than the total limit (the
+  start-up margin); CPU-busy code is still stopped on time by the CPU limit.
+- **Docker:** if the daemon fails in the middle of a run, the submission shows up as `crashed`.
+  The check in `DockerSandbox()` only catches a daemon that is already down.
+- **Docker tests are opt-in** (`make test-docker`, about 1 minute). `make all` doesn't run them.
+- The subprocess sandbox still reports SIGXCPU as `crashed` (possible only with several busy
+  threads, which use CPU time faster than wall time). Docker reports it as `timeout`.
 - The input check uses `==`, so `[1]` and `[True]` count as equal, and a change that is undone
   before the function returns is not seen. It catches honest mistakes, not attackers: code that
   finds the runner's original copy in memory could change that too.

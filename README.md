@@ -40,10 +40,11 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 
-> **⚠️ Security:** the Week 1 sandbox is a subprocess with resource limits. It is **not secure**:
-> graded code can read your files and use the network. Only grade code you trust. A Docker
-> sandbox comes before strangers can submit code (see the threat model in
-> [docs/grader.md](docs/grader.md#5-threat-model)).
+> **⚠️ Security:** the default sandbox is a subprocess with resource limits. It is **not secure**:
+> graded code can read your files and use the network. For code you don't trust, use the Docker
+> sandbox (`--sandbox docker`, or `DockerSandbox()` in Python): no network, no host files,
+> non-root, a process limit. It is much safer, but not a perfect wall (containers share the
+> host's kernel). See [docs/grader.md](docs/grader.md#5-threat-model), sections 5 and 6.
 
 ## Install and check
 ```bash
@@ -51,7 +52,8 @@ make install    # install dependencies and the package (editable)
 make all        # lint + tests + validate every problem
 make build      # write dist/problems.jsonl and dist/problems_student.jsonl
 ```
-Other targets: `make test`, `make lint`, `make validate`, `make format`.
+Other targets: `make test`, `make lint`, `make validate`, `make format`, and
+`make test-docker` (runs the hostile submissions in the Docker sandbox; needs Docker).
 
 ## Grade a solution
 From the command line. This file checks `% 3` before `% 15`, a classic fizzbuzz bug:
@@ -76,7 +78,8 @@ Reward:  0.6  (6/10 tests passed)
   ❌  t10   hidden   wrong_answer   (hidden test)
 ```
 Every visible test passes; only the hidden tests (multiples of 15) find the bug. Add
-`--reveal-hidden` to see their inputs, or `--json` for the full `GradeResult`.
+`--reveal-hidden` to see their inputs, `--json` for the full `GradeResult`, or `--sandbox docker`
+to run the code in a container.
 
 From Python:
 ```python
@@ -106,7 +109,7 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 ## Project layout
 - `problems/`: the problem bank (one folder per problem)
 - `src/codetutor/problems/`: problem schema and loader
-- `src/codetutor/grader/`: runner (child process), sandbox, comparison, `grade()`
+- `src/codetutor/grader/`: runner (child process), sandboxes (subprocess, Docker), comparison, `grade()`
 - `src/codetutor/bank/`: expected-value filler, validator, dataset builder
 - `scripts/`: command-line wrappers for the above, plus the grading CLI
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
@@ -115,7 +118,7 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 ## Roadmap
 | Week | Deliverable | |
 |---|---|---|
-| 1 | Problem bank + grader + validator | ✅ done |
+| 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | next |
 | 3 | FastAPI + Postgres + job queue + minimal Next.js UI | |
 | 4 | AI tutor that gives hints, not answers | |

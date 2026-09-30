@@ -40,3 +40,7 @@ select = ["E", "F", "I", "B", "UP"]
 testpaths = ["tests"]
 # Safety net: a broken sandbox must never hang the whole test suite.
 timeout = 60
+# Docker sandbox tests are opt-in (`make test-docker`): they need Docker and ~1 s per container.
+# A later `-m` on the command line replaces this one.
+addopts = "-m 'not docker'"
+markers = ["docker: needs a running Docker daemon (run with: make test-docker)"]

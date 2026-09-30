@@ -249,6 +249,7 @@ def grade_many(
     workers: int = 4,
     reveal_hidden: bool = True,
     limits: Limits | None = None,
+    sandbox: Sandbox | None = None,
 ) -> list[GradeResult]:
     """Grade many submissions in parallel. Results are in the same order as `jobs`.
 
@@ -258,7 +259,7 @@ def grade_many(
 
     def grade_one(job: tuple[Problem, str]) -> GradeResult:
         problem, code = job
-        return grade(problem, code, reveal_hidden=reveal_hidden, limits=limits)
+        return grade(problem, code, reveal_hidden=reveal_hidden, limits=limits, sandbox=sandbox)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(grade_one, jobs))
