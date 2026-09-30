@@ -30,6 +30,10 @@ SUBMISSIONS = Path(__file__).parent / "submissions"
 FAST = Limits(per_test_timeout_s=0.5, memory_mb=256)
 # For submissions that hang at the top level, a short explicit total limit.
 SHORT_TOTAL = Limits(per_test_timeout_s=0.5, total_timeout_s=2.0, memory_mb=256)
+# Memory bombs must be stopped by the memory limit, not the timer. Filling 256 MB usually takes
+# ~150 ms, but under load it was measured at up to ~500 ms on WSL2, so a 0.5 s timer sometimes
+# won the race and the test failed (Q12). With 2 s there is a wide margin (max seen: 303 ms).
+MEMORY_TEST = Limits(per_test_timeout_s=2.0, memory_mb=256)
 
 
 def submission(name: str) -> str:
@@ -153,7 +157,8 @@ def test_deep_recursion(sum_problem: Problem) -> None:
 
 @pytest.mark.parametrize("name", ["memory_bomb", "memory_bomb_growing"])
 def test_memory_bomb(sum_problem: Problem, name: str) -> None:
-    result = grade(sum_problem, submission(name), limits=FAST, reveal_hidden=True)
+    result = grade(sum_problem, submission(name), limits=MEMORY_TEST, reveal_hidden=True)
+    # If the memory limit stopped working, the bomb would hit the 2 s timer (timeout) and fail.
     assert result.status in {GradeStatus.RUNTIME_ERROR, GradeStatus.CRASHED}
     if result.status == GradeStatus.RUNTIME_ERROR:
         assert "MemoryError" in result.tests[0].error

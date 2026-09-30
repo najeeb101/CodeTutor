@@ -103,8 +103,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   hidden-only bug. Grader 0.2.0 adds the optional `check_input_unchanged` check (used by 4
   problems). Suite: 179 tests in ~27–29 s; `make all` ~42 s. Three problems have a timeout bug
   (is_prime, two_sum, fibonacci, ~2.2 s each per validate run).
-- **Open from Step 4:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; Q11 (suite time);
-  Q12 (flaky memory test).
+- **Open from Step 4:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; Q11 (suite time).
+  Q12 (flaky memory test) is fixed.
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -119,7 +119,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   before adding the current number.
   Module 8: Q1 what goes wrong in `def flatten(nested, result=[])`; Q2 why naive fibonacci
   passes n = 25 but times out at n = 40; Q3 why counting brackets can't decide "([)]".
-- **Next action:** Najeeb decides Q11 and Q12. Then the rest of the Week 1 definition of done:
+- **Next action:** Najeeb decides Q11. Then the rest of the Week 1 definition of done:
   README update, `docs/notes/week1.md` written with Najeeb, and answering the waiting check
   questions. Step 5 (Docker) only if Najeeb says so. Start in plan mode.
 
@@ -185,10 +185,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-09-30: flatten's `mutable_default_list` is caught only because the runner runs all tests in one process (test 2 sees test 1's numbers). If grading ever moves to one process per test, this bug would pass. Interview note added.
 - 2026-09-30: valid_parentheses keeps "([)]" hidden on purpose: the ordering rule is stated in words, so `counts_only` is a hidden-only bug. Its 3 buggy files are all hidden-only.
 - 2026-09-30: binary_search says "a simple scan also passes (not checked)": at these sizes timing can't tell binary search from a scan (same honesty rule as Q7).
+- 2026-09-30: Q12 resolved (Najeeb: "fix q12"). The growing memory bomb raced the 0.5 s per-test timer: filling 256 MB took median 186 ms but up to 503 ms (4/320 tests ≥ 450 ms, 4 gradings in parallel). The memory-bomb tests now use `MEMORY_TEST` (2 s per test; max seen 303 ms). The assertion is unchanged, so a broken memory limit would still fail the test (timeout). Rejected: accepting `timeout` (hides a broken limit) and a smaller memory limit (too close to Python's startup memory). After the fix: 25/25 runs alone and 2/2 `make all` green.
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
-- Q12: `test_memory_bomb[memory_bomb_growing]` now fails ~1 in 8 runs even alone (measured 2026-09-30): the 0.5 s per-test limit sometimes fires before the 256 MB memory limit. Proposed fix (one line in tests/test_grader.py): give the two memory-bomb tests a longer per-test limit (e.g. 2 s), so the memory limit is always what stops them. The test would still fail if the memory limit stopped working. Needs Najeeb's OK.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
@@ -196,7 +196,6 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The subprocess sandbox is NOT secure: student code can read the user's files and use the network; fork bombs and setsid() escapes are not stopped. Docker is required before strangers submit code (docs/grader.md, threat model).
 - Student code can catch the per-test timeout with a bare `except:` in a loop; only the total limit stops it (was Q4).
 - The result token is in the child's memory and can be found; the real protection is that expected values never enter the child (was Q5).
-- Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load.
+- Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load. This also affects failure *labels*: a memory bomb can end as `timeout` or `runtime_error` depending on load (same reward, different label). Keep it in mind for Week 2 failure-type statistics.
 - The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
 - The input check compares with `==`: `[1]` and `[True]` count as equal, and a change undone before the function returns is not seen. It catches honest mistakes, not attackers.
-- `test_memory_bomb[memory_bomb_growing]` is flaky: it sometimes gives `timeout` instead of a memory error (2 full-run failures by 2026-09-30, and 1 in 8 runs alone). Allocating 256 MB is sometimes slower than its 0.5 s per-test limit on WSL2. See Q12.
