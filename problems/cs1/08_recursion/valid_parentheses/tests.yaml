@@ -1,0 +1,16 @@
+tests:
+  - {id: "t01", input: ["()"], expected: true, hidden: false, compare: "exact", note: "example 1: one pair"}
+  - {id: "t02", input: ["()[]{}"], expected: true, hidden: false, compare: "exact", note: "example 2: three pairs in a row"}
+  - {id: "t03", input: ["(]"], expected: false, hidden: false, compare: "exact", note: "example 3: wrong type"}
+  - {id: "t04", input: ["{[]}"], expected: true, hidden: false, compare: "exact", note: "nested pairs"}
+  - {id: "t05", input: [""], expected: true, hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t06", input: ["([)]"], expected: false, hidden: true, compare: "exact", note: "right counts, wrong order: the brackets cross"}
+  - {id: "t07", input: ["(("], expected: false, hidden: true, compare: "exact", note: "opened but never closed"}
+  - {id: "t08", input: ["["], expected: false, hidden: true, compare: "exact", note: "edge: one opening bracket"}
+  - {id: "t09", input: [")"], expected: false, hidden: true, compare: "exact", note: "edge: a closing bracket first"}
+  - {id: "t10", input: ["())"], expected: false, hidden: true, compare: "exact", note: "one closing bracket too many"}
+  - {id: "t11", input: ["{[()()]}"], expected: true, hidden: true, compare: "exact", note: "deep and wide"}
+  - {id: "t12", input: ["}{"], expected: false, hidden: true, compare: "exact", note: "right counts, closing bracket first"}
+  - {id: "t13", input: ["(((((())))))"], expected: true, hidden: true, compare: "exact", note: "six levels deep"}
+  - {id: "t14", input: ["([]{[]})"], expected: true, hidden: true, compare: "exact", note: "mixed nesting"}
+  - {id: "t15", input: ["([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])([{}])"], expected: true, hidden: true, compare: "exact", note: "long valid string (600 characters)"}

@@ -1,0 +1,31 @@
+id: cs1.recursion.valid_parentheses
+version: 1
+title: Valid Brackets
+module: 8
+module_name: "Recursion & Problem Solving"
+order: 5
+difficulty: hard
+concepts: [strings, lists, edge_cases]
+function_name: valid_parentheses
+description_en: |
+  Write a function `valid_parentheses(s)` that returns True if the brackets in `s` are
+  properly matched, and False otherwise.
+
+  `s` contains only these six characters: ( ) [ ] { }. The brackets are properly matched when:
+  - every opening bracket is closed by a closing bracket of the same type,
+  - brackets are closed in the right order: the bracket opened last must be closed first,
+  - no closing bracket appears without an opening bracket before it.
+
+  - The empty string "" counts as properly matched (True).
+  - Return a bool (True or False).
+
+  Examples:
+    valid_parentheses("()[]{}") -> True
+    valid_parentheses("{[]}")   -> True
+    valid_parentheses("(]")     -> False
+description_ar: null
+hints:
+  - "Counting brackets is not enough: think about the order in which they close. Also test a string that starts with a closing bracket, and one that never closes."
+  - "Use a stack, like a pile of plates: put every opening bracket on top. A closing bracket must match the bracket on top of the pile, which you then remove. At the end the pile must be empty."
+  - "Keep a list called stack. For an opening bracket, append it. For a closing bracket, return False if the stack is empty or stack.pop() is not the matching opener. After the loop, return len(stack) == 0."
+author: claude

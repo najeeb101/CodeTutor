@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: [[1, [2, [3, 4]], 5]], expected: [1, 2, 3, 4, 5], hidden: false, compare: "exact", note: "example 1: two levels deep"}
+  - {id: "t02", input: [[[1, 2], [3], []]], expected: [1, 2, 3], hidden: false, compare: "exact", note: "example 2: an empty inner list"}
+  - {id: "t03", input: [[1, 2, 3]], expected: [1, 2, 3], hidden: false, compare: "exact", note: "already flat"}
+  - {id: "t04", input: [[[[[7]]]]], expected: [7], hidden: false, compare: "exact", note: "one number, deep inside"}
+  - {id: "t05", input: [[]], expected: [], hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[[], [[]], [[], []]]], expected: [], hidden: true, compare: "exact", note: "only empty lists: nothing to keep"}
+  - {id: "t07", input: [[0, [0, [0]]]], expected: [0, 0, 0], hidden: true, compare: "exact", note: "zeros must be kept"}
+  - {id: "t08", input: [[[-1, [-2]], -3]], expected: [-1, -2, -3], hidden: true, compare: "exact", note: "negative numbers"}
+  - {id: "t09", input: [[1, [2], [[3]], [[[4]]]]], expected: [1, 2, 3, 4], hidden: true, compare: "exact", note: "deeper and deeper"}
+  - {id: "t10", input: [[1, [], 2, [[]], 3]], expected: [1, 2, 3], hidden: true, compare: "exact", note: "empty lists between numbers"}
+  - {id: "t11", input: [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], expected: [1], hidden: true, compare: "exact", note: "50 levels deep"}

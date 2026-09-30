@@ -1,0 +1,29 @@
+id: cs1.recursion.flatten
+version: 1
+title: Flatten a Nested List
+module: 8
+module_name: "Recursion & Problem Solving"
+order: 3
+difficulty: medium
+concepts: [recursion, lists, edge_cases]
+function_name: flatten
+description_en: |
+  Write a function `flatten(nested)` that turns a nested list into one flat list.
+
+  Every item of `nested` is either an integer or another list. Those lists can contain
+  integers and lists again, as deep as you like. Return all the integers in one list, in the
+  same order as they appear from left to right.
+
+  - `nested` is a list. Lists inside it can be empty. The tests nest at most 50 levels deep.
+  - The integers can be 0 or negative.
+  - Return a list of integers.
+
+  Examples:
+    flatten([1, [2, [3, 4]], 5]) -> [1, 2, 3, 4, 5]
+    flatten([[1, 2], [3], []])   -> [1, 2, 3]
+description_ar: null
+hints:
+  - "Test lists nested more than one level deep, empty inner lists, and the number 0. Also call your function twice in a row: does the second answer still look right?"
+  - "Each item is either a number (keep it) or a list. A list is a smaller version of the same problem, so the function can call itself on it and add everything it returns."
+  - "Start with an empty result list inside the function. For each item: if isinstance(item, list), extend result with flatten(item); otherwise append item. Return result."
+author: claude

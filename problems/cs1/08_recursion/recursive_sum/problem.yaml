@@ -1,0 +1,31 @@
+id: cs1.recursion.recursive_sum
+version: 1
+title: Recursive Sum
+module: 8
+module_name: "Recursion & Problem Solving"
+order: 1
+difficulty: easy
+concepts: [recursion, lists, edge_cases]
+function_name: recursive_sum
+description_en: |
+  Write a function `recursive_sum(nums)` that returns the sum of all numbers in `nums`,
+  using recursion: the function calls itself on a smaller list.
+
+  - `nums` is a list of integers with at most 500 numbers. It can be empty; the sum of an
+    empty list is 0.
+  - Do not change the list you are given. This is checked: a test fails if `nums` is
+    different after your function returns.
+  - The goal is to practise recursion, so try to solve it without `sum()` and without loops.
+    (This is not checked; the grader only checks your answers.)
+  - Return an integer.
+
+  Examples:
+    recursive_sum([1, 2, 3, 4]) -> 10
+    recursive_sum([5])          -> 5
+description_ar: null
+hints:
+  - "Every recursive function needs a base case: an input so small that you know the answer at once. What is the sum of the empty list?"
+  - "The sum of a list is its first number plus the sum of the rest of the list. The rest is a smaller list, so the function can call itself on it."
+  - "If nums is empty, return 0. Otherwise return nums[0] + recursive_sum(nums[1:]). The slice nums[1:] is a new list, so nums itself is not changed."
+check_input_unchanged: true
+author: claude

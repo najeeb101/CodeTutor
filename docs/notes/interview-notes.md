@@ -96,3 +96,13 @@ rule). Design: the sandboxed child only *reports* "input changed"; the parent *d
 answers. For evals and RL this is the general lesson: the reward must check every property the
 task asks for, or a model learns the shortcut (right output, bad behavior). Limits worth saying out
 loud: it compares with `==`, so it catches honest mistakes, not a determined attacker.
+
+## Test isolation: one process for all tests, or one per test? (Week 1, Step 4)
+Our grader runs all tests of one submission in one child process. Trade-off: it is much faster
+than a fresh process per test, and it behaves like a real program that calls the function many
+times, so state bugs are caught. Example: `def flatten(nested, result=[])` shares one default list
+between calls; test 1 passes, test 2 still contains test 1's numbers. With one process per test,
+that bug would get reward 1.0. The cost: one test can affect the next. We reduce that by giving
+every test a fresh deep copy of its input, and the total time limit stops a test that breaks the
+process. For evals the lesson is general: how you isolate test cases changes what your metric
+measures, so write the choice down.

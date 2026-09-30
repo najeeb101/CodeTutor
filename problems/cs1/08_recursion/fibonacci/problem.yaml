@@ -1,0 +1,29 @@
+id: cs1.recursion.fibonacci
+version: 1
+title: Fibonacci Numbers
+module: 8
+module_name: "Recursion & Problem Solving"
+order: 2
+difficulty: medium
+concepts: [recursion, efficiency, arithmetic]
+function_name: fibonacci
+description_en: |
+  Write a function `fibonacci(n)` that returns the n-th Fibonacci number.
+
+  The Fibonacci numbers start with fib(0) = 0 and fib(1) = 1. Every next number is the sum
+  of the two before it: fib(n) = fib(n - 1) + fib(n - 2). So the sequence is
+  0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, ...
+
+  - `n` is an integer with 0 <= n <= 40.
+  - Your function must be fast: each test has a time limit of 2 seconds, also for n = 40.
+  - Return an integer.
+
+  Examples:
+    fibonacci(10) -> 55
+    fibonacci(1)  -> 1
+description_ar: null
+hints:
+  - "Check fib(0), and time your code for n = 40. The direct recursive version, fib(n - 1) + fib(n - 2), gives the right answers but becomes very slow."
+  - "The direct recursion computes the same values again and again: fib(38) is computed twice, fib(37) three times, and so on. Either remember the answers you already have, or build the sequence from the start."
+  - "Keep two variables, previous = 0 and current = 1. Repeat n times: set previous, current = current, previous + current. Return previous."
+author: claude

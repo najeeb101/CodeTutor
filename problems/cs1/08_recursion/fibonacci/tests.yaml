@@ -1,0 +1,11 @@
+tests:
+  - {id: "t01", input: [10], expected: 55, hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [1], expected: 1, hidden: false, compare: "exact", note: "example 2"}
+  - {id: "t03", input: [2], expected: 1, hidden: false, compare: "exact", note: "the first sum: 0 + 1"}
+  - {id: "t04", input: [7], expected: 13, hidden: false, compare: "exact", note: "small n"}
+  - {id: "t05", input: [0], expected: 0, hidden: true, compare: "exact", note: "edge: fib(0) is 0"}
+  - {id: "t06", input: [3], expected: 2, hidden: true, compare: "exact", note: "small n"}
+  - {id: "t07", input: [15], expected: 610, hidden: true, compare: "exact", note: "medium n"}
+  - {id: "t08", input: [20], expected: 6765, hidden: true, compare: "exact", note: "medium n"}
+  - {id: "t09", input: [25], expected: 75025, hidden: true, compare: "exact", note: "naive recursion still passes here"}
+  - {id: "t10", input: [40], expected: 102334155, hidden: true, compare: "exact", note: "largest n: naive recursion takes more than 10 s"}
