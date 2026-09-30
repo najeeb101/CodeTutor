@@ -92,7 +92,7 @@ def test_float_mismatches(actual: Any, expected: Any) -> None:
     assert not outputs_match(actual, expected, FLOAT)
 
 
-# --- unordered: TODO(najeeb). These fail until _unordered_equal is implemented. ---
+# --- unordered ---
 
 
 @pytest.mark.parametrize(

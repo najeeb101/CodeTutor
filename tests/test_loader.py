@@ -81,7 +81,7 @@ def test_null_expected_counts_as_present(write_problem: ProblemWriter) -> None:
     assert problem.tests[0].has_expected
 
 
-# --- TODO(najeeb): id must match folder. These fail until _check_id_matches_folder is done. ---
+# --- the id must match the folder ---
 
 
 def test_folder_matching_id_loads(write_problem: ProblemWriter) -> None:

@@ -86,7 +86,7 @@ Rules:
 - `float`: numbers are close enough (`math.isclose`, rel_tol 1e-6, abs_tol 1e-9), also inside lists.
   Booleans are not numbers here.
 
-(The comparison code arrives in Step 2.)
+(The comparison code is in `src/codetutor/grader/compare.py`.)
 
 ### YAML pitfalls
 - YAML turns some words into booleans: `yes`, `no`, `on`, `off`, `true`, `false`. If a test needs

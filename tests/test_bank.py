@@ -134,7 +134,7 @@ def test_validator_requires_buggy_solutions() -> None:
     assert any("no buggy solutions" in e for e in report.errors)
 
 
-# --- Dataset build (these fail until TODO(najeeb) content_hash is written) ---
+# --- Dataset build ---
 
 
 def test_content_hash_is_stable_and_ignores_junk_files(write_problem: ProblemWriter) -> None:
