@@ -1,0 +1,13 @@
+tests:
+  - {id: "t01", input: ["leetcode"], expected: 0, hidden: false, compare: "exact", note: "example 1: the first character"}
+  - {id: "t02", input: ["loveleetcode"], expected: 2, hidden: false, compare: "exact", note: "example 2: in the middle"}
+  - {id: "t03", input: ["aabb"], expected: -1, hidden: false, compare: "exact", note: "example 3: none"}
+  - {id: "t04", input: ["swiss"], expected: 1, hidden: false, compare: "exact", note: "repeats before and after"}
+  - {id: "t05", input: [""], expected: -1, hidden: true, compare: "exact", note: "edge: empty string"}
+  - {id: "t06", input: ["z"], expected: 0, hidden: true, compare: "exact", note: "edge: one character"}
+  - {id: "t07", input: ["aab"], expected: 2, hidden: true, compare: "exact", note: "the answer is the last character"}
+  - {id: "t08", input: ["abcabcd"], expected: 6, hidden: true, compare: "exact", note: "only the last character is unique"}
+  - {id: "t09", input: ["Aa"], expected: 0, hidden: true, compare: "exact", note: "upper and lower case are different"}
+  - {id: "t10", input: ["aA"], expected: 0, hidden: true, compare: "exact", note: "upper and lower case are different"}
+  - {id: "t11", input: [" a "], expected: 1, hidden: true, compare: "exact", note: "spaces are characters too"}
+  - {id: "t12", input: ["xxyzzy"], expected: -1, hidden: true, compare: "exact", note: "every character repeats"}

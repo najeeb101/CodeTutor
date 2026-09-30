@@ -1,0 +1,30 @@
+id: cs1.dicts.word_frequency
+version: 1
+title: Word Frequency
+module: 7
+module_name: Dictionaries
+order: 1
+difficulty: medium
+concepts: [dicts, strings, edge_cases]
+function_name: word_frequency
+description_en: |
+  Write a function `word_frequency(text)` that counts how often each word appears in `text`.
+  Return a dict that maps each word to its count.
+
+  - Words are separated by whitespace: spaces, tabs or new lines.
+  - Remove these characters from the start and the end of each word: . , ! ? ; :
+    Characters inside a word stay: "don't" and "2.0" are words.
+  - Make every word lowercase, so "The" and "the" are the same word.
+  - If a "word" is empty after removing the characters (for example "..."), do not count it.
+  - `text` contains only ASCII characters. It can be empty; then return {}.
+  - The order of the keys in your dict does not matter.
+
+  Examples:
+    word_frequency("The cat and the hat.") -> {"the": 2, "cat": 1, "and": 1, "hat": 1}
+    word_frequency("Hello, hello, HELLO!") -> {"hello": 3}
+description_ar: null
+hints:
+  - "Test text with capital letters, text with a lone '...' between words, and text with new lines or tabs."
+  - "Split the text into words, clean each word (strip the punctuation from both ends, make it lowercase), skip empty words, and count the rest in a dict."
+  - "Use text.split() with no argument. For each word, set word = word.strip('.,!?;:').lower(). If word is not empty, set counts[word] = counts.get(word, 0) + 1."
+author: claude

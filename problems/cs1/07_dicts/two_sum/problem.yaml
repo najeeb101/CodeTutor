@@ -1,0 +1,31 @@
+id: cs1.dicts.two_sum
+version: 1
+title: Two Sum
+module: 7
+module_name: Dictionaries
+order: 4
+difficulty: medium
+concepts: [dicts, searching, efficiency]
+function_name: two_sum
+description_en: |
+  Write a function `two_sum(nums, target)` that finds two different positions in `nums`
+  whose numbers add up to `target`. Return them as [i, j] with i < j.
+
+  - `nums` is a list of integers (they can be negative or repeated). It has at least 2 and
+    at most 20000 numbers. `target` is an integer.
+  - There is always exactly one answer.
+  - You may not use the same position twice, but two different positions may hold the same
+    number: two_sum([3, 3], 6) -> [0, 1].
+  - Your function must be fast: each test has a time limit of 2 seconds. Checking every pair
+    of positions is too slow for the biggest list.
+  - Return a list of two integers.
+
+  Examples:
+    two_sum([3, 2, 4], 6)       -> [1, 2]     # 2 + 4 = 6
+    two_sum([8, 2, 7, 1, 4], 3) -> [1, 3]     # 2 + 1 = 3
+description_ar: null
+hints:
+  - "Test a list where the answer uses position 0, a list with the same number twice, and think about a list with 20000 numbers: how many pairs would you check?"
+  - "Walk through the list once. For each number, the partner you need is target minus that number. A dict of the numbers you have already seen (number -> position) answers 'have I seen my partner?' at once."
+  - "Keep a dict seen. For each index j and number x, set need = target - x. If need is in seen, return [seen[need], j]. Otherwise set seen[x] = j. Check before you add, so a number can't pair with itself."
+author: claude

@@ -1,0 +1,12 @@
+tests:
+  - {id: "t01", input: [["eat", "tea", "tan", "ate", "nat", "bat"]], expected: [["ate", "eat", "tea"], ["bat"], ["nat", "tan"]], hidden: false, compare: "exact", note: "example 1"}
+  - {id: "t02", input: [["abc"]], expected: [["abc"]], hidden: false, compare: "exact", note: "example 2: one word"}
+  - {id: "t03", input: [["listen", "silent", "enlist", "google"]], expected: [["enlist", "listen", "silent"], ["google"]], hidden: false, compare: "exact", note: "one big group and one alone"}
+  - {id: "t04", input: [["dog", "god", "cat"]], expected: [["cat"], ["dog", "god"]], hidden: false, compare: "exact", note: "groups must be sorted by their first word"}
+  - {id: "t05", input: [[]], expected: [], hidden: true, compare: "exact", note: "edge: empty list"}
+  - {id: "t06", input: [[""]], expected: [[""]], hidden: true, compare: "exact", note: "edge: the empty word"}
+  - {id: "t07", input: [["a", "a"]], expected: [["a", "a"]], hidden: true, compare: "exact", note: "a repeated word keeps both copies"}
+  - {id: "t08", input: [["aab", "abb", "bab", "aba"]], expected: [["aab", "aba"], ["abb", "bab"]], hidden: true, compare: "exact", note: "same letters, different counts"}
+  - {id: "t09", input: [["ab", "ba", "abc", "cba", "bca", "x"]], expected: [["ab", "ba"], ["abc", "bca", "cba"], ["x"]], hidden: true, compare: "exact", note: "three groups of different sizes"}
+  - {id: "t10", input: [["zzz", "z", "zz"]], expected: [["z"], ["zz"], ["zzz"]], hidden: true, compare: "exact", note: "one letter, different counts"}
+  - {id: "t11", input: [["stop", "pots", "tops", "opts", "post", "spot"]], expected: [["opts", "post", "pots", "spot", "stop", "tops"]], hidden: true, compare: "exact", note: "all six are anagrams"}

@@ -1,0 +1,32 @@
+id: cs1.dicts.group_anagrams
+version: 1
+title: Group Anagrams
+module: 7
+module_name: Dictionaries
+order: 3
+difficulty: medium
+concepts: [dicts, sorting, lists]
+function_name: group_anagrams
+description_en: |
+  Write a function `group_anagrams(words)` that puts words that are anagrams of each other
+  into the same group.
+
+  Two words are anagrams if they use the same letters, each letter the same number of times:
+  "eat", "tea" and "ate" are anagrams. "aab" and "abb" are not.
+
+  - `words` is a list of words made of lowercase letters a-z. A word can be the empty string,
+    and the same word can appear more than once (keep every copy).
+  - Sort the words inside each group alphabetically.
+  - Sort the groups by their first word.
+  - Return a list of groups (a list of lists of strings). For an empty list, return [].
+
+  Examples:
+    group_anagrams(["eat", "tea", "tan", "ate", "nat", "bat"])
+      -> [["ate", "eat", "tea"], ["bat"], ["nat", "tan"]]
+    group_anagrams(["abc"]) -> [["abc"]]
+description_ar: null
+hints:
+  - "Check words with the same letters but different counts (like 'aab' and 'abb'), repeated words, and the empty list."
+  - "All anagrams look the same once you sort their letters: 'eat', 'tea' and 'ate' all become 'aet'. Use that sorted form as a dict key, and collect the words for each key in a list."
+  - "For each word, set key = ''.join(sorted(word)) and append the word to groups[key]. Then sort every group, put the groups in a list, and sort that list."
+author: claude

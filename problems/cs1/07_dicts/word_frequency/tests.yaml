@@ -1,0 +1,13 @@
+tests:
+  - {id: "t01", input: ["The cat and the hat."], expected: {"the": 2, "cat": 1, "and": 1, "hat": 1}, hidden: false, compare: "exact", note: "example 1: case and a full stop"}
+  - {id: "t02", input: ["Hello, hello, HELLO!"], expected: {"hello": 3}, hidden: false, compare: "exact", note: "example 2: one word three times"}
+  - {id: "t03", input: ["one two three"], expected: {"one": 1, "two": 1, "three": 1}, hidden: false, compare: "exact", note: "no punctuation"}
+  - {id: "t04", input: ["Is it? It is!"], expected: {"is": 2, "it": 2}, hidden: false, compare: "exact", note: "question and exclamation marks"}
+  - {id: "t05", input: [""], expected: {}, hidden: true, compare: "exact", note: "edge: empty text"}
+  - {id: "t06", input: ["   "], expected: {}, hidden: true, compare: "exact", note: "edge: only spaces"}
+  - {id: "t07", input: ["wait ... what?!"], expected: {"wait": 1, "what": 1}, hidden: true, compare: "exact", note: "a lone ... is not a word"}
+  - {id: "t08", input: ["Hi\nhi\tHI"], expected: {"hi": 3}, hidden: true, compare: "exact", note: "new line and tab separate words"}
+  - {id: "t09", input: ["don't stop; don't!"], expected: {"don't": 2, "stop": 1}, hidden: true, compare: "exact", note: "an apostrophe stays inside the word"}
+  - {id: "t10", input: ["a  b   a"], expected: {"a": 2, "b": 1}, hidden: true, compare: "exact", note: "several spaces between words"}
+  - {id: "t11", input: ["version 2.0 is out."], expected: {"version": 1, "2.0": 1, "is": 1, "out": 1}, hidden: true, compare: "exact", note: "a dot inside a word stays"}
+  - {id: "t12", input: ["Yes! yes. YES? no"], expected: {"yes": 3, "no": 1}, hidden: true, compare: "exact", note: "different punctuation, same word"}

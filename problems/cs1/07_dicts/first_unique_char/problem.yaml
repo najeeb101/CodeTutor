@@ -1,0 +1,29 @@
+id: cs1.dicts.first_unique_char
+version: 1
+title: First Unique Character
+module: 7
+module_name: Dictionaries
+order: 2
+difficulty: medium
+concepts: [dicts, strings, searching]
+function_name: first_unique_char
+description_en: |
+  Write a function `first_unique_char(s)` that returns the index of the first character in
+  `s` that appears exactly once in the whole string. If there is no such character, return -1.
+
+  - Indexes start at 0.
+  - Characters are compared exactly: "a" and "A" are different characters, and a space is a
+    character too.
+  - `s` contains only ASCII characters. It can be empty; then return -1.
+  - Return an integer.
+
+  Examples:
+    first_unique_char("leetcode")     -> 0     # "l" appears once
+    first_unique_char("loveleetcode") -> 2     # "v" is the first one that appears once
+    first_unique_char("aabb")         -> -1
+description_ar: null
+hints:
+  - "A character can repeat before it or after it. Test strings where the answer is the last character, and strings with both upper and lower case letters."
+  - "Go through the string twice. First count how many times each character appears (a dict is perfect for this). Then find the first position whose character has a count of 1."
+  - "Build counts with counts[char] = counts.get(char, 0) + 1. Then loop with enumerate(s) and return the index where counts[char] == 1. After the loop, return -1."
+author: claude
