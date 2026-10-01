@@ -87,7 +87,7 @@ Whole submission:
 | `accepted` | every test passed | 1.0 | all |
 | `wrong_answer` / `runtime_error` / `timeout` | the status of the **first failing test in test order** | passed / total | all |
 | `compile_error` | loading failed (syntax error, top-level exception, function missing) | 0.0 | empty |
-| `timeout` (total) | the whole run went over the total limit | 0.0 | empty |
+| `timeout` (total) | the whole run went over the total limit, or the CPU limit (SIGXCPU) killed it | 0.0 | empty |
 | `crashed` | no valid report (e.g. `os._exit`, killed by a signal, output flood) | 0.0 | empty |
 
 Bad return types are `wrong_answer` with an explanation, e.g. "returned a set; return a list instead".
@@ -117,6 +117,10 @@ be gamed (hard-code the visible tests, get a few points). Hidden tests limit tha
   ignores `PYTHONHASHSEED`, so the order of a set of strings changes between runs, and grading
   would not be deterministic. `-S` also keeps the venv's packages (pydantic etc.) out of reach.
   Side effect: `exit()` doesn't exist without `site` (use `sys.exit()`).
+- **A kill by the CPU limit is a `timeout`** (grader 0.2.1), in both sandboxes. It can come before
+  the wall-clock limit: threads in C code that releases the GIL (e.g. `hashlib`) use CPU time
+  faster than wall time, and in Docker the wall-clock limit has a start-up margin. Before 0.2.1
+  the same hang could be labelled `crashed` or `timeout` depending on which limit won.
 - **Always kill the process group**, even after a normal exit. This removes processes the student
   started. The runner ends with `os._exit(0)`, so threads the student started can't keep it alive.
 - **Output is captured per test.** With `reveal_hidden=False`, the output printed during hidden
@@ -244,9 +248,10 @@ the isolation and removes most of the start-up cost.
   start-up margin); CPU-busy code is still stopped on time by the CPU limit.
 - **Docker:** if the daemon fails in the middle of a run, the submission shows up as `crashed`.
   The check in `DockerSandbox()` only catches a daemon that is already down.
+- When the CPU limit fires first, the message still says "Total time limit exceeded (N s)",
+  though less wall time may have passed: the CPU limit is total + 1 s of CPU time, and threads in
+  C code can use it up faster than wall time.
 - **Docker tests are opt-in** (`make test-docker`, about 1 minute). `make all` doesn't run them.
-- The subprocess sandbox still reports SIGXCPU as `crashed` (possible only with several busy
-  threads, which use CPU time faster than wall time). Docker reports it as `timeout`.
 - The input check uses `==`, so `[1]` and `[True]` count as equal, and a change that is undone
   before the function returns is not seen. It catches honest mistakes, not attackers: code that
   finds the runner's original copy in memory could change that too.

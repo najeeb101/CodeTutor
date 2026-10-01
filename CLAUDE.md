@@ -112,8 +112,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   **Step 5 (optional) done:** `DockerSandbox` behind the `Sandbox` protocol, `make test-docker`
   (32 tests, 3/3 runs green, 53–66 s), `scripts/bench_sandbox.py` (Docker adds ~1 s per
   submission, ~12×). Default suite: 179 passed, 2 skipped, 1 xfailed, 32 deselected.
-- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text; Q11
-  (suite time, recommendation A: leave it); Q13 (SIGXCPU label in the subprocess sandbox).
+- **Done (2026-10-01): Week 2 Step 0 (Q13).** A CPU-limit kill (SIGXCPU) is `timeout` in both
+  sandboxes; grader 0.2.1. Default suite: 187 passed, 2 skipped, 1 xfailed, 32 deselected
+  (~25 s); `make test-docker` 32 passed (46–89 s).
+- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
+  numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
+  recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -134,11 +138,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   decision needs a cost; Q2 why the 60-second section has no facts. Stale comments: Q1 why a stale
   comment is worse than none; Q2 why the Makefile fallback was left. Step 5: Q1 why `docker kill`
   and not only killing the client; Q2 why `--init`; Q3 what a strict xfail does if it passes.
-  (30 in total.)
-- **Next action:** Najeeb writes `docs/notes/week1.md`, then says "review". After that, Week 2
-  (eval harness) starts in plan mode; it needs decisions on LLM providers, API keys and the
-  LiteLLM dependency (ask first). Najeeb: log out/in of WSL (or `wsl --shutdown`) so your
-  terminals get the docker group.
+  Week 2 Step 0: Q1 why `cpu_threads.py` uses hashlib; Q2 why bump the grader version when no
+  reward changed; Q3 why not raise the memory-bomb timer to 10 s. (33 in total.)
+- **Next action:** Week 2 Step 1 (offline core: `src/codetutor/evals/` prompt, extract, passk,
+  records, fake models; already planned and approved, no new plan mode). Step 2 (model clients)
+  gets its own plan and needs the LiteLLM question. Najeeb, before Step 2: Gemini key (project
+  without billing) in `.env` as `GEMINI_API_KEY`; Ollama running on Windows; `wsl --shutdown`
+  so terminals get the docker group. `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -207,16 +213,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: Step 5 started on Najeeb's "start with the next step". `DockerSandbox` lives in `sandbox.py`, behind the same `Sandbox` protocol; both backends share one helper (`_run_captured`) for pipes, timeouts and kills. `grade()` is unchanged; `grade_many()` and `grade_cli.py` gained an optional `sandbox`.
 - 2026-10-01: Docker is called through the `docker` CLI with `subprocess`, not the Docker SDK (no new Python dependency). Image `python:3.12-slim` pinned by digest (sha256:f77ac9e4…), so every run grades with the same Python (3.12.14; host 3.12.3).
 - 2026-10-01: Measured container start-up: median 0.73 s, max 1.2 s with 4 in parallel. The wall-clock limit gets +5 s (`DOCKER_START_MARGIN_S`) so students never pay for start-up.
-- 2026-10-01: `--init` is required. Measured without it: the runner is PID 1, Linux ignores its SIGXCPU (no handler), and the same endless loop ended as `timeout` in one run and `crashed` (SIGKILL) in the next. With `--init`, CPU-busy code is stopped by `RLIMIT_CPU` (~4.3 s for a 2 s total) and `DockerSandbox` reports SIGXCPU as a timeout. The subprocess sandbox is unchanged (SIGXCPU there is still `crashed`, only possible with several busy threads).
+- 2026-10-01: `--init` is required. Measured without it: the runner is PID 1, Linux ignores its SIGXCPU (no handler), and the same endless loop ended as `timeout` in one run and `crashed` (SIGKILL) in the next. With `--init`, CPU-busy code is stopped by `RLIMIT_CPU` (~4.3 s for a 2 s total) and `DockerSandbox` reports SIGXCPU as a timeout. (Q13, same day: now in both sandboxes, grader 0.2.1.)
 - 2026-10-01: Docker exit codes 128+N are translated to -N (same messages as subprocess), only for real signal numbers: `signal.Signals(32)` raises ValueError, so a student's `os._exit(160)` would otherwise crash the grader.
 - 2026-10-01: `SandboxUnavailableError` (in sandbox.py, not `GraderError`, which would be a circular import). `DockerSandbox()` checks the image once, so a stopped daemon is a clear error, never "crashed, reward 0".
 - 2026-10-01: Docker tests are opt-in: marker `docker`, `addopts = "-m 'not docker'"`, `make test-docker` (32 tests, ~55–61 s; about 1.9 s per test with start-up, kill and the leftover check). `make all` stays Docker-free and < 60 s.
 - 2026-10-01: Three threat-model submissions prove what only Docker blocks: `reads_host_file` (subprocess: strict xfail, "STOLEN=top secret"; Docker: FileNotFoundError), `network_access` (Docker: OSError; skipped on subprocess so the suite never really connects), `many_processes` (Docker: stops at 62 of 200; skipped on subprocess, decision Q6). After every docker test a fixture checks that no labelled container is left.
 - 2026-10-01: Fixed a pre-existing race in the test helper `_process_is_gone`: a zombie can be reaped between `exists()` and `read_text()` of `/proc/<pid>/status` (ProcessLookupError; seen once in ~18 full runs). A second failure in that same run could not be identified.
+- 2026-10-01: Week 2 decisions (Najeeb): models = local Qwen (Qwen2.5-Coder ~1.5B via Ollama on the RTX 4060; same family as the Week 6–7 RL model, so it is the "before" number) + Gemini Flash free tier; budget $0; Q13 first. Eval code goes in `src/codetutor/evals/` (tested), run configs/results/reports in `lab/evals/`.
+- 2026-10-01: Q13 resolved (Najeeb: yes). A kill by the CPU limit (SIGXCPU) is `timeout` in both sandboxes (one helper, `_cpu_limit_as_timeout`); GRADER_VERSION 0.2.1. Test first: `cpu_threads.py` (4 hashlib threads; hashlib releases the GIL, so CPU time grows faster than wall time) was `crashed` on 0.2.0, `timeout` now. Correction: plain Python threads can't trigger it (GIL); only C code that releases the GIL, or Docker's start-up margin.
+
+- 2026-10-01: One unexplained failure in ~25 full runs since the Q12 fix: a `sum_of_evens` grading ended `timeout` with passed 0, first test timed out, last test 246 ms, total 4.9 s, in `make all` (the test name was lost because the output was filtered with grep; full output is now saved). Measured per-test times: growing memory bomb median 104 ms, max 261 ms; big_file 44 / 92 ms; deep_recursion and sys_exit ~0 ms. Only the growing memory bomb (2 s timer) fits a 4.9 s total, so it is most likely that test with one very slow first allocation (WSL2 VM, 7.8 GB). 200 targeted reruns, 40 timed gradings, and 2 `make all` + 1 `make test-docker` afterwards: all green. Recorded as Q14, not fixed.
 
 ## Open questions
-- Q13: should the subprocess sandbox also report SIGXCPU as `timeout` (as Docker now does)? Today it says `crashed`; it only happens with several busy threads. Reward is 0 either way; changing the label would bump GRADER_VERSION to 0.2.1. Recommendation: yes, before Week 2 failure-type statistics.
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
+- Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.

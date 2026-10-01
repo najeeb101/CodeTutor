@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 # Bump whenever grading logic changes, so saved results say which grader produced them.
 # 0.2.0: optional check that the function does not change its input (check_input_unchanged).
-GRADER_VERSION = "0.2.0"
+# 0.2.1: a kill by the CPU limit (SIGXCPU) is `timeout`, not `crashed`, in both sandboxes.
+GRADER_VERSION = "0.2.1"
 
 # Extra time allowed for starting Python and loading the submission (used for the automatic total).
 STARTUP_MARGIN_S = 3.0

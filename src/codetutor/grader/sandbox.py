@@ -184,6 +184,18 @@ def _run_captured(
     )
 
 
+def _cpu_limit_as_timeout(raw: RawResult) -> RawResult:
+    """Report a kill by the runner's CPU limit (SIGXCPU) as a timeout: it is a time limit too.
+
+    It fires before our wall-clock limit when code uses CPU time faster than wall time (threads in
+    C code that releases the GIL, e.g. hashlib), and in Docker, whose wall-clock limit has an
+    extra start-up margin. Without this, the same hang would be `crashed` or `timeout` by luck.
+    """
+    if raw.returncode == -signal.SIGXCPU and not raw.timed_out:
+        return raw.model_copy(update={"timed_out": True})
+    return raw
+
+
 class SubprocessSandbox:
     """Runs the runner in a child process with resource limits (POSIX only). NOT secure."""
 
@@ -191,7 +203,8 @@ class SubprocessSandbox:
         """Run the job in a fresh child process and return what happened."""
         with tempfile.TemporaryDirectory(prefix="codetutor-", ignore_cleanup_errors=True) as work:
             argv = [sys.executable, *PYTHON_FLAGS, str(RUNNER_PATH)]
-            return _run_captured(argv, job, job.total_timeout_s, cwd=work, env=CHILD_ENV)
+            raw = _run_captured(argv, job, job.total_timeout_s, cwd=work, env=CHILD_ENV)
+        return _cpu_limit_as_timeout(raw)
 
 
 def _docker_kill(name: str) -> None:
@@ -281,9 +294,7 @@ class DockerSandbox:
             job.total_timeout_s + DOCKER_START_MARGIN_S,
             stop_extra=lambda: _docker_kill(name),
         )
-        returncode = _signal_returncode(raw.returncode)
         # Our wall-clock timer has the start-up margin, so code that keeps the CPU busy usually
-        # hits the runner's CPU limit first (SIGXCPU). That limit is a total time limit too, and
-        # it doesn't count container start-up, so report it as a timeout.
-        timed_out = raw.timed_out or returncode == -signal.SIGXCPU
-        return raw.model_copy(update={"returncode": returncode, "timed_out": timed_out})
+        # hits the runner's CPU limit first. That limit doesn't count container start-up.
+        raw = raw.model_copy(update={"returncode": _signal_returncode(raw.returncode)})
+        return _cpu_limit_as_timeout(raw)

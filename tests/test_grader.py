@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import time
 from collections.abc import Iterator
@@ -26,7 +27,14 @@ from codetutor.grader import (
     grade,
     grade_many,
 )
-from codetutor.grader.sandbox import DOCKER_LABEL, DOCKER_PIDS_LIMIT, DOCKER_START_MARGIN_S
+from codetutor.grader.models import RawResult
+from codetutor.grader.sandbox import (
+    DOCKER_LABEL,
+    DOCKER_PIDS_LIMIT,
+    DOCKER_START_MARGIN_S,
+    _cpu_limit_as_timeout,
+    _signal_returncode,
+)
 from codetutor.problems import Problem
 from conftest import valid_problem_data
 
@@ -203,6 +211,48 @@ def test_infinite_loop_at_top_level(sum_problem: Problem, sandbox: Sandbox) -> N
     assert result.reward == 0.0
     assert "Total time limit" in result.error
     assert time.perf_counter() - start < 5 + start_margin_s(sandbox)  # the grader doesn't hang
+
+
+def test_cpu_limit_counts_as_timeout(sum_problem: Problem) -> None:
+    # Threads in C code (hashlib) use CPU time faster than wall time, so the runner's CPU limit
+    # usually fires first (measured: 4/4 at ~2.4 s, wall limit 7 s). Either way it is a time
+    # limit: timeout, not crashed (Q13). Subprocess only: in Docker, --cpus 1 stops threads from
+    # beating wall time; Docker's CPU-limit path is test_infinite_loop_at_top_level[docker].
+    result = grade(sum_problem, submission("cpu_threads"), limits=FAST)
+    assert result.status == GradeStatus.TIMEOUT
+    assert result.reward == 0.0
+
+
+def _raw(returncode: int | None, timed_out: bool = False) -> RawResult:
+    return RawResult(
+        returncode=returncode,
+        stdout="",
+        stderr="",
+        timed_out=timed_out,
+        output_overflow=False,
+        duration_ms=1.0,
+    )
+
+
+def test_cpu_limit_kill_is_reported_as_timeout() -> None:
+    assert _cpu_limit_as_timeout(_raw(-signal.SIGXCPU)).timed_out
+    assert not _cpu_limit_as_timeout(_raw(-signal.SIGKILL)).timed_out  # e.g. docker kill, OOM
+    assert not _cpu_limit_as_timeout(_raw(0)).timed_out
+
+
+@pytest.mark.parametrize(
+    ("docker_code", "expected"),
+    [
+        (137, -signal.SIGKILL),  # 128 + 9
+        (152, -signal.SIGXCPU),  # 128 + 24
+        (160, 160),  # 128 + 32: not a real signal, stays unchanged
+        (1, 1),
+        (0, 0),
+        (None, None),
+    ],
+)
+def test_docker_exit_codes_become_signals(docker_code: int | None, expected: int | None) -> None:
+    assert _signal_returncode(docker_code) == expected
 
 
 def test_deep_recursion(sum_problem: Problem, sandbox: Sandbox) -> None:
