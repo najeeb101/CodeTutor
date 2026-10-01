@@ -96,7 +96,7 @@ class RunMeta(BaseModel):
     problem_versions: dict[str, int]
     model_details: dict[str, JsonValue]  # e.g. Ollama's digest and precision; {} if unknown
     git_commit: str | None
-    git_dirty: bool | None  # True: the code had uncommitted changes when the run started
+    git_dirty: bool | None  # True: committed files had uncommitted changes at the start
     started_at: datetime
 
 
@@ -163,7 +163,8 @@ def _git_state() -> tuple[str | None, bool | None]:
             ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
         ).stdout.strip()
         status = subprocess.run(
-            ["git", "status", "--porcelain"],
+            # Untracked files (e.g. another run's new results file) are not code changes.
+            ["git", "status", "--porcelain", "--untracked-files=no"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
