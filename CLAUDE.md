@@ -56,12 +56,12 @@ every line in an interview.
 - `src/codetutor/problems/`: schema (pydantic) + loader
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
-- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`
+- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
-  `scratch/` (gitignored)
+  `reports/` (generated `week2.md`), `scratch/` (gitignored)
 - `api/`, `web/`, `tutor/`: placeholders for later weeks
 - `dist/`: generated output (gitignored)
 
@@ -141,6 +141,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   letter_grade 3/10, max_of_three 4/10. Reproducibility check: 4/4 re-run seeded answers
   byte-identical with the same grades. **Gemini (n = 1) still to run**: quota resets 10:00 Qatar
   time; 20 answers on day 1, 13 on day 2.
+- **Done (2026-10-01): Week 2 Step 4** (`evals/metrics.py`, `evals/report.py`,
+  `scripts/eval_report.py`, 17 tests): `lab/evals/reports/week2.md` (deterministic). Qwen:
+  pass@1 0.867 [0.779, 0.942], pass@5 0.983, pass@10 1.000, mean reward 0.953, 15 of 44 wrong
+  answers hidden-only; Conditions 0.62 and Dictionaries 0.58 weakest.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -174,7 +178,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - **Next action:** after 10:00 Qatar time, run
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`
   (stops at the quota with exit 2; run it again the next day to finish), then commit its results.
-  Step 4 (metrics + Markdown report) starts in plan mode and can use the Qwen data meanwhile.
+  Then regenerate the report (`scripts/eval_report.py`) and commit. Najeeb decides the
+  comparison model: local `qwen2.5-coder:7b` (recommended: free, unlimited, same family →
+  size comparison and a GRPO goal), 14b, and/or Gemini n = 1. Then Step 5 (week2.md, README).
   `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
@@ -275,6 +281,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: Run harness design (`evals/run.py`): one config = one append-only results file + meta (config, prompt/grader/problem versions, git commit + dirty flag, Ollama digest/precision); resume skips saved (problem, sample) pairs; a resume with different settings raises `RunMismatchError`. Model calls are sequential in a fixed order (keeps Ollama seeds repeatable; parallel requests may be batched), grading runs in a 2-worker background pool, each record is appended under a lock as soon as it is graded. Quota → stop (exit 2); config/unavailable errors → stop and raise; other ModelErrors → skipped, not graded, 5 in a row stop. `EvalRecord` gained `run_id`, `seed`, `max_tokens` (defaults keep one-off checks working); `score_reply` gained `reveal_hidden` (the harness uses True, per the brief). Overrides in `run_eval.py` always write to scratch, so official files only come from unchanged configs.
 
 - 2026-10-01: Gemini's real free limit on Najeeb's key is **20 requests/day** for gemini-2.5-flash (not 100–250): the first official run (n = 5) stopped cleanly on the daily quota after 17 answers (+ 3 test calls earlier that day = 20; Google's 429 says "limit: 20"). Najeeb chose **n = 1** for Gemini (33 calls, 2 days; pass@1 only, enough for a strong reference). The partial n = 5 run (17 answers, all accepted) moved to `lab/evals/scratch/`. The daily quota resets at midnight Pacific = 10:00 Qatar time (UTC+3, while the US is on daylight time).
+
+- 2026-10-01: Week 2 Step 4 report design: pure metric functions (`metrics.py`) + Markdown rendering (`report.py`), no new dependency. Every problem counts equally (per-problem numbers first, then the mean). pass@k is "–" when a problem has fewer than k answers. 95% interval = bootstrap over problems (2000 resamples, seed 0; ignores within-problem noise, stated in the report). "Hidden-only failure" = a wrong answer that passes every visible test. The hardest-problems table shows the most failed test with its tests.yaml note. Output is byte-identical for the same inputs (checked with `cmp`). Answers for problems no longer in the bank, or graded on an older problem version, are warned about, never silently mixed. The interpretation is left to Najeeb's week2.md.
+- 2026-10-01: Najeeb asked for a more reliable alternative to the Gemini key (20 requests/day). Recommendation given: a larger local model in the same family, `qwen2.5-coder:7b` (4-bit, ~4.7 GB, fits the 8 GB GPU; laptop has 16 GB RAM, i9-13900H): free, unlimited, seedable, and it gives a 1.5B-vs-7B size comparison plus a goal for GRPO. Other free APIs (Groq, Cerebras, GitHub Models, OpenRouter) work with the same client but have changing free limits. Waiting for his choice.
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.

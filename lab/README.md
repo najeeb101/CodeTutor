@@ -8,6 +8,7 @@ training later.
 - `results/`: committed results of official runs. `<run_id>.jsonl` has one graded answer per
   line (`EvalRecord`); `<run_id>.meta.json` says what produced them (versions, git commit,
   model digest).
+- `reports/`: the generated report (`week2.md`), made by `scripts/eval_report.py`.
 - `scratch/`: test and smoke runs (gitignored).
 
 Run: `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/<name>.yaml`.

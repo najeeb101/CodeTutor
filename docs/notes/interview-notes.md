@@ -170,3 +170,21 @@ a failed API call is retried or skipped, never graded as "wrong".
 *How I'd say it:* "Every number in my report traces back to one results file and one meta file:
 the exact weights, prompt, grader and commit. Runs are resumable and append-only, and I checked
 that re-running a seeded sample reproduces the same answer byte for byte."
+
+## Reading eval results (Week 2, Step 4)
+One number hides a lot, so read four things together. (1) **pass@1 vs pass@k**: Qwen 1.5B has
+pass@1 0.867 but pass@10 1.000, so it *can* solve every problem, just not reliably. That gap is
+what RL training (GRPO) works on: it rewards the good answers the model already finds sometimes.
+(2) **Mean reward vs pass rate**: mean reward 0.953 is much higher than pass@1, so most wrong
+answers are *nearly* right (e.g. one tie case). Partial credit is a smoother training signal, but
+it also pays for near-misses. (3) **Hidden-only failures**: 15 of 44 wrong answers passed every
+visible test. That is what overfitting to the examples looks like; without hidden tests those
+answers would count as correct, and a model trained on that reward would learn to satisfy the
+examples instead of the spec (reward hacking). (4) **Error bars**: with 33 problems the 95%
+bootstrap interval for pass@1 is 0.78–0.94, so a difference of a few points between two models
+can be noise. Also slice the results (module, difficulty, concept) and read the actual failures:
+here Conditions and Dictionaries are weak, and the most failed test's own note explains why
+("tie for the largest").
+*How I'd say it:* "I never report a single accuracy. I show pass@1 with a bootstrap interval,
+pass@k for headroom, partial credit, and the share of failures only hidden tests catch, then I
+read the failing cases, because the aggregate rarely tells you what to fix."

@@ -77,6 +77,18 @@ uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-f
   (gitignored) and starts fresh, so an official file only ever comes from its unchanged config.
 - Commit the code before an official run: the meta file records `git_dirty`.
 
+### The report
+```
+uv run python scripts/eval_report.py lab/evals/results/*.jsonl --out lab/evals/reports/week2.md
+```
+It reads every results file (with its meta file) and writes one Markdown report: the runs,
+headline numbers (pass@1 with a 95% bootstrap interval, pass@5, pass@10, mean reward,
+hidden-only failures), tables by module / difficulty / concept, failure types, the hardest
+problems with the note of the test they fail most, and all problems. The logic is in
+`evals/metrics.py` (pure functions) and `evals/report.py`. The same results always give
+byte-identical text, so the committed report only changes when the results change. Partial runs
+(e.g. stopped by a daily quota) are marked "(partial)".
+
 ## 4. The model client (`src/codetutor/evals/clients.py`)
 Ollama and Gemini both accept the OpenAI chat-completions format (`POST <base>/chat/completions`),
 so one small client covers both. It uses only the standard library (`urllib`, `json`); we chose
