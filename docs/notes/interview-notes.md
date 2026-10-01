@@ -153,3 +153,20 @@ scoring it as "wrong" would quietly push pass@k down, and you'd blame the model 
 or stop the run, but they never enter the metric; only real model outputs get graded. And I test
 the retry logic against a local fake server, so every branch (429, 503, 401, timeout, quota)
 is exercised without the internet."
+
+## Reproducible eval runs (Week 2, Step 3)
+An eval number is only useful if you can say exactly what produced it and get it again. Four
+habits make that true. (1) **Config + meta**: every run is one config file, and a meta file
+records what the config can't: prompt version, grader version, problem versions, git commit
+(and whether the code had uncommitted changes), and the exact model weights (Ollama's digest
+and precision, e.g. F16). If any of these changes, the harness refuses to add answers to the
+old file, because mixed answers can't be compared. (2) **Append-only, resumable results**: each
+answer is written the moment it is graded; rerunning the same config asks only for the missing
+ones. A crash, Ctrl+C or a used-up quota costs almost nothing, and you never pay twice for an
+answer. (3) **Seeds and order**: sample i gets seed i, and calls go one at a time in a fixed
+order, because a server that batches parallel requests can change the numbers. With Ollama the
+same seed really gave the same reply (checked). (4) **Infra failures stay out of the metric**:
+a failed API call is retried or skipped, never graded as "wrong".
+*How I'd say it:* "Every number in my report traces back to one results file and one meta file:
+the exact weights, prompt, grader and commit. Runs are resumable and append-only, and I checked
+that re-running a seeded sample reproduces the same answer byte for byte."
