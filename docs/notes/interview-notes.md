@@ -137,3 +137,19 @@ bigger n than k lowers the variance of the estimate.
 *How I'd say it:* "I use the unbiased estimator and sample n > k. I test it against brute-force
 enumeration of every k-subset, and I check that it is unbiased exactly, by averaging it over the
 binomial distribution of outcomes."
+
+## Reliable model calls in an eval pipeline (Week 2, Step 2)
+An eval run makes hundreds of API calls, and some will fail. The key idea: **sort each failure by
+what reaction helps**. Transient failures (429 rate limit, 5xx, timeouts) are retried with
+*exponential backoff* (wait ~2, 4, 8, 16 s), honouring the wait the server asks for
+(`Retry-After`). Add *jitter* (a random part of the wait): without it, many clients that failed
+together retry together and overload the server again (the "thundering herd"). Config errors
+(401 wrong key, 404 wrong model) **fail fast**: retrying can't fix them and only hides the bug.
+A used-up daily quota **stops the run**, which resumes later from the results file (each saved
+sample is skipped, so a resumed run never pays twice). The most important rule for the metric:
+**a failed API call is never graded**. An infrastructure failure is not a model failure;
+scoring it as "wrong" would quietly push pass@k down, and you'd blame the model for your network.
+*How I'd say it:* "I separate infrastructure errors from model errors. Infra errors are retried
+or stop the run, but they never enter the metric; only real model outputs get graded. And I test
+the retry logic against a local fake server, so every branch (429, 503, 401, timeout, quota)
+is exercised without the internet."

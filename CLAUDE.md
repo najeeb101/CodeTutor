@@ -54,10 +54,10 @@ every line in an interview.
 - `src/codetutor/problems/`: schema (pydantic) + loader
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
-- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`
+- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `notes/`
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
 - `api/`, `web/`, `tutor/`, `lab/`: placeholders for later weeks
 - `dist/`: generated output (gitignored)
 
@@ -121,6 +121,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   (PROMPT_VERSION 1, student view only, pinned by a test), code extraction, unbiased pass@k,
   EvalRecord + JSONL, `score_reply` (reply → extract → `grade()` → record), fake models (oracle,
   starter, buggy, chatty). 46 new tests; suite 233 passed, 2 skipped, 1 xfailed (~31 s).
+- **Done (2026-10-01): Week 2 Step 2, code part** (`evals/clients.py`: one stdlib client for
+  Ollama + Gemini via the OpenAI chat-completions format; retry/fail-fast/stop error classes;
+  throttle; `make_client`; `scripts/try_model.py`; `docs/evals.md`; 21 tests against a local fake
+  server, 1.5 s). **Live check still open:** waits for Najeeb's setup (mirrored networking,
+  `ollama pull qwen2.5-coder:1.5b-instruct-fp16`, Gemini key in `.env`, AI Studio rate limits).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -147,9 +152,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Week 2 Step 0: Q1 why `cpu_threads.py` uses hashlib; Q2 why bump the grader version when no
   reward changed; Q3 why not raise the memory-bomb timer to 10 s. Week 2 Step 1: Q1 the
   extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
-  n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. (36 in total.)
-- **Next action:** Week 2 Step 2 (model clients: Ollama for Qwen, Gemini; retries, rate limit,
-  response cache) starts in plan mode and needs the LiteLLM dependency question. Najeeb, before Step 2: Gemini key (project
+  n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
+  client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. (39 in total.)
+- **Next action:** Najeeb does the setup in `docs/evals.md` §1 (mirrored networking +
+  `wsl --shutdown`, pull the fp16 Qwen, Gemini key in `.env`, read the AI Studio rate limits).
+  Then the Step 2 live check (try_model on 3 problems with Qwen, 1–2 with Gemini; record seed
+  repeatability, Gemini seed support, Gemini thinking / finish_reason). Then Step 3 (run
+  harness) in plan mode: n, temperature and max_tokens per model. Najeeb, before Step 2: Gemini key (project
   without billing) in `.env` as `GEMINI_API_KEY`; Ollama running on Windows; `wsl --shutdown`
   so terminals get the docker group. `docs/notes/week1.md` text whenever he wants ("review").
 
@@ -236,6 +245,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: Plan correction: the starter code is not always reward 0 (second_largest's starter returns None, the right answer for some tests; max 0.3). Tests check "never accepted" instead.
 - 2026-10-01: Two hidden test inputs are written in their problem's description on purpose (`gcd(0, 0)`, `two_sum([3, 3], 6)`); the prompt leak test allows calls that the description shows.
 - 2026-10-01: New small file `evals/score.py` (not in the plan): reply → extract → `grade()` → EvalRecord, kept apart from the model call so old replies can be re-scored. Stored GradeResults don't reveal hidden details (per-test statuses are kept), so records stay small.
+
+- 2026-10-01: Week 2 Step 2 decisions (Najeeb): (1) **own client, no LiteLLM** (deviation from the brief): Ollama and Gemini both speak the OpenAI chat-completions format, so one stdlib client (~150 lines) covers both; LiteLLM would add ~50 packages (measured: 58 in total vs ~15 now) and its PyPI releases 1.82.7–1.82.8 were compromised in March 2026. Week 4 can revisit it behind the same `ChatModel` protocol. (2) **Mirrored WSL networking** to reach the Windows Ollama (not `OLLAMA_HOST=0.0.0.0`, which opens it to the network). (3) **Qwen2.5-Coder-1.5B-Instruct fp16** (`qwen2.5-coder:1.5b-instruct-fp16`), closest to the weights GRPO trains in Weeks 6–7.
+- 2026-10-01: No separate response cache (changed from the Week 2 overview): in Step 3 the results JSONL is the cache (a run skips samples already saved; re-grading uses stored replies). Step 3 also follows the brief's `reveal_hidden=True` (Step 1's `score_reply` hides hidden details; only two_sum's ~60 KB input makes records big).
+- 2026-10-01: Client error classes: transient (429 per minute, 5xx, timeout, dropped connection) → backoff 2·2^attempt s with 50–100% jitter, or the server's `Retry-After` / Gemini `retryDelay`, max 4 retries, max wait 60 s; per-day 429 → `QuotaExhaustedError`; 400/401/403/404 → `ModelConfigError`; refused/unknown host → `ModelUnavailableError`. The key is blanked out of every error message. Tests run against a stdlib fake server on 127.0.0.1 (real HTTP, no mocks); its `serve_forever` poll interval is 0.01 s, because the default 0.5 s made every teardown wait (8.5 s → 1.5 s).
+- 2026-10-01: `scripts/try_model.py` grades with the Docker sandbox by default (model code is untrusted). `.env.example` now documents `GEMINI_API_KEY` and `OLLAMA_BASE_URL` (it replaced the Week 1 placeholder with commented OpenAI/Anthropic keys).
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
