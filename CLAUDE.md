@@ -129,9 +129,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Ollama + Gemini via the OpenAI chat-completions format; retry/fail-fast/stop error classes;
   throttle; `make_client`; `scripts/try_model.py`; `docs/evals.md`; 21 tests against a local fake
   server, 1.5 s). **Live check:** Gemini done (`gemini-2.5-flash` solved fizzbuzz, accepted in
-  Docker); **Qwen blocked** by the old NVIDIA driver (546.18): Ollama's GPU server crashes with
-  "device kernel image is invalid". Results table in `docs/evals.md` §5. Also added
-  `scripts/check_secrets.py` (6 tests) and `ModelReply.total_tokens`.
+  Docker); Qwen fp16 on the GPU accepted fizzbuzz, compress and valid_parentheses after the
+  NVIDIA driver update (546.18 → 617.14). Results table in `docs/evals.md` §5. Also added
+  `scripts/check_secrets.py` (6 tests) and `ModelReply.total_tokens`. **Step 2 done.**
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -160,10 +160,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
   n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
   client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. (39 in total.)
-- **Next action:** Najeeb updates the Windows NVIDIA driver (then restarts Windows) and sends
-  the AI Studio rate limits (RPM/RPD of the Flash models). Then the Qwen part of the live check
-  (try_model on fizzbuzz, compress, valid_parentheses; seed repeatability on Ollama). Then Step 3
-  (run harness) in plan mode: n, temperature, max_tokens, Gemini model and thinking setting.
+- **Next action:** Najeeb sends the AI Studio rate limits (RPM/RPD of the Flash models). Then
+  Step 3 (run harness) in plan mode: n, temperature, max_tokens, Gemini model and thinking
+  setting, seeds (Ollama: sample i uses seed i; Gemini: no seed).
   `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
@@ -257,6 +256,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 
 - 2026-10-01: Live check facts (docs/evals.md §5): Gemini's OpenAI-compatible endpoint **rejects `seed`** (HTTP 400 "Unknown name seed"), so Step 3 never sends one to Gemini. Gemini 2.5 Flash **thinks by default** (~1300–2200 hidden tokens on compress, 7–11 s per call); the hidden tokens show only in `usage.total_tokens`, so `ModelReply` now keeps `total_tokens`. Najeeb's key uses Google's newer format (not `AIza…`), so the `AIza` grep rule was replaced by `scripts/check_secrets.py`, which looks for the real `.env` values in the staged diff and never prints them.
 - 2026-10-01: Setup done partly by Claude with Najeeb's approval of the plan: Claude created `C:\Users\ACER\.wslconfig` (mirrored networking; the file didn't exist) and pulled `qwen2.5-coder:1.5b-instruct-fp16` into the Windows Ollama. A temporary second Ollama on the WSL-internal address was blocked by the safety classifier ("expose local services") and not pursued. Qwen then failed on the GPU: Ollama 0.35.0's CUDA build crashes with driver 546.18; fix = update the NVIDIA driver (also needed for PyTorch/GRPO in Weeks 6–7).
+
+- 2026-10-01: Qwen live check (after Najeeb updated the NVIDIA driver 546.18 → 617.14): 3/3 problems accepted in Docker, first call 11.7 s (model load, 3.3 GB GPU memory), then 2–3 s. Ollama `seed` is repeatable (same seed → same reply, tested on this machine and Ollama 0.35.0), so Step 3 can give sample i the seed i for Qwen; Gemini can't (rejects seed).
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
