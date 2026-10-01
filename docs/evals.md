@@ -34,8 +34,9 @@ rounding can move scores by a few points. ~3 GB, fits an 8 GB GPU.
 1. Google AI Studio → "Get API key", in a Google Cloud project **without billing**, so it can
    never cost money.
 2. Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY`. Git ignores `.env`; never commit
-   it. Gemini keys start with `AIza`, so `git diff --cached | grep -c AIza` must print 0 before
-   a commit.
+   it. A Gemini key is `AIza` plus 35 letters, digits, `-` or `_`. Before a commit, this must
+   print 0 (it matches real keys only, not text like this line):
+   `git diff --cached | grep -cE 'AIza[0-9A-Za-z_-]{35}'`
 3. Run commands with `uv run --env-file .env ...` (no extra package needed).
 
 Free-tier notes:

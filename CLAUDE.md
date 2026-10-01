@@ -32,6 +32,8 @@ every line in an interview.
 - Honesty: never claim tests pass without running them; show real output; mark limitations in code/docs.
 - Git: work on `main`; commit at the end of every step; message format `<area>: <what changed>`;
   never force-push or rewrite history; never commit secrets.
+  Before every commit, `git diff --cached | grep -cE 'AIza[0-9A-Za-z_-]{35}'` must print 0
+  (a real Gemini key), and the commit must not run if it doesn't.
 
 ## Architecture summary
 - **One grader for everything.** `grade(problem, code) -> GradeResult` is used by student submissions,
