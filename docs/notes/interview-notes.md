@@ -188,3 +188,20 @@ here Conditions and Dictionaries are weak, and the most failed test's own note e
 *How I'd say it:* "I never report a single accuracy. I show pass@1 with a bootstrap interval,
 pass@k for headroom, partial credit, and the share of failures only hidden tests catch, then I
 read the failing cases, because the aggregate rarely tells you what to fix."
+
+## Comparing two models fairly (Week 2, Step 4b)
+A comparison is only fair if one thing changes. Both official runs use the same 33 problems,
+the same prompt version, temperature 0.8, seeds 0–9, max_tokens 1024 and Docker grading; the
+configs differ only in the model (checked by loading both and diffing them). Anything else that
+differs is a **confounder**, and you name it instead of hiding it: here the 7B is 4-bit and the
+1.5B is fp16 (the fp16 7B does not fit an 8 GB GPU), so "7B vs 1.5B" is really "bigger *and*
+more rounded". Two more habits: (1) **check the numbers that look odd**. The 7B has a higher
+pass@1 (0.945 vs 0.867) but a slightly lower pass@5 (0.978 vs 0.983); the reason is one problem
+where it got 1 of 10 right instead of 2, which is noise, not a weakness. Also "0.57 vs 0.58" on
+Dictionaries was the same true value (0.575) printed after float rounding. (2) **Read the
+failures of both models**: both fail a test they can *see* in the prompt (group_anagrams example
+1) because they sort in the wrong order. A model that cannot run code can't check itself
+against the examples.
+*How I'd say it:* "I compared models with identical configs except the model, pinned the seeds
+so every answer can be reproduced, named the one confounder I couldn't remove (quantization),
+and checked every surprising number back to the raw answers before believing it."

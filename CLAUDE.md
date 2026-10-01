@@ -145,6 +145,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `scripts/eval_report.py`, 17 tests): `lab/evals/reports/week2.md` (deterministic). Qwen:
   pass@1 0.867 [0.779, 0.942], pass@5 0.983, pass@10 1.000, mean reward 0.953, 15 of 44 wrong
   answers hidden-only; Conditions 0.62 and Dictionaries 0.58 weakest.
+- **Done (2026-10-01): Week 2 Step 4b** (official comparison run, Najeeb chose the local 7B):
+  `qwen2.5-coder-7b-q4.yaml` (same settings as the 1.5B; only the model changes). 330/330 in
+  ~15 min, 0 failed calls: pass@1 0.945 [0.867, 1.000], pass@5 0.978, pass@10 1.000, mean
+  reward 0.989, 9 of 18 wrong answers hidden-only. Weak: word_frequency 1/10, group_anagrams
+  2/10 (all 8 failures sort in the wrong order, on the *visible* example). Re-asked 3 seeded
+  answers: byte-identical. Report regenerated with both models; the official-numbers test pins both.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -176,13 +182,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q1 why model calls go one at a time; Q2 what a rerun after a quota stop does; Q3 what
   pass@10 = 1.0 vs pass@1 = 0.867 means for GRPO. Week 2 Step 4: Q1 mean reward 0.953 vs
   pass@1 0.867; Q2 what a hidden-only failure is; Q3 a new prompt at 0.89 vs the interval
-  0.78–0.94. (45 in total; answer key in Claude's memory.)
-- **Next action:** after 10:00 Qatar time, run
-  `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`
-  (stops at the quota with exit 2; run it again the next day to finish), then commit its results.
-  Then regenerate the report (`scripts/eval_report.py`) and commit. Najeeb decides the
-  comparison model: local `qwen2.5-coder:7b` (recommended: free, unlimited, same family →
-  size comparison and a GRPO goal), 14b, and/or Gemini n = 1. Then Step 5 (week2.md, README).
+  0.78–0.94. Week 2 Step 4b: Q1 why the 7B's pass@5 is below the 1.5B's; Q2 the honest
+  sentence about 7B (4-bit) vs 1.5B (fp16); Q3 Dictionaries 0.58 vs 0.57.
+  (48 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb's calls (asked at the Step 4b STOP): (1) fix the client's
+  `finish_reason: "error"` bug (recommended, small step with a test); (2) Q11 fast YAML parser;
+  (3) Q15 report rounding; (4) Gemini n = 1: keep as a 3rd model (after 10:00 Qatar time,
+  `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
+  2 days) or drop. Then Step 5 (Najeeb's `docs/notes/week2.md`, README).
   `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
@@ -291,9 +298,22 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: **Bug found** by the OpenRouter run: an HTTP 200 reply with `finish_reason == "error"` (provider failed mid-answer) was treated as a normal reply and graded as compile_error. It must count as a failed call (retry, never graded). Not fixed yet (needs a small plan); the 2 affected scratch answers are excluded from conclusions.
 - 2026-10-01: Suite time is up to 45–52 s (limit 60 s; Q11). Measured: `load_all()` ~1 s, 97% pure-Python YAML parsing; PyYAML's C parser (`CSafeLoader`, libyaml available) parses all 66 problem YAML files to identical data 7× faster (0.69 s → 0.10 s). Test-only fix done: the harness tests load the bank once (setup 5.2 s → 0.66 s). Loader switch not done (Week 1 code; ask Najeeb).
 
+- 2026-10-01: Najeeb chose the local **Qwen2.5-Coder 7B** (Ollama `qwen2.5-coder:7b`, Q4_K_M,
+  digest dae161e2) as the official comparison model. Its config equals the 1.5B's except
+  `run_id` and `model` (checked by loading both). The config was committed before the run
+  (4f3d8c0), so the meta has `git_dirty: false`. Named confounder: 4-bit vs fp16 (the fp16 7B,
+  ~15 GB, does not fit the 8 GB GPU); 4-bit usually costs a little, so the size effect is
+  probably not smaller than measured. The scratch 7B run (no seeds, max_tokens 8192) stays in
+  scratch and is not quoted as official.
+- 2026-10-01: Checked odd numbers in the 7B report against the raw answers: pass@5 0.978 < the
+  1.5B's 0.983 comes only from word_frequency (1/10 vs 2/10 → pass@5 0.5 vs 0.78). Dictionaries
+  "0.58 vs 0.57" is the same true value (23/40 = 0.575 for both): `pass_at_k(10, 1, 1)` is
+  0.09999999999999998, so the means fall on different sides of 0.575 before `:.2f` (Q15).
+
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
+- Q15: the report prints equal values differently at a .xx5 boundary (Dictionaries 0.575 shows as 0.58 for one model and 0.57 for the other; float error from `1 - 0.9`). Options: (A) round values to ~9 decimals before formatting in `report.py` (equal values always print the same; small code change + a test); (B) leave it and mention it in week2.md. Recommendation: A.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.

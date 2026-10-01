@@ -1,8 +1,8 @@
 # Evals: running models through the grader
 
 The eval harness asks language models to solve the problem bank and grades every answer with the
-same `grade()` that grades students. This page covers setup and the model client (Week 2,
-Steps 2–3). The report comes in Step 4.
+same `grade()` that grades students. This page covers setup, the model client, runs and the
+report (Week 2, Steps 2–4).
 
 ## 1. Setup
 
@@ -29,6 +29,15 @@ ollama pull qwen2.5-coder:1.5b-instruct-fp16
 We use the **fp16** (full precision) version, not the default 4-bit one. Weeks 6–7 train the same
 model with GRPO in full precision, so its score here is the fair "before training" number; 4-bit
 rounding can move scores by a few points. ~3 GB, fits an 8 GB GPU.
+
+The comparison model is a bigger one of the same family:
+```
+ollama pull qwen2.5-coder:7b
+```
+Ollama's default tag is the instruct model in **4-bit** (Q4_K_M, ~4.7 GB). The fp16 7B (~15 GB)
+does not fit an 8 GB GPU. So the 1.5B vs 7B comparison changes two things at once: size and
+precision. 4-bit usually costs a little accuracy, so the 7B's score is, if anything, a bit low.
+Its config (`qwen2.5-coder-7b-q4.yaml`) is otherwise identical to the 1.5B's.
 
 ### Gemini (free tier)
 1. Google AI Studio → "Get API key", in a Google Cloud project **without billing**, so it can
@@ -122,6 +131,10 @@ Every failure is sorted into one kind, because each needs a different reaction:
   them anyway.
 - Ollama's OpenAI endpoint uses Ollama's default context window. Our prompts are short, but a
   prompt longer than the window would be cut silently.
+- **Open bug:** a reply with HTTP 200 but `finish_reason: "error"` (the provider failed in the
+  middle of the answer; seen on OpenRouter's free tier) is treated as a normal reply, so its
+  empty code is graded as `compile_error`. It should count as a failed call. Ollama never sends
+  it, so the official Qwen runs are not affected.
 
 ## 6. Live check results (2026-10-01)
 Real calls, so Step 3 is designed on facts, not guesses.
@@ -137,3 +150,4 @@ Real calls, so Step 3 is designed on facts, not guesses.
 | `qwen2.5-coder:1.5b-instruct-fp16`, first try | Ollama's GPU server crashed while loading: "CUDA error: device kernel image is invalid" (in `ggml_cuda_kernel_can_use_pdl`). Cause: NVIDIA driver 546.18 (Dec 2023) was too old for Ollama 0.35.0. The client did the right thing: 5 tries, then a clear `ModelError`; nothing was graded. **Fixed by updating the driver to 617.14.** |
 | Qwen fp16 on GPU (driver 617.14) | Accepted on all 3: fizzbuzz 10/10, compress 11/11, valid_parentheses (hard) 15/15 (Docker). First call 11.7 s (loads the model, 3.3 GB of GPU memory), then 2–3 s. No hidden thinking (total = prompt + reply). |
 | `seed` on Ollama (temperature 0.8) | **Repeatable**: seed 1 twice → the same reply, seed 2 twice → the same (different) reply, no seed → a different reply each time. Tested on one machine and one Ollama version; GPU maths can differ elsewhere. |
+| Official runs (Step 3–4b) | Qwen 1.5B fp16: 330/330, pass@1 0.867. Qwen 7B Q4_K_M: 330/330 in ~15 min, pass@1 0.945, 0 failed calls, fully on the GPU (4.7 GB). Re-asking saved answers with the same seed gave byte-identical replies (1.5B: 4/4, 7B: 3/3). Full numbers: `lab/evals/reports/week2.md`. |

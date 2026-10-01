@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pytest
 
@@ -257,14 +256,22 @@ def test_report_survives_a_removed_problem(bank: dict[str, Problem]) -> None:
     assert f"{MAX3}: no longer in the bank" in text
 
 
-def test_official_qwen_results_match_the_exploration() -> None:
-    """Pins the numbers of the committed official Qwen run (they never change)."""
-    path = REPO_ROOT / "lab/evals/results/qwen2.5-coder-1.5b-fp16-t0.8-n10.jsonl"
-    run = m.load_run(Path(path))
+@pytest.mark.parametrize(
+    ("run_id", "pass_1", "wrong", "hidden_only"),
+    [
+        ("qwen2.5-coder-1.5b-fp16-t0.8-n10", 0.867, 44, 15),
+        ("qwen2.5-coder-7b-q4-t0.8-n10", 0.945, 18, 9),
+    ],
+)
+def test_official_results_keep_their_numbers(
+    run_id: str, pass_1: float, wrong: int, hidden_only: int
+) -> None:
+    """Pins the numbers of the committed official runs (they never change)."""
+    run = m.load_run(REPO_ROOT / f"lab/evals/results/{run_id}.jsonl")
     stats = m.problem_stats(run.records)
     assert not run.is_partial
-    pass_1 = m.pass_at_k_mean(stats, 1)
-    assert pass_1 is not None and round(pass_1, 3) == 0.867
+    measured = m.pass_at_k_mean(stats, 1)
+    assert measured is not None and round(measured, 3) == pass_1
     assert m.pass_at_k_mean(stats, 10) == 1.0
     failures = m.failure_breakdown(run.records)
-    assert (failures.wrong, failures.hidden_only) == (44, 15)
+    assert (failures.wrong, failures.hidden_only) == (wrong, hidden_only)
