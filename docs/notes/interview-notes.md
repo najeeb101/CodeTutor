@@ -120,3 +120,20 @@ test (our secret-file test reads the secret on subprocess and gets FileNotFoundE
 (2) measure the details: without `--init`, the runner was PID 1 in the container, Linux ignored
 its CPU-limit signal, and the same endless loop was labelled `timeout` in one run and `crashed` in
 the next. Unstable labels would have corrupted the Week 2 failure-type statistics.
+
+## Unbiased pass@k (Week 2, Step 1)
+pass@k is the chance that at least one of k attempts passes. We draw n ≥ k samples per problem,
+count the c that pass, and use the estimator from the Codex paper (Chen et al. 2021):
+`1 − C(n−c, k) / C(n, k)`, which is 1 minus the chance that k samples picked from our n all fail.
+Why not plug the pass rate into `1 − (1 − c/n)^k`? Because that is **biased low**: `(1 − x)^k`
+is curved (convex), so a noisy estimate of the pass rate overestimates the failure chance on
+average (Jensen's inequality). Worked example: true pass rate p = 0.5, n = 2, k = 2, so the true
+pass@2 = 1 − 0.5² = 0.75. Outcomes: c = 0 (chance 0.25) → both formulas give 0; c = 1 (chance 0.5)
+→ unbiased 1.0, naive 0.75; c = 2 (chance 0.25) → both give 1. Averages: unbiased 0.75 (right),
+naive 0.625 (too low). In code, compute the ratio as a product of (1 − k/i) for i = n−c+1 … n, so
+there are no huge factorials. Two practical points: pass@k with k > 1 only means something with
+temperature > 0 (at temperature 0 every sample is nearly the same, so pass@k ≈ pass@1), and a
+bigger n than k lowers the variance of the estimate.
+*How I'd say it:* "I use the unbiased estimator and sample n > k. I test it against brute-force
+enumeration of every k-subset, and I check that it is unbiased exactly, by averaging it over the
+binomial distribution of outcomes."

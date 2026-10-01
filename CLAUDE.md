@@ -53,6 +53,8 @@ every line in an interview.
 - `problems/cs1/<NN_module>/<slug>/`: `problem.yaml`, `starter.py`, `solution.py`, `tests.yaml`, `buggy/*.py`
 - `src/codetutor/problems/`: schema (pydantic) + loader
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
+- `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
+- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`
 - `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `notes/`
@@ -115,6 +117,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - **Done (2026-10-01): Week 2 Step 0 (Q13).** A CPU-limit kill (SIGXCPU) is `timeout` in both
   sandboxes; grader 0.2.1. Default suite: 187 passed, 2 skipped, 1 xfailed, 32 deselected
   (~25 s); `make test-docker` 32 passed (46–89 s).
+- **Done (2026-10-01): Week 2 Step 1** (offline eval core, `src/codetutor/evals/`): prompt
+  (PROMPT_VERSION 1, student view only, pinned by a test), code extraction, unbiased pass@k,
+  EvalRecord + JSONL, `score_reply` (reply → extract → `grade()` → record), fake models (oracle,
+  starter, buggy, chatty). 46 new tests; suite 233 passed, 2 skipped, 1 xfailed (~31 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -139,10 +145,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   comment is worse than none; Q2 why the Makefile fallback was left. Step 5: Q1 why `docker kill`
   and not only killing the client; Q2 why `--init`; Q3 what a strict xfail does if it passes.
   Week 2 Step 0: Q1 why `cpu_threads.py` uses hashlib; Q2 why bump the grader version when no
-  reward changed; Q3 why not raise the memory-bomb timer to 10 s. (33 in total.)
-- **Next action:** Week 2 Step 1 (offline core: `src/codetutor/evals/` prompt, extract, passk,
-  records, fake models; already planned and approved, no new plan mode). Step 2 (model clients)
-  gets its own plan and needs the LiteLLM question. Najeeb, before Step 2: Gemini key (project
+  reward changed; Q3 why not raise the memory-bomb timer to 10 s. Week 2 Step 1: Q1 the
+  extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
+  n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. (36 in total.)
+- **Next action:** Week 2 Step 2 (model clients: Ollama for Qwen, Gemini; retries, rate limit,
+  response cache) starts in plan mode and needs the LiteLLM dependency question. Najeeb, before Step 2: Gemini key (project
   without billing) in `.env` as `GEMINI_API_KEY`; Ollama running on Windows; `wsl --shutdown`
   so terminals get the docker group. `docs/notes/week1.md` text whenever he wants ("review").
 
@@ -223,6 +230,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: Q13 resolved (Najeeb: yes). A kill by the CPU limit (SIGXCPU) is `timeout` in both sandboxes (one helper, `_cpu_limit_as_timeout`); GRADER_VERSION 0.2.1. Test first: `cpu_threads.py` (4 hashlib threads; hashlib releases the GIL, so CPU time grows faster than wall time) was `crashed` on 0.2.0, `timeout` now. Correction: plain Python threads can't trigger it (GIL); only C code that releases the GIL, or Docker's start-up margin.
 
 - 2026-10-01: One unexplained failure in ~25 full runs since the Q12 fix: a `sum_of_evens` grading ended `timeout` with passed 0, first test timed out, last test 246 ms, total 4.9 s, in `make all` (the test name was lost because the output was filtered with grep; full output is now saved). Measured per-test times: growing memory bomb median 104 ms, max 261 ms; big_file 44 / 92 ms; deep_recursion and sys_exit ~0 ms. Only the growing memory bomb (2 s timer) fits a 4.9 s total, so it is most likely that test with one very slow first allocation (WSL2 VM, 7.8 GB). 200 targeted reruns, 40 timed gradings, and 2 `make all` + 1 `make test-docker` afterwards: all green. Recorded as Q14, not fixed.
+
+- 2026-10-01: Week 2 Step 1. `build_messages` takes a `StudentProblem`, so the type itself keeps the solution, hints and hidden tests out of prompts. The prompt text is pinned by a test (`PINNED_PROMPT`): changing it fails the test until PROMPT_VERSION is bumped.
+- 2026-10-01: Code extraction picks the last block that *defines the function*, then the last ```python block, then the last block, then the raw reply (changed from the plan's "last python block": small models often add a `print(...)` usage block after the solution). `<think>` sections are dropped; the method (`python_block` / `other_block` / `raw` / `empty`) is stored, so format failures can be counted apart from wrong code.
+- 2026-10-01: Plan correction: the starter code is not always reward 0 (second_largest's starter returns None, the right answer for some tests; max 0.3). Tests check "never accepted" instead.
+- 2026-10-01: Two hidden test inputs are written in their problem's description on purpose (`gcd(0, 0)`, `two_sum([3, 3], 6)`); the prompt leak test allows calls that the description shows.
+- 2026-10-01: New small file `evals/score.py` (not in the plan): reply → extract → `grade()` → EvalRecord, kept apart from the model call so old replies can be re-scored. Stored GradeResults don't reveal hidden details (per-test statuses are kept), so records stay small.
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
