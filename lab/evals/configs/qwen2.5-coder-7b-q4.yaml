@@ -1,0 +1,12 @@
+# Official comparison: a bigger model of the same family (7B vs the 1.5B baseline).
+# Every setting below equals qwen2.5-coder-1.5b-fp16.yaml; only the model changes.
+# Caveat: this model is 4-bit (Q4_K_M), the 1.5B is fp16. The fp16 7B (~15 GB) does not fit the
+# 8 GB GPU. 4-bit usually costs a little accuracy, so this score is, if anything, a bit low.
+# Run: uv run --env-file .env python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-7b-q4.yaml
+run_id: qwen2.5-coder-7b-q4-t0.8-n10
+model: ollama/qwen2.5-coder:7b   # Ollama's default tag: the instruct model, Q4_K_M, ~4.7 GB
+samples: 10          # n = 10 -> pass@1, pass@5, pass@10
+temperature: 0.8     # same as the baseline
+max_tokens: 1024     # same as the baseline (the 7B's longest reply in a test run: 424 tokens)
+seed_base: 0         # sample i gets seed i, like the baseline
+sandbox: docker      # model code is untrusted
