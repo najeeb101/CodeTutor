@@ -8,8 +8,11 @@ build/
 .venv/
 venv/
 
-# Secrets (never commit)
+# Secrets (never commit), including editor backups like .env~ and copies like .env.local
 .env
+.env*
+!.env.example
+*~
 
 # Generated build output
 dist/
