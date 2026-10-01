@@ -56,11 +56,13 @@ every line in an interview.
 - `src/codetutor/problems/`: schema (pydantic) + loader
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
-- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`
+- `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
-- `api/`, `web/`, `tutor/`, `lab/`: placeholders for later weeks
+- `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
+  `scratch/` (gitignored)
+- `api/`, `web/`, `tutor/`: placeholders for later weeks
 - `dist/`: generated output (gitignored)
 
 ## Conventions
@@ -258,6 +260,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: Setup done partly by Claude with Najeeb's approval of the plan: Claude created `C:\Users\ACER\.wslconfig` (mirrored networking; the file didn't exist) and pulled `qwen2.5-coder:1.5b-instruct-fp16` into the Windows Ollama. A temporary second Ollama on the WSL-internal address was blocked by the safety classifier ("expose local services") and not pursued. Qwen then failed on the GPU: Ollama 0.35.0's CUDA build crashes with driver 546.18; fix = update the NVIDIA driver (also needed for PyTorch/GRPO in Weeks 6–7).
 
 - 2026-10-01: Qwen live check (after Najeeb updated the NVIDIA driver 546.18 → 617.14): 3/3 problems accepted in Docker, first call 11.7 s (model load, 3.3 GB GPU memory), then 2–3 s. Ollama `seed` is repeatable (same seed → same reply, tested on this machine and Ollama 0.35.0), so Step 3 can give sample i the seed i for Qwen; Gemini can't (rejects seed).
+
+- 2026-10-01: Week 2 Step 3 decisions (Najeeb): Qwen n = 10, temperature 0.8, seed i for sample i, max_tokens 1024; Gemini 2.5 Flash n = 5 (quota 100–250/day), temperature 0.8, no seed, thinking on (default), max_tokens 8192, rpm 8; official results committed in `lab/evals/results/`, scratch runs gitignored.
+- 2026-10-01: Run harness design (`evals/run.py`): one config = one append-only results file + meta (config, prompt/grader/problem versions, git commit + dirty flag, Ollama digest/precision); resume skips saved (problem, sample) pairs; a resume with different settings raises `RunMismatchError`. Model calls are sequential in a fixed order (keeps Ollama seeds repeatable; parallel requests may be batched), grading runs in a 2-worker background pool, each record is appended under a lock as soon as it is graded. Quota → stop (exit 2); config/unavailable errors → stop and raise; other ModelErrors → skipped, not graded, 5 in a row stop. `EvalRecord` gained `run_id`, `seed`, `max_tokens` (defaults keep one-off checks working); `score_reply` gained `reveal_hidden` (the harness uses True, per the brief). Overrides in `run_eval.py` always write to scratch, so official files only come from unchanged configs.
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.

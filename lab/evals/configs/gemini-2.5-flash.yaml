@@ -1,0 +1,11 @@
+# Comparison model: Gemini 2.5 Flash on the free tier (100-250 requests per day).
+# Run: uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml
+# If the daily quota runs out, the run stops; run the same command after the reset to continue.
+run_id: gemini-2.5-flash-t0.8-n5
+model: gemini/gemini-2.5-flash
+samples: 5           # 33 x 5 = 165 calls, fits one day's quota
+temperature: 0.8     # the same as Qwen, for a fair comparison
+max_tokens: 8192     # thinking is on (the default) and may count against this limit
+seed_base: null      # Gemini rejects "seed" (HTTP 400, checked live on 2026-10-01)
+rpm: 8               # stay under the free tier's per-minute limit
+sandbox: docker

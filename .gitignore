@@ -28,3 +28,6 @@ dist/
 wandb/
 *.safetensors
 *.bin
+
+# Eval test and smoke runs (official results in lab/evals/results/ are committed)
+lab/evals/scratch/

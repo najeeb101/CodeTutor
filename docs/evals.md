@@ -2,7 +2,7 @@
 
 The eval harness asks language models to solve the problem bank and grades every answer with the
 same `grade()` that grades students. This page covers setup and the model client (Week 2,
-Step 2). The run harness and the report come in Steps 3–4.
+Steps 2–3). The report comes in Step 4.
 
 ## 1. Setup
 
@@ -56,7 +56,28 @@ It prints the reply, the token counts, the latency, how the code was found, and 
 Options: `--temperature`, `--max-tokens`, `--seed`, `--show-prompt`, `--sandbox`. Grading uses
 the **Docker sandbox by default**: model-written code is untrusted.
 
-## 3. The model client (`src/codetutor/evals/clients.py`)
+## 3. Run a model over the whole bank (`scripts/run_eval.py`)
+```
+uv run --env-file .env python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-1.5b-fp16.yaml
+uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml
+... --problems cs1.loops.fizzbuzz,cs1.strings.compress --samples 2     (a quick scratch run)
+```
+- **One run = one config** (`lab/evals/configs/*.yaml`) = one results file
+  (`lab/evals/results/<run_id>.jsonl`, one graded answer per line) + a meta file
+  (`<run_id>.meta.json`: config, prompt/grader/problem versions, git commit, Ollama model digest).
+- **Resumable.** Each answer is saved as soon as it is graded. Running the same command again
+  only asks for the answers that are missing (after a crash, Ctrl+C, or a used-up daily quota).
+- **No mixing.** If the settings, prompt, grader or problem versions changed, the run refuses to
+  add to the old file (`RunMismatchError`): use a new `run_id`.
+- **Order and seeds.** Model calls go one at a time in a fixed order; sample i gets seed
+  `seed_base + i` (Ollama: repeatable). Grading runs in the background (2 Docker containers).
+- **Failed calls are never graded.** They are listed at the end; a rerun fills them in. Five in
+  a row stop the run. Exit code 2 means "stopped early, run again later".
+- Any override (`--problems`, `--samples`, `--scratch`) writes to `lab/evals/scratch/`
+  (gitignored) and starts fresh, so an official file only ever comes from its unchanged config.
+- Commit the code before an official run: the meta file records `git_dirty`.
+
+## 4. The model client (`src/codetutor/evals/clients.py`)
 Ollama and Gemini both accept the OpenAI chat-completions format (`POST <base>/chat/completions`),
 so one small client covers both. It uses only the standard library (`urllib`, `json`); we chose
 not to add LiteLLM (~50 extra packages, and its PyPI releases 1.82.7–1.82.8 were compromised in
@@ -80,7 +101,7 @@ Every failure is sorted into one kind, because each needs a different reaction:
 - **A failed call is never graded.** An infrastructure failure is not a model failure; counting
   it as a wrong answer would push pass@k down.
 
-## 4. Known limitations
+## 5. Known limitations
 - The per-day quota is recognised by text ("per day" / "PerDay") in the 429 reply. If a provider
   words it differently, it is treated as per-minute and retried 4 times before failing.
 - Whether `seed` makes replies repeatable depends on the provider (checked live in Step 2; see
@@ -90,7 +111,7 @@ Every failure is sorted into one kind, because each needs a different reaction:
 - Ollama's OpenAI endpoint uses Ollama's default context window. Our prompts are short, but a
   prompt longer than the window would be cut silently.
 
-## 5. Live check results (2026-10-01)
+## 6. Live check results (2026-10-01)
 Real calls, so Step 3 is designed on facts, not guesses.
 
 | What | Result |

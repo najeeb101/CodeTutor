@@ -1,0 +1,9 @@
+# Official baseline: the model we train with GRPO in Weeks 6-7, before any training.
+# Run: uv run --env-file .env python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-1.5b-fp16.yaml
+run_id: qwen2.5-coder-1.5b-fp16-t0.8-n10
+model: ollama/qwen2.5-coder:1.5b-instruct-fp16
+samples: 10          # n = 10 -> pass@1, pass@5, pass@10
+temperature: 0.8     # random enough that 10 tries differ (shows the room RL can use)
+max_tokens: 1024     # replies were 130-350 tokens in the live check
+seed_base: 0         # sample i gets seed i: repeatable on the same machine and Ollama version
+sandbox: docker      # model code is untrusted

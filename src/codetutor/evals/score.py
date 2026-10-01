@@ -22,19 +22,28 @@ def score_reply(
     model: str,
     temperature: float,
     sample_index: int,
+    run_id: str | None = None,
+    seed: int | None = None,
+    max_tokens: int | None = None,
+    reveal_hidden: bool = False,
     sandbox: Sandbox | None = None,
     limits: Limits | None = None,
 ) -> EvalRecord:
     """Extract the code from `reply`, grade it, and return the full record.
 
-    Hidden test details are not revealed in the stored GradeResult (per-test statuses are),
-    which keeps records small: one big hidden input can be 60 KB.
+    The run harness uses `reveal_hidden=True` (as the brief asks), so the report can show what
+    the model returned on hidden tests. One-off checks keep hidden details out (smaller records).
     """
     extraction = extract_code(reply.text, problem.function_name)
-    result = grade(problem, extraction.code, sandbox=sandbox, limits=limits)
+    result = grade(
+        problem, extraction.code, reveal_hidden=reveal_hidden, sandbox=sandbox, limits=limits
+    )
     return EvalRecord(
+        run_id=run_id,
         model=model,
         temperature=temperature,
+        max_tokens=max_tokens,
+        seed=seed,
         prompt_version=PROMPT_VERSION,
         problem_id=problem.id,
         problem_version=problem.version,

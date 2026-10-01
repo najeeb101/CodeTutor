@@ -44,8 +44,11 @@ class EvalRecord(BaseModel):
 
     model_config = _STRICT
 
+    run_id: str | None = None  # None for one-off checks (try_model.py)
     model: str  # e.g. "ollama/qwen2.5-coder:1.5b" or "fake/oracle"
     temperature: float
+    max_tokens: int | None = None
+    seed: int | None = None  # None: no seed was sent (Gemini rejects seeds)
     prompt_version: str
     problem_id: str
     problem_version: int
