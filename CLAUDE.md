@@ -168,7 +168,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   reward changed; Q3 why not raise the memory-bomb timer to 10 s. Week 2 Step 1: Q1 the
   extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
   n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
-  client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. (39 in total.)
+  client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. Week 2 Step 3:
+  Q1 why model calls go one at a time; Q2 what a rerun after a quota stop does; Q3 what
+  pass@10 = 1.0 vs pass@1 = 0.867 means for GRPO. (42 in total; answer key in Claude's memory.)
 - **Next action:** after 10:00 Qatar time, run
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`
   (stops at the quota with exit 2; run it again the next day to finish), then commit its results.
