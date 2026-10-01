@@ -174,7 +174,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
   client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. Week 2 Step 3:
   Q1 why model calls go one at a time; Q2 what a rerun after a quota stop does; Q3 what
-  pass@10 = 1.0 vs pass@1 = 0.867 means for GRPO. (42 in total; answer key in Claude's memory.)
+  pass@10 = 1.0 vs pass@1 = 0.867 means for GRPO. Week 2 Step 4: Q1 mean reward 0.953 vs
+  pass@1 0.867; Q2 what a hidden-only failure is; Q3 a new prompt at 0.89 vs the interval
+  0.78–0.94. (45 in total; answer key in Claude's memory.)
 - **Next action:** after 10:00 Qatar time, run
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`
   (stops at the quota with exit 2; run it again the next day to finish), then commit its results.
@@ -284,6 +286,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 
 - 2026-10-01: Week 2 Step 4 report design: pure metric functions (`metrics.py`) + Markdown rendering (`report.py`), no new dependency. Every problem counts equally (per-problem numbers first, then the mean). pass@k is "–" when a problem has fewer than k answers. 95% interval = bootstrap over problems (2000 resamples, seed 0; ignores within-problem noise, stated in the report). "Hidden-only failure" = a wrong answer that passes every visible test. The hardest-problems table shows the most failed test with its tests.yaml note. Output is byte-identical for the same inputs (checked with `cmp`). Answers for problems no longer in the bank, or graded on an older problem version, are warned about, never silently mixed. The interpretation is left to Najeeb's week2.md.
 - 2026-10-01: Najeeb asked for a more reliable alternative to the Gemini key (20 requests/day). Recommendation given: a larger local model in the same family, `qwen2.5-coder:7b` (4-bit, ~4.7 GB, fits the 8 GB GPU; laptop has 16 GB RAM, i9-13900H): free, unlimited, seedable, and it gives a 1.5B-vs-7B size comparison plus a goal for GRPO. Other free APIs (Groq, Cerebras, GitHub Models, OpenRouter) work with the same client but have changing free limits. Waiting for his choice.
+
+- 2026-10-01: Comparison model test (scratch runs, Najeeb asked to try both): local `qwen2.5-coder:7b` (Q4_K_M, 4.7 GB, digest dae161e2) n = 5: pass@1 0.958 [0.89, 1.00], mean reward 0.988, 1.9 s median, 0 failed calls; only word_frequency 0/5 (both models split "don't" with `\w+` although the spec says inner characters stay: they do the familiar task, not the asked one). OpenRouter free tier (50 requests/day) `qwen/qwen3.8-27b:free`: 16 answers in ~13 min (median 13.6 s, max 226 s), 14 accepted; the 2 others were **provider errors** (finish_reason "error", empty content), plus skipped failed calls; stopped early by Claude (too slow, used his quota). Recommendation: 7B as the comparison model. Najeeb pasted the OpenRouter key in chat: stored in `.env`, he should rotate it.
+- 2026-10-01: **Bug found** by the OpenRouter run: an HTTP 200 reply with `finish_reason == "error"` (provider failed mid-answer) was treated as a normal reply and graded as compile_error. It must count as a failed call (retry, never graded). Not fixed yet (needs a small plan); the 2 affected scratch answers are excluded from conclusions.
+- 2026-10-01: Suite time is up to 45–52 s (limit 60 s; Q11). Measured: `load_all()` ~1 s, 97% pure-Python YAML parsing; PyYAML's C parser (`CSafeLoader`, libyaml available) parses all 66 problem YAML files to identical data 7× faster (0.69 s → 0.10 s). Test-only fix done: the harness tests load the bank once (setup 5.2 s → 0.66 s). Loader switch not done (Week 1 code; ask Najeeb).
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.

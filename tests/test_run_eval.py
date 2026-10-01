@@ -27,7 +27,7 @@ from codetutor.evals.run import (
     run_eval,
 )
 from codetutor.grader import SubprocessSandbox
-from codetutor.problems import Problem, get_problem
+from codetutor.problems import Problem, load_all
 
 PROBLEM_IDS = ["cs1.loops.fizzbuzz", "cs1.strings.compress", "cs1.lists.second_largest"]
 CONFIG = RunConfig(
@@ -63,7 +63,8 @@ class Scripted:
 
 @pytest.fixture(scope="module")
 def problems() -> list[Problem]:
-    return [get_problem(problem_id) for problem_id in PROBLEM_IDS]
+    by_id = {problem.id: problem for problem in load_all()}  # one bank load, not one per id
+    return [by_id[problem_id] for problem_id in PROBLEM_IDS]
 
 
 @pytest.fixture
