@@ -72,6 +72,7 @@ def main() -> int:
     )
     print(
         f"--- reply: {reply.prompt_tokens} tokens in, {reply.completion_tokens} out, "
+        f"{reply.total_tokens} total (more = hidden thinking), "
         f"{reply.latency_ms:.0f} ms, finish_reason={reply.finish_reason} ---"
     )
     print(reply.text.rstrip())

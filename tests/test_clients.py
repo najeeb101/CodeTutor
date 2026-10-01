@@ -59,7 +59,7 @@ def ok(content: str | None = CODE_REPLY, finish_reason: str = "stop") -> Answer:
         "choices": [
             {"message": {"role": "assistant", "content": content}, "finish_reason": finish_reason}
         ],
-        "usage": {"prompt_tokens": 12, "completion_tokens": 34},
+        "usage": {"prompt_tokens": 12, "completion_tokens": 34, "total_tokens": 100},
     }
     return Answer(body=json.dumps(payload))
 
@@ -131,7 +131,8 @@ def test_sends_the_request_and_parses_the_reply(server: FakeServer) -> None:
     server.answers.append(ok(finish_reason="length"))
     reply = _complete(client_for(server), seed=7)
     assert reply.text == CODE_REPLY
-    assert (reply.prompt_tokens, reply.completion_tokens, reply.finish_reason) == (12, 34, "length")
+    assert (reply.prompt_tokens, reply.completion_tokens, reply.total_tokens) == (12, 34, 100)
+    assert reply.finish_reason == "length"
     assert reply.latency_ms is not None and reply.latency_ms > 0
     [request] = server.seen
     assert request.path == "/v1/chat/completions"

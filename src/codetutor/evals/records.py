@@ -33,6 +33,8 @@ class ModelReply(BaseModel):
     latency_ms: float | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    # Can be more than prompt + completion: Gemini counts its hidden "thinking" tokens only here.
+    total_tokens: int | None = None
     # Why the model stopped: "stop" (finished) or "length" (max_tokens cut the reply off).
     finish_reason: str | None = None
 

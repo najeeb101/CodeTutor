@@ -34,9 +34,10 @@ rounding can move scores by a few points. ~3 GB, fits an 8 GB GPU.
 1. Google AI Studio → "Get API key", in a Google Cloud project **without billing**, so it can
    never cost money.
 2. Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY`. Git ignores `.env`; never commit
-   it. A Gemini key is `AIza` plus 35 letters, digits, `-` or `_`. Before a commit, this must
-   print 0 (it matches real keys only, not text like this line):
-   `git diff --cached | grep -cE 'AIza[0-9A-Za-z_-]{35}'`
+   it. Before every commit, run `uv run python scripts/check_secrets.py`: it blocks the commit if
+   any value from `.env` is in the staged changes (or an env file is staged), and never prints
+   the value. It looks for your actual values because key formats change: older Google keys
+   start with `AIza`, newer ones don't.
 3. Run commands with `uv run --env-file .env ...` (no extra package needed).
 
 Free-tier notes:
@@ -88,3 +89,16 @@ Every failure is sorted into one kind, because each needs a different reaction:
   them anyway.
 - Ollama's OpenAI endpoint uses Ollama's default context window. Our prompts are short, but a
   prompt longer than the window would be cut silently.
+
+## 5. Live check results (2026-10-01)
+Real calls, so Step 3 is designed on facts, not guesses.
+
+| What | Result |
+|---|---|
+| Gemini key | Works (models list: 61 models). It has Google's newer format (does not start with `AIza`). |
+| `gemini-2.5-flash` on fizzbuzz | Accepted 10/10 (Docker). 452 tokens in, 149 out, 4.4 s. |
+| `seed` on Gemini | **Rejected**: HTTP 400 "Unknown name "seed"" on the OpenAI-compatible endpoint. The client reports it as `ModelConfigError`. Never send a seed to Gemini. |
+| Thinking on Gemini | **On by default** for 2.5 Flash. On compress: total 2023 / 2979 tokens vs prompt 458 + reply 250 / 307, so ~1300–2200 hidden thinking tokens; 6.9 / 10.6 s per call. Hidden tokens show only in `total_tokens`. |
+| Same prompt twice, temperature 1.0, Gemini | Different replies (as expected). |
+| Ollama from WSL | Works after mirrored networking (`curl localhost:11434/api/version` → 0.35.0). |
+| `qwen2.5-coder:1.5b-instruct-fp16` | **Blocked**: Ollama's GPU server crashes while loading: "CUDA error: device kernel image is invalid" (in `ggml_cuda_kernel_can_use_pdl`). The NVIDIA driver is 546.18 (CUDA 12.3, Dec 2023), older than this Ollama build expects. Fix: update the Windows NVIDIA driver. The client did the right thing: 5 tries, then a clear `ModelError`; nothing was graded. |

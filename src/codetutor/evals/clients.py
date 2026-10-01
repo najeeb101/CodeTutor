@@ -251,6 +251,7 @@ class ChatClient:
             latency_ms=latency_ms,
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
+            total_tokens=usage.get("total_tokens"),
             finish_reason=choice.get("finish_reason"),
         )
 

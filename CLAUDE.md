@@ -32,8 +32,8 @@ every line in an interview.
 - Honesty: never claim tests pass without running them; show real output; mark limitations in code/docs.
 - Git: work on `main`; commit at the end of every step; message format `<area>: <what changed>`;
   never force-push or rewrite history; never commit secrets.
-  Before every commit, `git diff --cached | grep -cE 'AIza[0-9A-Za-z_-]{35}'` must print 0
-  (a real Gemini key), and the commit must not run if it doesn't.
+  Before every commit, `uv run python scripts/check_secrets.py` must exit 0 (it looks for the
+  real values from `.env` in the staged changes); the commit must not run if it doesn't.
 
 ## Architecture summary
 - **One grader for everything.** `grade(problem, code) -> GradeResult` is used by student submissions,
@@ -57,7 +57,7 @@ every line in an interview.
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
 - `api/`, `web/`, `tutor/`, `lab/`: placeholders for later weeks
@@ -75,7 +75,9 @@ every line in an interview.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate).
   `test-docker` runs the hostile tests in Docker (opt-in, marker `docker`, ~1 min; run it after any
-  sandbox change). In this WSL session Docker needs `sg docker -c "..."` until the next login.
+  sandbox change). Docker works without `sg` since the WSL restart on 2026-10-01.
+- WSL uses **mirrored networking** (`C:\Users\ACER\.wslconfig`), so `localhost` reaches the
+  Windows Ollama. Model calls need `uv run --env-file .env ...`.
 
 ## 8-week plan
 | Week | Deliverable |
@@ -126,8 +128,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - **Done (2026-10-01): Week 2 Step 2, code part** (`evals/clients.py`: one stdlib client for
   Ollama + Gemini via the OpenAI chat-completions format; retry/fail-fast/stop error classes;
   throttle; `make_client`; `scripts/try_model.py`; `docs/evals.md`; 21 tests against a local fake
-  server, 1.5 s). **Live check still open:** waits for Najeeb's setup (mirrored networking,
-  `ollama pull qwen2.5-coder:1.5b-instruct-fp16`, Gemini key in `.env`, AI Studio rate limits).
+  server, 1.5 s). **Live check:** Gemini done (`gemini-2.5-flash` solved fizzbuzz, accepted in
+  Docker); **Qwen blocked** by the old NVIDIA driver (546.18): Ollama's GPU server crashes with
+  "device kernel image is invalid". Results table in `docs/evals.md` §5. Also added
+  `scripts/check_secrets.py` (6 tests) and `ModelReply.total_tokens`.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -156,13 +160,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
   n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
   client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. (39 in total.)
-- **Next action:** Najeeb does the setup in `docs/evals.md` §1 (mirrored networking +
-  `wsl --shutdown`, pull the fp16 Qwen, Gemini key in `.env`, read the AI Studio rate limits).
-  Then the Step 2 live check (try_model on 3 problems with Qwen, 1–2 with Gemini; record seed
-  repeatability, Gemini seed support, Gemini thinking / finish_reason). Then Step 3 (run
-  harness) in plan mode: n, temperature and max_tokens per model. Najeeb, before Step 2: Gemini key (project
-  without billing) in `.env` as `GEMINI_API_KEY`; Ollama running on Windows; `wsl --shutdown`
-  so terminals get the docker group. `docs/notes/week1.md` text whenever he wants ("review").
+- **Next action:** Najeeb updates the Windows NVIDIA driver (then restarts Windows) and sends
+  the AI Studio rate limits (RPM/RPD of the Flash models). Then the Qwen part of the live check
+  (try_model on fizzbuzz, compress, valid_parentheses; seed repeatability on Ollama). Then Step 3
+  (run harness) in plan mode: n, temperature, max_tokens, Gemini model and thinking setting.
+  `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -252,6 +254,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-01: No separate response cache (changed from the Week 2 overview): in Step 3 the results JSONL is the cache (a run skips samples already saved; re-grading uses stored replies). Step 3 also follows the brief's `reveal_hidden=True` (Step 1's `score_reply` hides hidden details; only two_sum's ~60 KB input makes records big).
 - 2026-10-01: Client error classes: transient (429 per minute, 5xx, timeout, dropped connection) → backoff 2·2^attempt s with 50–100% jitter, or the server's `Retry-After` / Gemini `retryDelay`, max 4 retries, max wait 60 s; per-day 429 → `QuotaExhaustedError`; 400/401/403/404 → `ModelConfigError`; refused/unknown host → `ModelUnavailableError`. The key is blanked out of every error message. Tests run against a stdlib fake server on 127.0.0.1 (real HTTP, no mocks); its `serve_forever` poll interval is 0.01 s, because the default 0.5 s made every teardown wait (8.5 s → 1.5 s).
 - 2026-10-01: `scripts/try_model.py` grades with the Docker sandbox by default (model code is untrusted). `.env.example` now documents `GEMINI_API_KEY` and `OLLAMA_BASE_URL` (it replaced the Week 1 placeholder with commented OpenAI/Anthropic keys).
+
+- 2026-10-01: Live check facts (docs/evals.md §5): Gemini's OpenAI-compatible endpoint **rejects `seed`** (HTTP 400 "Unknown name seed"), so Step 3 never sends one to Gemini. Gemini 2.5 Flash **thinks by default** (~1300–2200 hidden tokens on compress, 7–11 s per call); the hidden tokens show only in `usage.total_tokens`, so `ModelReply` now keeps `total_tokens`. Najeeb's key uses Google's newer format (not `AIza…`), so the `AIza` grep rule was replaced by `scripts/check_secrets.py`, which looks for the real `.env` values in the staged diff and never prints them.
+- 2026-10-01: Setup done partly by Claude with Najeeb's approval of the plan: Claude created `C:\Users\ACER\.wslconfig` (mirrored networking; the file didn't exist) and pulled `qwen2.5-coder:1.5b-instruct-fp16` into the Windows Ollama. A temporary second Ollama on the WSL-internal address was blocked by the safety classifier ("expose local services") and not pursued. Qwen then failed on the GPU: Ollama 0.35.0's CUDA build crashes with driver 546.18; fix = update the NVIDIA driver (also needed for PyTorch/GRPO in Weeks 6–7).
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
