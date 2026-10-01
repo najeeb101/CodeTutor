@@ -134,6 +134,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Docker); Qwen fp16 on the GPU accepted fizzbuzz, compress and valid_parentheses after the
   NVIDIA driver update (546.18 → 617.14). Results table in `docs/evals.md` §5. Also added
   `scripts/check_secrets.py` (6 tests) and `ModelReply.total_tokens`. **Step 2 done.**
+- **Done (2026-10-01): Week 2 Step 3** (run harness `evals/run.py` + `scripts/run_eval.py`, 10
+  tests; suite 270 passed). **Official Qwen run complete**: 330/330 answers, Docker grading, no
+  failed calls; pass@1 0.867, pass@5 0.983, pass@10 1.000 (accepted 286, wrong_answer 36,
+  runtime_error 6, compile_error 2). Weakest: group_anagrams 2/10, word_frequency 2/10,
+  letter_grade 3/10, max_of_three 4/10. Reproducibility check: 4/4 re-run seeded answers
+  byte-identical with the same grades. **Gemini (n = 1) still to run**: quota resets 10:00 Qatar
+  time; 20 answers on day 1, 13 on day 2.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -162,9 +169,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   extractor's pick for a reply with a solution block then a `print(...)` block; Q2 pass@2 for
   n = 4, c = 1; Q3 why `build_messages` takes a StudentProblem. Week 2 Step 2: Q1 what the
   client does on a 401; Q2 why jitter; Q3 why a failed API call is never graded. (39 in total.)
-- **Next action:** Najeeb sends the AI Studio rate limits (RPM/RPD of the Flash models). Then
-  Step 3 (run harness) in plan mode: n, temperature, max_tokens, Gemini model and thinking
-  setting, seeds (Ollama: sample i uses seed i; Gemini: no seed).
+- **Next action:** after 10:00 Qatar time, run
+  `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`
+  (stops at the quota with exit 2; run it again the next day to finish), then commit its results.
+  Step 4 (metrics + Markdown report) starts in plan mode and can use the Qwen data meanwhile.
   `docs/notes/week1.md` text whenever he wants ("review").
 
 ## Decisions log
