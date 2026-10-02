@@ -63,12 +63,13 @@ every line in an interview.
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
-- `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`); Steps 2–3 add `worker/`, `api/`
+- `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`); Step 3 adds `api/`
 - `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool until the API)
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `notes/`
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
 - `api/` (README points to `src/codetutor/api/`), `web/` (Next.js app, Week 3 Step 4), `tutor/`: placeholders
@@ -89,10 +90,11 @@ every line in an interview.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate),
   `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data), `db-migrate`
-  (`alembic upgrade head`) and `db-sync` (migrate + copy the problems in). `test` depends
+  (`alembic upgrade head`), `db-sync` (migrate + copy the problems in) and `worker` (db-sync, then
+  grade queued submissions in Docker until Ctrl+C). `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
-  `test-docker` runs the hostile tests in Docker (opt-in, marker `docker`, ~1 min; run it after any
-  sandbox change). Docker works without `sg` since the WSL restart on 2026-10-01.
+  `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
+  ~1 min; run it after any sandbox or worker change). Docker works without `sg` since the WSL restart on 2026-10-01.
 - WSL uses **mirrored networking** (`C:\Users\ACER\.wslconfig`), so `localhost` reaches the
   Windows Ollama. Model calls need `uv run --env-file .env ...`. Bind local services to
   `127.0.0.1` (a plain port mapping could be reachable from the network).
@@ -203,6 +205,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   (`test_db_schema.py` 36, `test_db_sync.py` 9; ~4 s): migration round trip, drift check,
   every CHECK, every status, json vs jsonb, whole-bank round trip. Suite 348 passed, 2 skipped,
   1 xfailed (41.2 s); `make all` 62 s.
+- **Done (2026-10-02): Week 3 Step 2** (worker). `src/codetutor/worker/`: `jobs.py` (claim SQL
+  with `FOR UPDATE SKIP LOCKED`, 5 min lease, `attempts` as fencing token, 3 attempts, NUL
+  cleanup, `enqueue_submission`, `load_grade_result`) and `loop.py` (`process_job`,
+  `run_worker`: poll 1 s, 2 s pause after an error, stop after 5 errors in a row, graceful
+  stop); migration `0002_claim_index` (partial index on queued/running); `scripts/worker.py`
+  (always Docker), `scripts/submit.py`; `make worker`; `docs/worker.md`; interview note. 20 new
+  tests + 1 docker test. Live: fizzbuzz solution accepted 10/10, buggy wrong_answer 6/10 (~1.0 s
+  per job in Docker); SIGINT during an is_prime grading → job saved, then the worker exited.
+  EXPLAIN with 50 008 rows: index scan on `ix_submissions_claimable` (16 kB vs 1 112 kB pk).
+  Suite 368 passed, 2 skipped, 1 xfailed (43.5 s); `make all` 64 s; `make test-docker` 33
+  passed (56 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
@@ -249,11 +262,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the port is `127.0.0.1:5432:5432`; Q2 why the dev password may be in compose.yaml but the
   Gemini key never; Q3 why pin the image by digest. Week 3 Step 1: Q1 why `problems` holds only
   the student view and hidden tests live in `problem_versions`; Q2 why `json`, not `jsonb`;
-  Q3 what `make db-sync` does after a hint typo fix without a version bump.
-  (66 in total; answer key in Claude's memory.)
-- **Next action:** Week 3 Step 2 (worker: claim with `FOR UPDATE SKIP LOCKED` + lease + retries,
-  grade in `DockerSandbox`, save result + test_results in one transaction; the claim index; NUL
-  cleanup before saving; leave unrevealed json columns unset), starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  Q3 what `make db-sync` does after a hint typo fix without a version bump. Week 3 Step 2: Q1 what
+  `SKIP LOCKED` adds to `FOR UPDATE`; Q2 what happens to a late save after a lost lease; Q3 why
+  the worker stops after 5 errors in a row.
+  (69 in total; answer key in Claude's memory.)
+- **Next action:** Week 3 Step 3 (API: FastAPI + uvicorn, dev `httpx`; list problems, get problem
+  (student view from `problems` only), name-only dev login, submit via `enqueue_submission`, get
+  result via `load_grade_result`, my submissions; never show `last_error` as is; rate limit),
+  starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days; then add a README row).
@@ -469,6 +485,28 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   from tests); readable revision files (`--rev-id 0001` → `0001_initial_schema.py`); post-write
   hooks run `ruff check --select I --fix` and `ruff format` on new migrations. No new
   `TODO(najeeb)` (the fizzbuzz one is still open).
+- 2026-10-02: Week 3 Step 2 (Najeeb approved the plan). Claim = one plain-SQL `UPDATE … WHERE id =
+  (SELECT … ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING …`, committed at once; grading
+  runs with no transaction open; save = result + test rows in one transaction. Fixed lease
+  `LEASE_S = 300` (bank worst case 38 s; a test keeps every problem under half); `attempts` is
+  the fencing token (save/release `WHERE attempts = ours AND job_status = 'running'`; 0 rows =
+  lost, nothing written). `MAX_ATTEMPTS = 3`; jobs whose lease expired on attempt 3 are failed at
+  the next claim (`FAIL_ABANDONED_SQL`). Errors on our side → requeue with `last_error`; the
+  worker pauses 2 s and stops after 5 errors in a row (exit 2), like the eval harness.
+- 2026-10-02: NUL (measured: in stdout, test errors and returned values) → `clean_text` replaces it
+  with U+FFFD in text columns; json values keep it (`\u0000`). `enqueue_submission` refuses code
+  with NUL, lone surrogates, or > 50 000 characters (`InvalidSubmissionError`), and unknown or
+  retired problems (`UnknownProblemError`), so the API inherits the checks. Found: a returned
+  lone surrogate is graded `crashed` by the Week 1 grader (ideas.md; needs its own plan).
+- 2026-10-02: Worker functions take a Session and never commit (loop.py owns the 3 transactions);
+  problem copies cached per run (sealed copies never change). The worker script always uses
+  `DockerSandbox` (no flag); tests use `SubprocessSandbox` + 1 `docker` test. `make worker` depends
+  on `db-sync` (deviation from the plan's `db-migrate`: the worker needs synced problems, and a
+  changed problem without a version bump then stops it with sync's message). `make test-docker`
+  now depends on `db-up`. `submit.py` imports `format_result` from `grade_cli.py` (same folder).
+  Graceful stop checked live: `uv run` forwards SIGINT; the grading child (own session) is not
+  hit; the job finished, then the worker exited. Worker tests ~7 s alone (1.9 s is the shared
+  test-DB setup); suite +2.3 s measured.
 
 ## Open questions
 - Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). Now pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
@@ -484,5 +522,6 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load. This also affects failure *labels*: a memory bomb can end as `timeout` or `runtime_error` depending on load (same reward, different label). Keep it in mind for Week 2 failure-type statistics.
 - The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
 - The input check compares with `==`: `[1]` and `[True]` count as equal, and a change undone before the function returns is not seen. It catches honest mistakes, not attackers.
-- Postgres `text` can't hold NUL (`\x00`, DataError): Step 2 must clean `stdout`/errors before saving, Step 3 must reject code with NUL.
+- Postgres `text` can't hold NUL (`\x00`, DataError): the worker replaces it with U+FFFD in text columns, and `enqueue_submission` refuses code containing it.
+- The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
 - The hidden tests are in the database (`problem_versions`); only code review keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
