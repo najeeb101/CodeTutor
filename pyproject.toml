@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Najeeb Abdi" }]
 dependencies = [
+    "psycopg[binary]>=3.2",
     "pydantic>=2",
     "pyyaml>=6",
 ]

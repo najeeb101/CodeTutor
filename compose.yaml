@@ -1,0 +1,29 @@
+# Local development services. Start with `make db-up`, stop with `make db-down`.
+#
+# The database is a throw-away local copy that only this machine can reach (127.0.0.1), so its
+# password is a fixed dev value, not a secret. Never reuse it anywhere else: real hosting sets
+# DATABASE_URL from a secret (see src/codetutor/settings.py).
+
+services:
+  db:
+    # Postgres 17 (like Supabase) with the pgvector extension for Week 4. Pinned by digest so
+    # every machine runs the same build (17.11 when pinned, 2026-10-02).
+    image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+    environment:
+      POSTGRES_USER: codetutor
+      POSTGRES_PASSWORD: codetutor
+      POSTGRES_DB: codetutor
+    ports:
+      # 127.0.0.1 only: with WSL mirrored networking, a plain "5432:5432" could be reachable
+      # from the local network.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codetutor -d codetutor"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

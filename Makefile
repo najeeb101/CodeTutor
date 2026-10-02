@@ -1,4 +1,4 @@
-.PHONY: install lint format test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -10,7 +10,16 @@ lint:  ## ruff check + format check (no changes made)
 format:  ## auto-format code
 	uv run ruff format .
 
-test:  ## run the test suite (without the Docker tests)
+db-up:  ## start the local Postgres (compose.yaml) and wait until it is healthy (needs Docker)
+	docker compose up -d --wait db
+
+db-down:  ## stop the local Postgres (the data is kept)
+	docker compose down
+
+db-reset:  ## stop the local Postgres AND delete its data (dev only)
+	docker compose down -v
+
+test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
 	uv run pytest
 
 test-docker:  ## run the hostile-submission tests in the Docker sandbox (needs Docker)

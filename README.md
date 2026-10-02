@@ -40,6 +40,7 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 - Linux or macOS (on Windows, use WSL2); the grader's sandbox uses POSIX features
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
+- Docker with Compose (for the local database and the safe sandbox)
 
 > **⚠️ Security:** the default sandbox is a subprocess with resource limits. It is **not secure**:
 > graded code can read your files and use the network. For code you don't trust, use the Docker
@@ -50,7 +51,8 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 ## Install and check
 ```bash
 make install    # install dependencies and the package (editable)
-make all        # lint + tests + validate every problem
+make db-up      # start the local Postgres (compose.yaml, 127.0.0.1 only); make db-down stops it
+make all        # lint + tests + validate every problem (starts the database if needed)
 make build      # write dist/problems.jsonl and dist/problems_student.jsonl
 ```
 Other targets: `make test`, `make lint`, `make validate`, `make format`, and
