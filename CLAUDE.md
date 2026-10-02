@@ -163,7 +163,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   noise at 12 decimals, then round half up with `decimal`) formats every computed number.
   week2.md regenerated: only 7 tie cells changed, no headline number. Suite 301 passed,
   2 skipped, 1 xfailed (28.9 s); `make all` 42 s.
-- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
+- **Done (2026-10-02): Week 2 Step 5 (wrap-up).** `docs/notes/week2.md` skeleton (7 sections,
+  checked facts in comment boxes, numbers table filled; Najeeb writes the text, then "review").
+  README: status Weeks 1–2 done, test numbers, new "Evaluate a model" section (results table +
+  commands, all run as written today, incl. a live Qwen call), layout, roadmap. `lab/README.md`
+  was already current. `make all`: 301 passed (30.7 s), 33 valid, 48 s.
+- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
+  `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
   bank validation, recommendation: leave it); Q14 (rare memory-bomb flake, recommendation A:
   leave it).
@@ -202,13 +208,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   YAML parser: Q1 why the differential test compares `repr`, not `==`; Q2 why fill_expected's
   round-trip check uses `parse_yaml`; Q3 why 0.59 s → 0.10 s saves only ~2 s per suite.
   Q15 rounding: Q1 what `f"{0.625:.2f}"` prints; Q2 why cut at 12 decimals before rounding
-  half up; Q3 why 7 cells changed but no headline number.
-  (57 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb's last call from the Step 4b STOP ((1) finish_reason fix, (2) YAML
-  parser and (3) Q15 rounding are done): (4) Gemini n = 1: keep as a 3rd model (after 10:00 Qatar time,
+  half up; Q3 why 7 cells changed but no headline number. Week 2 wrap-up: Q1 why the README
+  names "4-bit" next to the 7B; Q2 why week2.md gives raw facts, not finished text; Q3 what
+  happens to hidden-only wrong answers in a bank without hidden tests.
+  (60 in total; answer key in Claude's memory.)
+- **Next action:** Week 2's code and wrap-up are done. Waiting for Najeeb: (a) his text in
+  `docs/notes/week2.md` and `docs/notes/week1.md` ("review" when ready); (b) Gemini n = 1: keep
+  as a 3rd model (after 10:00 Qatar time,
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
-  2 days) or drop. Then Step 5 (Najeeb's `docs/notes/week2.md`, README).
-  `docs/notes/week1.md` text whenever he wants ("review").
+  2 days; then add a README row) or drop; (c) "go" for Week 3 (FastAPI + Postgres + queue +
+  minimal Next.js UI): starts with a Week 3 overview plan in plan mode (new dependencies need
+  his approval).
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -348,6 +358,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   0.58–0.63 s → 0.11–0.12 s; net gain ~2 s per suite. Trade-off: libyaml's error message for
   broken YAML has line and column but no `^` snippet. `evals/run.py` (one config file) and
   `tests/test_bank.py` keep `yaml.safe_load` (the latter stays an independent check).
+- 2026-10-02: Week 2 wrap-up. The README's Ollama commands leave out `--env-file .env`
+  (measured: `uv run --env-file` fails when the file doesn't exist; only Gemini needs it). The
+  README offers no offline fake-model run: fake models need a config file, and a fake config in
+  `lab/evals/configs/` would look like an official run. Checked before writing week2.md:
+  group_anagrams fails because both models sort the groups before sorting the words inside
+  each group; 5 of the 7B's 9 word_frequency failures use a letters-only regex (\w+ / [a-z]+).
+  The README's scratch-run example replaced an older gitignored scratch file with the same
+  run_id (a Step 3 smoke run, quoted nowhere); scratch runs always start fresh by design.
 - 2026-10-02: Q15 resolved (Najeeb: "go"; option A, changed to round **half up**). Checked
   every group value with exact fractions first: the problem was wider than Dictionaries.
   Python's `:.2f` rounds the stored binary value with ties to even, so exact ties went both
