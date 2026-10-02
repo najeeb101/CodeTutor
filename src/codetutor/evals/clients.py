@@ -5,7 +5,8 @@ and the API key differ. Standard library only (urllib + json): no SDK and no Lit
 2026-10-01).
 
 Every failure is sorted into one kind:
-- transient (429 per minute, 5xx, timeout, dropped connection): wait longer each time, retry;
+- transient (429 per minute, 5xx, timeout, dropped connection, or an HTTP 200 reply whose
+  finish_reason is "error" because the provider failed mid-answer): wait longer each time, retry;
 - daily quota used up (a 429 that names a per-day quota): QuotaExhaustedError, stop the run;
 - wrong settings (400/401/403/404): ModelConfigError at once, because retrying can't help;
 - nothing listening (connection refused, unknown host): ModelUnavailableError at once.
@@ -40,6 +41,8 @@ DEFAULT_BACKOFF_S = 2.0  # waits of about 2, 4, 8, 16 s (each randomly 50-100%: 
 MAX_WAIT_S = 60.0  # never wait longer than this between two attempts
 TRANSIENT_STATUSES = frozenset({429, 500, 502, 503, 504})
 CONFIG_STATUSES = frozenset({400, 401, 403, 404})
+# HTTP 200, but the provider says it failed (OpenRouter sends "error"): a failed call, not a reply.
+FAILED_FINISH_REASONS = frozenset({"error"})
 MAX_ERROR_BODY_BYTES = 64_000  # read this much of an error reply (quota details can be long)
 MAX_MESSAGE_CHARS = 500  # but quote only this much of it in our error message
 
@@ -241,6 +244,12 @@ class ChatClient:
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             preview = raw[:MAX_MESSAGE_CHARS].decode("utf-8", errors="replace")
             raise ModelError(self._redact(f"{self.name}: unexpected reply: {preview}")) from exc
+        if choice.get("finish_reason") in FAILED_FINISH_REASONS:
+            # Even if some text came back, it is not the model's real answer: retry, never grade.
+            preview = raw[:MAX_MESSAGE_CHARS].decode("utf-8", errors="replace")
+            raise _Transient(
+                self._redact(f"{self.name}: the provider failed mid-answer: {preview}")
+            )
         if text is None:
             text = ""  # some providers send null content, e.g. when a safety filter blocks it
         if not isinstance(text, str):

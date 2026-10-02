@@ -205,3 +205,17 @@ against the examples.
 *How I'd say it:* "I compared models with identical configs except the model, pinned the seeds
 so every answer can be reproduced, named the one confounder I couldn't remove (quantization),
 and checked every surprising number back to the raw answers before believing it."
+
+## HTTP 200 is not success (Week 2, finish_reason fix)
+An API can say "OK" (HTTP 200) and still have failed: OpenRouter sometimes sends a normal-looking
+reply with empty content and `finish_reason: "error"`, because the provider broke mid-answer.
+This is an **in-band error** (the failure is inside the payload, not in the status code). If the
+eval code trusts the status code, the empty answer is graded as a compile error, and the model
+is blamed for an infrastructure problem: pass@k goes down for no real reason, and in RL the
+model would get reward 0 for an answer it never gave. The fix is to check the payload too and
+treat this like a 503: retry, and if it keeps failing, record a failed call that is never
+graded. Partial text from a failed reply is thrown away. `"length"` (cut off by max_tokens) is
+different: that is the model's real answer, so it is graded and counted separately.
+*How I'd say it:* "In my eval client a failure is classified by what happened, not by the status
+code: a 200 with finish_reason 'error' is retried like a 5xx and never graded, because
+infrastructure noise must never end up in the model's score or in the reward."

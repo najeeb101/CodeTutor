@@ -109,6 +109,7 @@ Every failure is sorted into one kind, because each needs a different reaction:
 | What happened | Exception | What the client does |
 |---|---|---|
 | 429 (per minute), 500/502/503/504, timeout, dropped connection | (internal, transient) | Retry up to 4 times. Waits ~2, 4, 8, 16 s with jitter, or what the server asks (`Retry-After`, Gemini's `retryDelay`). Then `ModelError`. |
+| HTTP 200, but `finish_reason: "error"` (the provider failed mid-answer) | (internal, transient) | Same as a 503: retry, then `ModelError`. Any partial text is thrown away, never graded. |
 | 429 that names a per-day quota | `QuotaExhaustedError` | Stop at once: retrying today can't help. |
 | 400/401/403/404 | `ModelConfigError` | Stop at once: wrong key, model name or parameter. |
 | Connection refused, unknown host | `ModelUnavailableError` | Stop at once: the server isn't running or the address is wrong. |
@@ -131,10 +132,11 @@ Every failure is sorted into one kind, because each needs a different reaction:
   them anyway.
 - Ollama's OpenAI endpoint uses Ollama's default context window. Our prompts are short, but a
   prompt longer than the window would be cut silently.
-- **Open bug:** a reply with HTTP 200 but `finish_reason: "error"` (the provider failed in the
-  middle of the answer; seen on OpenRouter's free tier) is treated as a normal reply, so its
-  empty code is graded as `compile_error`. It should count as a failed call. Ollama never sends
-  it, so the official Qwen runs are not affected.
+- **Fixed 2026-10-02:** a reply with HTTP 200 but `finish_reason: "error"` (seen on
+  OpenRouter's free tier) used to be graded as `compile_error`. It is now a failed call (see
+  the table above). The 2 old scratch answers it affected stay excluded. The official Qwen runs
+  have none (Ollama doesn't send it). Only `"error"` is treated this way; another provider might
+  name its failures differently.
 
 ## 6. Live check results (2026-10-01)
 Real calls, so Step 3 is designed on facts, not guesses.

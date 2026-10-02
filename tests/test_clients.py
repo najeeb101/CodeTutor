@@ -199,6 +199,23 @@ def test_slow_server_times_out_and_is_retried(server: FakeServer) -> None:
     assert len(server.seen) == 2
 
 
+def test_finish_reason_error_is_retried(server: FakeServer) -> None:
+    # HTTP 200, but the provider failed mid-answer (seen on OpenRouter's free tier).
+    server.answers += [ok(content="", finish_reason="error"), ok()]
+    reply = _complete(client_for(server))
+    assert (reply.text, reply.finish_reason) == (CODE_REPLY, "stop")
+    assert len(server.seen) == 2
+
+
+def test_finish_reason_error_gives_up_as_a_model_error(server: FakeServer) -> None:
+    half_answer = "```python\ndef f(n):\n    re"  # some text came back: still not an answer
+    server.answers += [ok(content=half_answer, finish_reason="error")] * 3
+    with pytest.raises(ModelError, match="gave up after 3 tries") as caught:
+        _complete(client_for(server, max_retries=2))
+    assert type(caught.value) is ModelError  # a failed call: the harness never grades it
+    assert len(server.seen) == 3
+
+
 # --- failures that must not be retried ---
 
 
