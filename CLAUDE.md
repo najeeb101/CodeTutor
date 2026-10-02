@@ -106,6 +106,8 @@ every line in an interview.
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
   ~1 min; run it after any sandbox or worker change). Docker works without `sg` since the WSL restart on 2026-10-01.
+  Marker `slow` (also deselected by default): the whole-bank validation test, because
+  `make validate` in `make all` runs the same check (`uv run pytest -m slow` runs it).
 - WSL uses **mirrored networking** (`C:\Users\ACER\.wslconfig`), so `localhost` reaches the
   Windows Ollama. Model calls need `uv run --env-file .env ...`. Bind local services to
   `127.0.0.1` (a plain port mapping could be reachable from the network).
@@ -261,11 +263,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   command run as written; the `ollama pull` line was wrong for WSL since Week 2, fixed),
   `docs/notes/week3.md` skeleton, 1 interview note. Suite 414 passed, 2 skipped, 1 xfailed:
   **57–65 s on 2026-10-02 evening (over the 60 s limit on one run; see Q11)**; `make web-check` 6 s.
+- **Done (2026-10-02): Q11 resolved (option C).** `test_every_problem_in_the_bank_is_valid` is
+  marker `slow` (deselected by default; `make validate` in `make all` runs the same check). Suite
+  413 passed, 2 skipped, 1 xfailed, 34 deselected: **35.8–38.0 s** on three runs (was
+  47.9–64.8 s); `make all` 47.8–50.4 s, 33 valid. The slow test alone: 10.35 s, passes.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
-  numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
-  bank validation, recommendation: leave it); Q14 (rare memory-bomb flake, recommendation A:
-  leave it).
+  numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
+  flake, recommendation A: leave it).
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -315,10 +320,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q2 why Monaco is copied into `public/` instead of loaded from the CDN; Q3 what goes wrong
   with `setInterval` polling when the API is slow. Week 3 Step 5: Q1 why test_e2e.py starts a
   real uvicorn server instead of using TestClient; Q2 why a test that expects the check to
-  fail is useful; Q3 the two causes of `make web-e2e` taking 47 s.
-  (78 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb decides Q11 (suite time, now at the 60 s limit; recommendation C).
-  Najeeb's click-through of the UI (README "Run the app") and his text in
+  fail is useful; Q3 the two causes of `make web-e2e` taking 47 s. Q11 slow marker: Q1 which
+  command still catches a bank problem whose solution fails its own tests; Q2 what
+  `uv run pytest -m docker` runs when addopts says `-m 'not docker and not slow'`.
+  (80 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb's click-through of the UI (README "Run the app") and his text in
   `docs/notes/week3.md` ("review" when ready). Then Week 4 (AI tutor: LiteLLM or our own
   client (decided 2026-10-01: own client, revisit), RAG over course notes, hint-not-answer
   guardrail, Langfuse, hint ratings), starting in plan mode with a week overview. Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -635,9 +641,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   example, eval_report (byte-identical), try_model (accepted 10/10), the 2×2 scratch run, the
   three servers + `make e2e` + `make web-e2e`, `submit.py --wait`. Found: `ollama pull` does not
   exist in WSL (Ollama runs on Windows); the README now says `ollama.exe pull` from WSL.
+- 2026-10-02: Q11 resolved (Najeeb: "go" on recommendation C). The whole-bank validation test is
+  marker `slow`, deselected by default (`addopts = "-m 'not docker and not slow'"`; a
+  command-line `-m` still replaces it, so `make test-docker` is unchanged). It called the same
+  `validate_bank()` that `make validate` runs right after pytest, so `make all` graded the bank
+  twice. **Deviation from brief §3.5** ("runs the validator over all problems inside pytest"):
+  the test stays and runs with `uv run pytest -m slow`; the validator's logic keeps its 7 unit
+  tests in the default suite. Trade-off: a bare `uv run pytest` no longer checks the real bank;
+  a future CI must run `make all`. Measured the same evening: pytest 35.8–38.0 s (3 runs), the
+  slow test alone 10.35 s; the rest of the drop from 47.9–64.8 s is machine load. Option B
+  (parallel bank validation) dropped.
 
 ## Open questions
-- Q11: suite time. **Update after Week 3 Step 5 (needs a decision):** pytest 47.9, 57.2 and 64.8 s on three runs the same evening (414 tests; the limit is 60 s). The biggest single test is `test_every_problem_in_the_bank_is_valid` (12.5 s), which repeats exactly what `make validate` does again in `make all`. New option (C): mark it `slow` (deselected by default, like `docker`), and keep the bank checked by `make validate` in `make all` (saves ~12.5 s per suite; trade-off: a plain `pytest` no longer validates the bank). Recommendation: C. Older notes: The YAML part is done (2026-10-02, ~2 s saved). **Update after Week 3 Step 3:** pytest 55.5–58.7 s on the afternoon of 2026-10-02, close to the 60 s limit. Part of it is the machine (the same 368 tests: 39.5 s in the morning, 49.6 s in the afternoon); Step 3 added ~6.5 s. Recommendation: measure again on a quiet machine; if pytest stays above ~50 s, do B. Before Step 3: pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
@@ -655,5 +670,6 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Postgres `text` can't hold NUL (`\x00`, DataError): the worker replaces it with U+FFFD in text columns, and `enqueue_submission` refuses code containing it.
 - The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
 - The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
-- The suite is at the 60 s limit (57–65 s on 2026-10-02 evening; Q11). The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
+- A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
+  through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
