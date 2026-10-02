@@ -63,16 +63,17 @@ every line in an interview.
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
-- `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`); Step 3 adds `api/`
-- `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
+- `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
+- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (7 endpoints), `submissions.py` (submit + rate limits), `schemas.py`, `deps.py` (session, `current_user`)
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool until the API)
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool)
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `notes/`
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
-- `api/` (README points to `src/codetutor/api/`), `web/` (Next.js app, Week 3 Step 4), `tutor/`: placeholders
+- `api/` (README points to `src/codetutor/api/` and docs/api.md), `web/` (Next.js app, Week 3 Step 4), `tutor/`: placeholders
 - `dist/`: generated output (gitignored)
 
 ## Conventions
@@ -90,8 +91,9 @@ every line in an interview.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate),
   `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data), `db-migrate`
-  (`alembic upgrade head`), `db-sync` (migrate + copy the problems in) and `worker` (db-sync, then
-  grade queued submissions in Docker until Ctrl+C). `test` and `test-docker` depend
+  (`alembic upgrade head`), `db-sync` (migrate + copy the problems in), `worker` (db-sync, then
+  grade queued submissions in Docker until Ctrl+C) and `api` (db-sync, then the HTTP API on
+  127.0.0.1:8000; start it after the worker, two syncs at once are not guarded). `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
   ~1 min; run it after any sandbox or worker change). Docker works without `sg` since the WSL restart on 2026-10-01.
@@ -216,6 +218,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   EXPLAIN with 50 008 rows: index scan on `ix_submissions_claimable` (16 kB vs 1 112 kB pk).
   Suite 368 passed, 2 skipped, 1 xfailed (43.5 s); `make all` 64 s; `make test-docker` 33
   passed (56 s).
+- **Done (2026-10-02): Week 3 Step 3** (API). `fastapi` 0.142.2 + `uvicorn` 0.54.0, dev `httpx`
+  0.28.1 (12 packages, 20 → 32). `src/codetutor/api/`: 7 endpoints, dev login via `X-User-Id`,
+  rate limits (3 waiting + 10 per 60 s, counted in Postgres under a user-row lock), 409 when the
+  problem version changed, own 422 handler; migration `0003` (index on `submissions (user_id,
+  created_at)`); `db/users.py`; `make api`; `docs/api.md`; 2 interview notes. 40 new tests
+  (~6.5 s). Race test: 10/10 green with the lock; without it 12 of 12 got in (limit 5, 3/3 runs).
+  Found by a test: FastAPI's default 422 echoed a lone surrogate and crashed (500). Live (worker
+  in Docker + uvicorn + curl): submit 0.05 s, result 1.1 s later; buggy fizzbuzz 6/10 with the
+  4 hidden failures unrevealed; 404 for another user; 409; 429 with Retry-After 2 (waiting) and
+  51 (window); DB stopped → 503 after 5.0 s, back → 200. EXPLAIN on 50 000 rolled-back rows:
+  index-only scan, 0.6 ms. Suite 408 passed, 2 skipped, 1 xfailed (55.5–58.7 s; the machine was
+  ~25% slower than in the morning: the same 368 tests took 49.6 s vs 39.5 s, see Q11);
+  `make all` 72–75 s; `make test-docker` 33 passed (57 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
@@ -264,12 +279,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the student view and hidden tests live in `problem_versions`; Q2 why `json`, not `jsonb`;
   Q3 what `make db-sync` does after a hint typo fix without a version bump. Week 3 Step 2: Q1 what
   `SKIP LOCKED` adds to `FOR UPDATE`; Q2 what happens to a late save after a lost lease; Q3 why
-  the worker stops after 5 errors in a row.
-  (69 in total; answer key in Claude's memory.)
-- **Next action:** Week 3 Step 3 (API: FastAPI + uvicorn, dev `httpx`; list problems, get problem
-  (student view from `problems` only), name-only dev login, submit via `enqueue_submission`, get
-  result via `load_grade_result`, my submissions; never show `last_error` as is; rate limit),
-  starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  the worker stops after 5 errors in a row. Week 3 Step 3: Q1 why submit answers 202 and the
+  UI polls; Q2 what the user-row lock does to two submits at 9 of 10; Q3 why another user's
+  submission is a 404, not a 403.
+  (72 in total; answer key in Claude's memory.)
+- **Next action:** Week 3 Step 4 (web UI in `web/`: Next.js + Monaco, npm `next`, `react`,
+  `@monaco-editor/react`, `typescript` pre-approved; problem list, problem page with editor,
+  submit, poll the result; a Next.js rewrite `/api/*` → 127.0.0.1:8000, so no CORS; the dev
+  login keeps `{id, name}` and sends `X-User-Id`), starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days; then add a README row).
@@ -507,10 +524,41 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Graceful stop checked live: `uv run` forwards SIGINT; the grading child (own session) is not
   hit; the job finished, then the worker exited. Worker tests ~7 s alone (1.9 s is the shared
   test-DB setup); suite +2.3 s measured.
+- 2026-10-02: Week 3 Step 3 (Najeeb approved the plan, all 9 decisions). Dev login = `POST
+  /api/login {name}` → `{id, name}`, then the `X-User-Id` header; one dependency `current_user`
+  (real auth replaces only it); names trimmed, 1–40 characters, no Cc/Cs characters,
+  case-sensitive. Rate limits counted from `submissions` in Postgres (not in memory): 3 waiting
+  (Retry-After 2) and 10 per 60 s sliding window (Retry-After = until the oldest leaves);
+  `create_submission` locks the user row (`FOR UPDATE`) before counting (check-then-act race).
+  Submit body carries `problem_version`; `enqueue_submission(..., expected_version=)` raises
+  `ProblemChangedError` (409) in the same read that picks the version. Plain `def` endpoints +
+  sync SQLAlchemy. Response models are the allow-list; failed jobs show `FAILED_MESSAGE`, never
+  `last_error`; another user's submission is 404 (not 403). Migration 0003 = index
+  `submissions (user_id, created_at)`. App factory `create_app(engine=None, limits=None)`;
+  `make api` = uvicorn `--factory` on 127.0.0.1:8000. No CORS (Step 4 uses Next.js rewrites).
+- 2026-10-02: Own `RequestValidationError` handler (not in the plan): FastAPI's default 422
+  copies each bad value back, and Starlette's UTF-8 encoding crashed on a lone surrogate (500);
+  an unknown JSON key with a surrogate does the same through `loc`. The handler keeps only
+  `type`/`loc`/`msg` and writes ASCII-escaped JSON. `problem_id` in the submit body uses
+  `PROBLEM_ID_PATTERN`, so a malformed id never reaches Postgres.
+- 2026-10-02: FastAPI 0.142 depends on `opentelemetry-api` (inert without an SDK) and would add
+  OTLP exporters from `OTEL_*` environment variables (it would fail anyway: no exporter
+  packages). `create_app` passes `telemetry={"auto_configure": False}`: no data leaves the
+  machine; tracing is a Week 4 decision (Langfuse).
+- 2026-10-02: `get_or_create_user` moved from `scripts/submit.py` to `db/users.py` (one function
+  for the API and the script; submit.py checked live). "My submissions" selects only summary
+  columns (no `code`/`stdout`). A test greps `src/codetutor/api/` for the sealed-copy table's
+  name (a cheap guard until the separate DB role), and another pins the 7 routes.
+- 2026-10-02: Measured: `test_api.py` 7.5 s, incl. ~1 s of test-DB creation that moved to it
+  (it now sorts first), so ~6.5 s net (the plan estimated 4 s). The EXPLAIN experiment inserted
+  500 users + 50 000 submissions and rolled back; Postgres sequences are not rolled back, so dev
+  ids now start near 100 010 (submissions) and 505 (users). Harmless. Starlette 1.7 warns that
+  its TestClient wants `httpx2` instead of `httpx` (Q16).
 
 ## Open questions
-- Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). Now pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
+- Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). **Update after Week 3 Step 3:** pytest 55.5–58.7 s on the afternoon of 2026-10-02, close to the 60 s limit. Part of it is the machine (the same 368 tests: 39.5 s in the morning, 49.6 s in the afternoon); Step 3 added ~6.5 s. Recommendation: measure again on a quiet machine; if pytest stays above ~50 s, do B. Before Step 3: pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
+- Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
 ## Known limitations
 - The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
@@ -524,4 +572,5 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The input check compares with `==`: `[1]` and `[True]` count as equal, and a change undone before the function returns is not seen. It catches honest mistakes, not attackers.
 - Postgres `text` can't hold NUL (`\x00`, DataError): the worker replaces it with U+FFFD in text columns, and `enqueue_submission` refuses code containing it.
 - The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
-- The hidden tests are in the database (`problem_versions`); only code review keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
+- The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
+- The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
