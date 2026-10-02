@@ -38,8 +38,14 @@ every line in an interview.
 ## Architecture summary
 - **One grader for everything.** `grade(problem, code) -> GradeResult` is used by student submissions,
   model evals and the RL reward. Never create a second grading path.
-- Product half: Next.js + Monaco (Wk 3) → FastAPI (Wk 3) → grader queue (Redis + RQ/Arq) + sandbox,
-  AI tutor (LiteLLM + RAG + Langfuse, Wk 4), Postgres/Supabase + pgvector (Wk 3).
+- Product half: Next.js + Monaco (Wk 3) → FastAPI (Wk 3) → grader queue (**Postgres as the queue**:
+  the submission row is the job, workers claim with `FOR UPDATE SKIP LOCKED` + a lease; no Redis,
+  decided 2026-10-02) + DockerSandbox, AI tutor (LiteLLM + RAG + Langfuse, Wk 4), Postgres
+  (local Docker in dev, Supabase when hosted) + pgvector (Wk 3).
+- Week 3 steps: 0 dev environment → 1 schema + migrations + problem sync → 2 worker (queue) →
+  3 API → 4 web UI → 5 end-to-end + docs. The worker grades once with `reveal_hidden=False` and
+  stores only that (hidden details never reach DB rows the API reads); problem files stay the
+  source of truth (synced into Postgres with version + content_hash).
 - Lab half: eval harness (Wk 2), simulated students + integrity + quality estimates (Wk 5),
   dataset builder + GRPO with TRL on Qwen 0.5–1.5B (Wk 6–7).
 - Sandbox: behind a `Sandbox` protocol so backends swap. `SubprocessSandbox` = subprocess + rlimits
@@ -57,29 +63,39 @@ every line in an interview.
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
+- `src/codetutor/settings.py`: settings from the environment (`database_url()`); Week 3 adds `db/`, `worker/`, `api/`
+- `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
 - `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
-- `api/`, `web/`, `tutor/`: placeholders for later weeks
+- `api/` (README points to `src/codetutor/api/`), `web/` (Next.js app, Week 3 Step 4), `tutor/`: placeholders
 - `dist/`: generated output (gitignored)
 
 ## Conventions
 - Linux via **WSL2 (Ubuntu 24.04)**, Python 3.12 (project requires >=3.11), **uv** (`uv sync`, `uv run`).
 - Week 1 dependencies are pre-approved: `pydantic` v2, `pyyaml`; dev: `pytest`, `pytest-timeout`, `ruff`.
-  Anything else: ask first.
+  Week 3 approved (2026-10-02, added in the step that needs them): `psycopg[binary]` (Step 0, done),
+  `sqlalchemy` 2 + `alembic` (Step 1), `fastapi` + `uvicorn`, dev `httpx` (Step 3); npm in `web/`
+  only: `next`, `react`, `@monaco-editor/react`, `typescript` (Step 4). Report the real package
+  count when installing. Anything else: ask first.
 - Type hints and short docstrings on all public functions/classes. ruff (line length 100).
 - Small functions, clear names, no clever one-liners. `pathlib.Path`. Specific exceptions with helpful
   messages; no bare `except:` (the runner catching `BaseException` from student code is the one
   commented exception).
 - No global mutable state unless unavoidable (comment why). Limits/timeouts live in one place and are overridable.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
-- Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate).
+- Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate),
+  `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data). `test` depends
+  on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests in Docker (opt-in, marker `docker`, ~1 min; run it after any
   sandbox change). Docker works without `sg` since the WSL restart on 2026-10-01.
 - WSL uses **mirrored networking** (`C:\Users\ACER\.wslconfig`), so `localhost` reaches the
-  Windows Ollama. Model calls need `uv run --env-file .env ...`.
+  Windows Ollama. Model calls need `uv run --env-file .env ...`. Bind local services to
+  `127.0.0.1` (a plain port mapping could be reachable from the network).
+- Database: `DATABASE_URL`, else the dev URL in `settings.py` (fixed dev credentials, local only,
+  not a secret). Node 24 LTS via nvm in `~/.nvm` (WSL; never the Windows `npm` under `/mnt/c`).
 
 ## 8-week plan
 | Week | Deliverable |
@@ -168,6 +184,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   README: status Weeks 1–2 done, test numbers, new "Evaluate a model" section (results table +
   commands, all run as written today, incl. a live Qwen call), layout, roadmap. `lab/README.md`
   was already current. `make all`: 301 passed (30.7 s), 33 valid, 48 s.
+- **Done (2026-10-02): Week 3 Step 0** (dev environment). `compose.yaml`: `pgvector/pgvector:pg17`
+  (Postgres 17.11, pinned by digest ac08538c…) on 127.0.0.1:5432, healthy in ~3 s;
+  `settings.database_url()`; Make `db-up`/`db-down`/`db-reset`, `test` depends on `db-up`;
+  `psycopg[binary]` 3.3.6 (2 packages, 14 → 16); `tests/test_db_smoke.py` (2 tests). nvm v0.40.8
+  + Node v24.21.0 / npm 11.19.0 in WSL. Suite 303 passed, 2 skipped, 1 xfailed (34 s);
+  `make all` 53 s (incl. starting the DB).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
@@ -210,15 +232,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q15 rounding: Q1 what `f"{0.625:.2f}"` prints; Q2 why cut at 12 decimals before rounding
   half up; Q3 why 7 cells changed but no headline number. Week 2 wrap-up: Q1 why the README
   names "4-bit" next to the 7B; Q2 why week2.md gives raw facts, not finished text; Q3 what
-  happens to hidden-only wrong answers in a bank without hidden tests.
-  (60 in total; answer key in Claude's memory.)
-- **Next action:** Week 2's code and wrap-up are done. Waiting for Najeeb: (a) his text in
-  `docs/notes/week2.md` and `docs/notes/week1.md` ("review" when ready); (b) Gemini n = 1: keep
-  as a 3rd model (after 10:00 Qatar time,
-  `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
-  2 days; then add a README row) or drop; (c) "go" for Week 3 (FastAPI + Postgres + queue +
-  minimal Next.js UI): starts with a Week 3 overview plan in plan mode (new dependencies need
-  his approval).
+  happens to hidden-only wrong answers in a bank without hidden tests. Week 3 Step 0: Q1 why
+  the port is `127.0.0.1:5432:5432`; Q2 why the dev password may be in compose.yaml but the
+  Gemini key never; Q3 why pin the image by digest.
+  (63 in total; answer key in Claude's memory.)
+- **Next action:** Week 3 Step 1 (schema + migrations + problem sync; `sqlalchemy` 2 + `alembic`),
+  starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
+  time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
+  2 days; then add a README row).
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -366,6 +388,24 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   each group; 5 of the 7B's 9 word_frequency failures use a letters-only regex (\w+ / [a-z]+).
   The README's scratch-run example replaced an older gitignored scratch file with the same
   run_id (a Step 3 smoke run, quoted nowhere); scratch runs always start fresh by design.
+- 2026-10-02: Week 3 decisions (Najeeb, all four recommendations): (1) **Postgres as the queue**,
+  no Redis (deviation from the brief's "Redis + RQ/Arq"): the submission row is the job, saved in
+  the same transaction, so no dual-write problem; we write the claim/lease/retry logic (~100
+  lines). RQ was rejected for the extra service and the DB-row-vs-Redis-job dual write; Arq for
+  being async while `grade()` blocks. (2) **Local Postgres in Docker** for development (Supabase
+  only when hosting; same Postgres 17). (3) **Name-only dev login** (no password, marked not
+  secure; real auth before hosting). (4) **nvm** for Node in WSL. Node **24** LTS instead of the
+  22 offered in the question (22 is in maintenance since Oct 2025).
+- 2026-10-02: Week 3 Step 0. Image `pgvector/pgvector:pg17` (637 MB unpacked), not the
+  `supabase/postgres` image already on the machine (it expects the Supabase stack's roles and
+  setup). Dev credentials are fixed in `compose.yaml` and `settings.py` (local throw-away DB on
+  127.0.0.1 only; real hosting sets `DATABASE_URL` from a secret), so `make test` needs no
+  `.env`. `make test` now depends on `db-up`, so tests need Docker (the DB is core from Week 3).
+  The smoke test only checks that pgvector is *available*; `CREATE EXTENSION` comes with Week 4.
+  With the DB stopped, connecting to 127.0.0.1:5432 timed out (3 s) instead of being refused
+  (WSL mirrored networking); the smoke test's message says "Run `make db-up`" either way.
+  nvm v0.40.8's install script was downloaded and read before running; it added 3 lines to
+  `~/.bashrc`.
 - 2026-10-02: Q15 resolved (Najeeb: "go"; option A, changed to round **half up**). Checked
   every group value with exact fractions first: the problem was wider than Dictionaries.
   Python's `:.2f` rounds the stored binary value with ties to even, so exact ties went both
