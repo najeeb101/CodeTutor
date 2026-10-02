@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from codetutor.problems import (
     DEFAULT_PROBLEMS_ROOT,
@@ -13,6 +14,7 @@ from codetutor.problems import (
     get_problem,
     load_all,
     load_problem,
+    parse_yaml,
 )
 from conftest import ProblemWriter, valid_meta, valid_tests
 
@@ -168,3 +170,15 @@ def test_real_problem_bank_loads() -> None:
     assert positions == sorted(positions)
     for problem in problems:
         assert 1 <= len(problem.buggy) <= 3, f"{problem.id} needs 1-3 buggy solutions"
+
+
+def test_fast_yaml_parser_reads_the_bank_like_the_reference_parser() -> None:
+    # A differential test: libyaml (C) and PyYAML's pure-Python parser must read every bank
+    # file the same, so machines with and without libyaml grade with the same data.
+    # repr, not ==, because 1 == 1.0 == True in Python but they are different expected values.
+    files = sorted(DEFAULT_PROBLEMS_ROOT.rglob("*.yaml"))
+    assert len(files) >= 66  # problem.yaml + tests.yaml for every problem
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        reference = yaml.load(text, Loader=yaml.SafeLoader)
+        assert repr(parse_yaml(text)) == repr(reference), f"{path}: the parsers disagree"

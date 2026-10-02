@@ -219,3 +219,18 @@ different: that is the model's real answer, so it is graded and counted separate
 *How I'd say it:* "In my eval client a failure is classified by what happened, not by the status
 code: a 200 with finish_reason 'error' is retried like a 5xx and never graded, because
 infrastructure noise must never end up in the model's score or in the reward."
+
+## Swapping in a faster implementation safely (Week 2, Q11)
+The problem loader switched from PyYAML's pure-Python parser to libyaml (C): `load_all()` went
+from 0.59 s to 0.10 s. A speed-up is only safe if the output is unchanged, so the switch comes
+with a **differential test**: both parsers read every real bank file, and the results must be
+identical. It compares with `repr`, not `==`, because `1 == 1.0 == True` in Python, but those are
+different expected values for the grader. The test also protects **determinism across
+machines**: a machine without libyaml falls back to the pure-Python parser, and the test proves
+both read the same data. Two more habits: (1) **measure first**. The profile showed that YAML
+was only ~3 s of a 30–41 s suite (the big cost is grading, 10 s), so the honest claim is
+"~2 s saved", not "the suite is faster". (2) **Check with the same tool you use later**: the
+round-trip check in `fill_expected` now reads with the same parser that loads the file.
+*How I'd say it:* "When I replace a component for speed, I profile first to know the real gain,
+keep the old implementation as a reference, and add a differential test on the real data, so a
+faster path can never silently change what gets graded."

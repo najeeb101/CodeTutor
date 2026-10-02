@@ -19,6 +19,11 @@ from codetutor.problems.schema import Problem
 # src/codetutor/problems/loader.py -> parents[3] is the repository root.
 DEFAULT_PROBLEMS_ROOT = Path(__file__).resolve().parents[3] / "problems"
 
+# libyaml's C parser reads the bank 7x faster than PyYAML's pure-Python one (measured
+# 2026-10-02) and gives the same data (a test compares both on every bank file).
+# Machines without libyaml fall back to the pure-Python parser.
+_YAML_LOADER = yaml.CSafeLoader if yaml.__with_libyaml__ else yaml.SafeLoader
+
 
 class ProblemError(Exception):
     """Base class for all problem-related errors."""
@@ -38,9 +43,14 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def parse_yaml(text: str) -> Any:
+    """Parse YAML text into plain data (never Python objects), with the fast parser if present."""
+    return yaml.load(text, Loader=_YAML_LOADER)
+
+
 def _read_yaml_mapping(path: Path) -> dict[str, Any]:
     try:
-        data = yaml.safe_load(_read_text(path))
+        data = parse_yaml(_read_text(path))
     except yaml.YAMLError as exc:
         raise ProblemLoadError(f"{path}: invalid YAML: {exc}") from exc
     if not isinstance(data, dict):

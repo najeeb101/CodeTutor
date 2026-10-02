@@ -9,6 +9,7 @@ from codetutor.problems.loader import (
     get_problem,
     load_all,
     load_problem,
+    parse_yaml,
 )
 from codetutor.problems.schema import (
     CompareMode,
@@ -36,4 +37,5 @@ __all__ = [
     "get_problem",
     "load_all",
     "load_problem",
+    "parse_yaml",
 ]

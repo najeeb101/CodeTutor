@@ -10,10 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from codetutor.grader import Limits, execute
-from codetutor.problems import Problem, TestCase, load_problem
+from codetutor.problems import Problem, TestCase, load_problem, parse_yaml
 
 
 class ExpectedError(Exception):
@@ -118,8 +116,9 @@ def write_tests_yaml(folder: Path, problem: Problem, expected: dict[str, Any]) -
     text = "\n".join(lines) + "\n"
     path = Path(folder) / "tests.yaml"
 
-    # Safety check: what YAML reads back must be exactly what we meant to write.
-    written = yaml.safe_load(text)["tests"]
+    # Safety check: what YAML reads back must be exactly what we meant to write. It uses the
+    # loader's parser, because that is the parser that reads this file later.
+    written = parse_yaml(text)["tests"]
     for test, entry in zip(problem.tests, written, strict=True):
         if entry["id"] != test.id or not _same_value(entry["expected"], expected[test.id]):
             raise ExpectedError(f"{path}: test {test.id} did not survive the YAML round trip")
