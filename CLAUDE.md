@@ -67,13 +67,14 @@ every line in an interview.
 - `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (7 endpoints), `submissions.py` (submit + rate limits), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool)
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
-- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `lib/` incl. `api.ts` + hand-written `types.ts`, `scripts/copy-monaco.mjs`; see web/README.md)
+- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `lib/` incl. `api.ts` + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
 - `api/` (README points to `src/codetutor/api/` and docs/api.md), `tutor/`: placeholders
 - `dist/`: generated output (gitignored)
 
@@ -99,7 +100,9 @@ every line in an interview.
   127.0.0.1:8000; start it after the worker, two syncs at once are not guarded),
   `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
-  check + production build). `make all` stays Python-only. `test` and `test-docker` depend
+  check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
+  `web-e2e` (headless Chrome via the DevTools protocol; both need worker + api + web running,
+  neither is in `make all`). `make all` stays Python-only. `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
   ~1 min; run it after any sandbox or worker change). Docker works without `sg` since the WSL restart on 2026-10-01.
@@ -249,7 +252,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   hidden failures without details, the "3 waiting" 429, draft kept after reload, logout, no
   console errors; 2.3 s click → result). Suite 411 passed, 2 skipped, 1 xfailed (47.9 s);
   `make all` 63 s; `make web-check` 4 s. **Najeeb's own click-through is still to do.**
-- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
+- **Done (2026-10-02): Week 3 Step 5 = Week 3 done** (end-to-end + docs). `src/codetutor/e2e.py`
+  (9 checks over HTTP, stops at the first failure with a hint), `tests/test_e2e.py` (real uvicorn
+  + real worker loop in threads; a no-worker run must fail with "is `make worker` running?"),
+  `make e2e` (live: 9/9, 7.9 s; with the worker stopped: fails after 5 s with that message),
+  `make web-e2e` (8 browser checks, 17.4 s after two WSL fixes, was 47.5 s; the failure path
+  saves a screenshot and cleans up). README (Run the app, architecture as built, numbers; every
+  command run as written; the `ollama pull` line was wrong for WSL since Week 2, fixed),
+  `docs/notes/week3.md` skeleton, 1 interview note. Suite 414 passed, 2 skipped, 1 xfailed:
+  **57–65 s on 2026-10-02 evening (over the 60 s limit on one run; see Q11)**; `make web-check` 6 s.
+- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
   bank validation, recommendation: leave it); Q14 (rare memory-bomb flake, recommendation A:
@@ -301,12 +313,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   UI polls; Q2 what the user-row lock does to two submits at 9 of 10; Q3 why another user's
   submission is a 404, not a 403. Week 3 Step 4: Q1 why the API sends `expected_repr: "32.0"`;
   Q2 why Monaco is copied into `public/` instead of loaded from the CDN; Q3 what goes wrong
-  with `setInterval` polling when the API is slow.
-  (75 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb's click-through of the UI (web/README.md "Run it": log in, submit
-  fizzbuzz's solution and a buggy file, 4 fast submits, refresh, log out). Then Week 3 Step 5
-  (end-to-end + docs: README "run the whole stack", architecture as built, decide on a committed
-  browser test, ideas.md), starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  with `setInterval` polling when the API is slow. Week 3 Step 5: Q1 why test_e2e.py starts a
+  real uvicorn server instead of using TestClient; Q2 why a test that expects the check to
+  fail is useful; Q3 the two causes of `make web-e2e` taking 47 s.
+  (78 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb decides Q11 (suite time, now at the 60 s limit; recommendation C).
+  Najeeb's click-through of the UI (README "Run the app") and his text in
+  `docs/notes/week3.md` ("review" when ready). Then Week 4 (AI tutor: LiteLLM or our own
+  client (decided 2026-10-01: own client, revisit), RAG over course notes, hint-not-answer
+  guardrail, Langfuse, hint ratings), starting in plan mode with a week overview. Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days; then add a README row).
@@ -604,9 +619,25 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   localhost) then ran the real flow on the dev server; all temp profiles/screenshots deleted.
   `npm audit`: 2 low (DOMPurify 3.4.15 bundled in monaco-editor 0.57; needs `IN_PLACE`, which
   Monaco never sets: 0 uses in the bundle). Kept 0.57 (Q17).
+- 2026-10-02: Week 3 Step 5 (Najeeb approved; chose the DevTools script over Playwright or no
+  browser test; click-through not done yet). Three layers of end-to-end checks share one checker
+  (`codetutor.e2e.run_checks`, stdlib `urllib`, new user `e2e-<ms>` per run). The "secrets"
+  for leak checks are the hints and the solution's own lines (>= 12 characters, not in the
+  starter code or the description). The API health probe has a 3 s timeout (WSL: a closed
+  port times out instead of refusing).
+- 2026-10-02: `make web-e2e` starts its own Chrome (WSL: the Windows Chrome; `CHROME`,
+  `WEB_URL`, `E2E_DEBUG_PORT` override), refuses to run if the debugging port already answers,
+  uses a throw-away profile in the Windows temp folder and deletes it with Windows' `rmdir`.
+  Measured: 47.5 s → 17.4 s (port probes had no timeout; deleting the profile through WSL's
+  file bridge took ~12 s). It waits for the old result to clear instead of removing a
+  React-managed DOM node.
+- 2026-10-02: README commands re-run as written: install/check block, grade CLI, the Python
+  example, eval_report (byte-identical), try_model (accepted 10/10), the 2×2 scratch run, the
+  three servers + `make e2e` + `make web-e2e`, `submit.py --wait`. Found: `ollama pull` does not
+  exist in WSL (Ollama runs on Windows); the README now says `ollama.exe pull` from WSL.
 
 ## Open questions
-- Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). **Update after Week 3 Step 3:** pytest 55.5–58.7 s on the afternoon of 2026-10-02, close to the 60 s limit. Part of it is the machine (the same 368 tests: 39.5 s in the morning, 49.6 s in the afternoon); Step 3 added ~6.5 s. Recommendation: measure again on a quiet machine; if pytest stays above ~50 s, do B. Before Step 3: pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
+- Q11: suite time. **Update after Week 3 Step 5 (needs a decision):** pytest 47.9, 57.2 and 64.8 s on three runs the same evening (414 tests; the limit is 60 s). The biggest single test is `test_every_problem_in_the_bank_is_valid` (12.5 s), which repeats exactly what `make validate` does again in `make all`. New option (C): mark it `slow` (deselected by default, like `docker`), and keep the bank checked by `make validate` in `make all` (saves ~12.5 s per suite; trade-off: a plain `pytest` no longer validates the bank). Recommendation: C. Older notes: The YAML part is done (2026-10-02, ~2 s saved). **Update after Week 3 Step 3:** pytest 55.5–58.7 s on the afternoon of 2026-10-02, close to the 60 s limit. Part of it is the machine (the same 368 tests: 39.5 s in the morning, 49.6 s in the afternoon); Step 3 added ~6.5 s. Recommendation: measure again on a quiet machine; if pytest stays above ~50 s, do B. Before Step 3: pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
@@ -624,5 +655,5 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Postgres `text` can't hold NUL (`\x00`, DataError): the worker replaces it with U+FFFD in text columns, and `enqueue_submission` refuses code containing it.
 - The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
 - The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
-- The web UI has no committed browser test (Step 4 used a scratch DevTools-protocol script); `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
+- The suite is at the 60 s limit (57–65 s on 2026-10-02 evening; Q11). The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
