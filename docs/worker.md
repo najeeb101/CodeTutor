@@ -109,8 +109,9 @@ uv run python scripts/submit.py cs1.loops.fizzbuzz path/to/file.py --wait   # de
   could wake it at once (docs/ideas.md).
 - If the Docker daemon dies in the middle of a grading, the student gets `crashed` (Week 1
   limitation, docs/grader.md). Idea: re-check Docker after a `crashed` result, and retry.
-- First in, first out across all users: one student submitting 100 times delays everyone.
-  Rate limits come with the API (Step 3).
+- First in, first out across all users. The API limits each user to 3 waiting submissions
+  and 10 per minute ([api.md](api.md) §4), so one user holds at most 3 places in the queue;
+  the claim itself still takes the oldest job, whoever it belongs to.
 - A dead worker's job waits up to 5 minutes (the lease) before it is retried.
 - `last_error` can contain internal details (exception text); the API must not show it to
   students as is.

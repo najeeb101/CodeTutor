@@ -14,13 +14,12 @@ import argparse
 import time
 from pathlib import Path
 
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from codetutor.db.engine import make_engine
-from codetutor.db.models import JobStatus, SubmissionRow, UserRow
+from codetutor.db.models import JobStatus, SubmissionRow
+from codetutor.db.users import get_or_create_user
 from codetutor.worker.jobs import (
     InvalidSubmissionError,
     UnknownProblemError,
@@ -30,12 +29,6 @@ from codetutor.worker.jobs import (
 from grade_cli import format_result  # same folder: print results like the grade CLI
 
 POLL_S = 0.5
-
-
-def _user_id(session: Session, name: str) -> int:
-    """The id of the user with this name, created if new."""
-    session.execute(insert(UserRow).values(name=name).on_conflict_do_nothing())
-    return session.scalars(select(UserRow.id).where(UserRow.name == name)).one()
 
 
 def _wait(session: Session, submission_id: int, timeout_s: float) -> int:
@@ -72,7 +65,7 @@ def main() -> int:
     try:
         with Session(engine) as session:
             with session.begin():
-                user_id = _user_id(session, args.user)
+                user_id = get_or_create_user(session, args.user)
                 code = args.file.read_text(encoding="utf-8")
                 submission_id = enqueue_submission(session, user_id, args.problem_id, code)
             print(f"submission {submission_id} queued ({args.problem_id}, user {args.user!r})")

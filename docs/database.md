@@ -104,10 +104,13 @@ and the script commits only at the end, so a sync is all or nothing.
   replaces NUL in text columns, and `enqueue_submission` refuses code that contains it
   ([worker.md](worker.md) §5).
 - The queue and the claim index (migration 0002): see [worker.md](worker.md).
+- The API's per-user index `ix_submissions_user_id_created_at` (migration 0003, for the
+  rate limits and "my submissions"): see [api.md](api.md) §4.
 - Two syncs at the same moment are not guarded (sync is run by hand). A fix would be
   `pg_advisory_xact_lock` (docs/ideas.md).
 - The hidden tests are in the database (`problem_versions`). The API never queries that
-  table, but nothing stops it yet. When hosting: a separate database role for the API without
-  access to `problem_versions` (docs/ideas.md).
+  table, but only a test stops it yet (`test_the_api_code_never_names_the_table_with_hidden_tests`
+  checks that no API file names it). When hosting: a separate database role for the API
+  without access to `problem_versions` (docs/ideas.md).
 - Connecting to a stopped local database hangs instead of failing (WSL mirrored networking),
   so every engine has `DB_CONNECT_TIMEOUT_S = 5` (`settings.py`).

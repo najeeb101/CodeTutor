@@ -298,3 +298,32 @@ as finished jobs pile up (EXPLAIN with 50 000 done rows: index scan, 16 kB index
 for crashed workers, and the attempt number as a fencing token, so a late worker can't
 overwrite a newer result. Delivery is at-least-once and the save is idempotent, which is the
 honest guarantee for any queue."
+
+## Slow work behind an API: 202 Accepted + polling (Week 3, Step 3)
+Grading takes 1–38 s, too long to keep an HTTP request open (timeouts, a blocked server
+thread per waiting student, a lost result if the connection drops). So `POST /api/submissions`
+only saves the row (which is the job) and answers **202 Accepted** with the submission's URL
+in `Location` (measured: 0.05 s). The client polls `GET /api/submissions/{id}` until
+`job_status` is `done` or `failed`. This is the **asynchronous job pattern**: the request
+path does cheap, durable work (one insert), and the slow work happens in a worker that can
+be scaled, retried and restarted on its own. Polling is simple and survives reconnects. Its
+cost is one small query per second per waiting user. Server push (SSE + `LISTEN/NOTIFY`) is
+the upgrade when that matters.
+*How I'd say it:* "The API never grades. Submitting is one insert and a 202. Grading is
+at-least-once in a worker, and the client polls for the result. A crashed API or worker
+never loses a submission, because the job is the row."
+
+## A check-then-act race in a rate limiter (Week 3, Step 3)
+The rate limit is "count the user's recent submissions; if under 10, insert". Two requests
+at the same moment can both count 9 and both insert: a **check-then-act race** (in Postgres's
+default READ COMMITTED level, neither transaction sees the other's uncommitted insert). The fix:
+lock the user's row first (`SELECT … FOR UPDATE`), then count, then insert, in one transaction.
+A second request of the same user waits for the first to commit and then counts its row.
+Other users never wait. I proved the test can fail: 12 threads with a limit of 5. With the
+lock, exactly 5 get in (10/10 runs). Without it, **12 of 12** got in (3/3 runs). The limits are
+counted from the `submissions` table itself, not an in-memory counter, so they hold across
+restarts and several API processes.
+*How I'd say it:* "Any 'check, then write' on shared state is a race unless something
+serializes it. I lock the smallest thing that covers the rule: one user's row, so users don't
+block each other. And I test the race with real threads, including a run without the lock to
+show the test can fail."

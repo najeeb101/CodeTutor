@@ -162,6 +162,10 @@ class SubmissionRow(Base):
             "id",
             postgresql_where=text(_one_of("job_status", [JobStatus.QUEUED, JobStatus.RUNNING])),
         ),
+        # The API looks up one user's submissions by time: "my submissions", newest first, and
+        # the rate limit's "how many in the last 60 s" (api/submissions.py). Postgres does not
+        # index foreign keys by itself.
+        Index("ix_submissions_user_id_created_at", "user_id", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)

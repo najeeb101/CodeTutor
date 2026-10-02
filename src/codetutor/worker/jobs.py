@@ -70,6 +70,14 @@ class UnknownProblemError(LookupError):
     """No active problem has this id."""
 
 
+class ProblemChangedError(ValueError):
+    """The problem has a newer version than the one the student saw (a sync ran meanwhile)."""
+
+    def __init__(self, problem_id: str, expected: int, current: int) -> None:
+        super().__init__(f"{problem_id} is now version {current}, not {expected}")
+        self.current_version = current
+
+
 @dataclass(frozen=True)
 class Job:
     """A claimed submission. `attempts` is the fencing token of this claim."""
@@ -99,15 +107,27 @@ def _check_code(code: str) -> None:
         raise InvalidSubmissionError("code contains characters that are not valid text") from exc
 
 
-def enqueue_submission(session: Session, user_id: int, problem_id: str, code: str) -> int:
+def enqueue_submission(
+    session: Session,
+    user_id: int,
+    problem_id: str,
+    code: str,
+    *,
+    expected_version: int | None = None,
+) -> int:
     """Save a new submission as a queued job, graded on the problem's current version.
 
-    Returns the submission id. Saving the row IS enqueueing: one insert, no second system.
+    `expected_version`: the version the student saw (the API sends it). If the current version
+    is different, nothing is saved (ProblemChangedError), so code is never graded against a
+    problem the student didn't see. Returns the submission id. Saving the row IS enqueueing:
+    one insert, no second system.
     """
     _check_code(code)
     problem = session.get(ProblemRow, problem_id)
     if problem is None or not problem.active:
         raise UnknownProblemError(f"no active problem {problem_id!r}")
+    if expected_version is not None and expected_version != problem.version:
+        raise ProblemChangedError(problem_id, expected_version, problem.version)
     submission = SubmissionRow(
         user_id=user_id, problem_id=problem_id, problem_version=problem.version, code=code
     )

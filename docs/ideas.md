@@ -43,9 +43,27 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   `crashed` result, and release the job for a retry instead of saving it. Same principle as the
   Week 2 finish_reason fix: infrastructure noise must not count against the code.
 
-- **(With the API) Fairness between users.** The queue is first in, first out, so one user
-  submitting 100 times delays everyone. Options: a per-user rate limit in the API, or a claim
-  query that prefers users with fewer running jobs.
+- **(If the queue gets long) Fairness in the claim itself.** Done in Step 3 at the API: at
+  most 3 waiting submissions and 10 per minute per user (docs/api.md §4). The claim still takes
+  the oldest job, so with many users a newcomer waits behind 3 × (number of users) jobs. A
+  claim query that prefers users with fewer running jobs would share workers more evenly.
+
+- **(Before hosting) A request-size limit.** uvicorn reads the whole body into memory before
+  `enqueue_submission` checks the 50 000-character limit, so a 1 GB POST is read in full. The
+  reverse proxy in front of the API should cap it (nginx `client_max_body_size`, about 256 KB),
+  or an ASGI middleware could count the bytes as they arrive.
+
+- **(Before hosting) A per-IP limit on login.** The dev login creates a user for any new name,
+  so one person can get around the per-user rate limits with many names. Real authentication
+  fixes most of it; a per-IP limit on `POST /api/login` and on submits covers the rest.
+
+- **(Step 4+, UI) Queue position.** "2 submissions ahead of you": count the queued or running
+  jobs with a smaller id (the partial claim index makes this cheap).
+
+- **(If polling costs matter) Push results instead of polling.** The UI asks once a second
+  until a job is done. Server-Sent Events (one open HTTP response per waiting student) plus
+  Postgres `LISTEN/NOTIFY` from the worker would push the result at once. Keep polling as the
+  fallback.
 
 - **(Grader, needs its own plan) A returned lone surrogate is graded `crashed`.** Found
   2026-10-02: `return "\ud800x"` gives `crashed` ("exited with code 0 without a result"), not
