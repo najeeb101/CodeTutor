@@ -25,6 +25,7 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Identity,
+    Index,
     MetaData,
     Text,
     func,
@@ -153,6 +154,14 @@ class SubmissionRow(Base):
             name="result_complete",
         ),
         CheckConstraint("reward >= 0 AND reward <= 1", name="reward_in_range"),
+        # The worker's claim query looks only at queued and running jobs, oldest id first.
+        # A partial index holds only those rows, so it stays small while done/failed rows
+        # pile up (worker/jobs.py, docs/worker.md).
+        Index(
+            "ix_submissions_claimable",
+            "id",
+            postgresql_where=text(_one_of("job_status", [JobStatus.QUEUED, JobStatus.RUNNING])),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)

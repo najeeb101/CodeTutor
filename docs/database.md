@@ -25,7 +25,7 @@ users ──────────────< submissions >─────�
 | `users` | one row per person (Week 3: name-only dev login, not secure) | API |
 | `problem_versions` | a sealed copy of **every** problem version ever synced, hidden tests and solution included; rows are never updated | the worker (Step 2) only |
 | `problems` | each problem's **current** version, student view only; `active = false` when its folder was removed | API |
-| `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) | API, worker |
+| `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) | API, worker |
 | `test_results` | one row per test of a graded submission (a `TestResult`) | API, Week 5 analytics |
 
 `problem_versions` / `problems` is the same split as `dist/problems.jsonl` /
@@ -100,10 +100,10 @@ Every rule is checked before anything is written, every broken rule is listed in
 and the script commits only at the end, so a sync is all or nothing.
 
 ## 6. Limitations (handed to later steps)
-- Postgres `text` can't contain the NUL character (`\x00`); it raises a `DataError`. Step 2's
-  worker must clean NUL out of `stdout` / error text before saving, and Step 3's API must
-  reject code that contains NUL.
-- The index for claiming jobs comes in Step 2, together with the claim query.
+- Postgres `text` can't contain the NUL character (`\x00`); it raises a `DataError`. The worker
+  replaces NUL in text columns, and `enqueue_submission` refuses code that contains it
+  ([worker.md](worker.md) §5).
+- The queue and the claim index (migration 0002): see [worker.md](worker.md).
 - Two syncs at the same moment are not guarded (sync is run by hand). A fix would be
   `pg_advisory_xact_lock` (docs/ideas.md).
 - The hidden tests are in the database (`problem_versions`). The API never queries that

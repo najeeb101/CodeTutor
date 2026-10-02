@@ -134,6 +134,15 @@ resumable, and a failed API call is retried, never graded as a wrong answer. Gem
 key in `.env` (run with `uv run --env-file .env ...`). Setup, the model client and the report:
 [docs/evals.md](docs/evals.md).
 
+## Run the grading worker
+Submissions are saved in Postgres as jobs; a worker grades them in the Docker sandbox.
+```bash
+make worker      # terminal 1: sync the problems, then grade queued submissions until Ctrl+C
+uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait   # terminal 2
+```
+Start more workers for more throughput; they share the queue safely. How it works:
+[docs/worker.md](docs/worker.md).
+
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
    `tests.yaml` (inputs only) and 1–3 files in `buggy/`.
@@ -150,17 +159,18 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/bank/`: expected-value filler, validator, dataset builder
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
 - `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
+- `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`); `docs/notes/` holds interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`); `docs/notes/` holds interview notes
 
 ## Roadmap
 | Week | Deliverable | |
 |---|---|---|
 | 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
-| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | in progress (database done) |
+| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | in progress (database, worker done) |
 | 4 | AI tutor that gives hints, not answers | |
 | 5 | Simulated students, integrity checks, difficulty estimates | |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |

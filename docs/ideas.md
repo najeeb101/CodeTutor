@@ -31,3 +31,23 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   uses (tests, function name, limits, input check) could allow in-place updates of the rest.
   More rules to explain, so only do it if bumps become a real cost (e.g. for Week 2 eval
   results, which warn about answers graded on an older version).
+
+- **(Week 3+, if latency matters) Wake workers with Postgres `LISTEN/NOTIFY`.** An idle worker
+  polls once per second today. The API could `NOTIFY grading` after inserting a submission, and
+  workers `LISTEN` for it, so grading starts at once. Keep the poll as a fallback (a missed
+  notification must never strand a job).
+
+- **(Before strangers use it) Tell a Docker failure apart from a student's crash.** If the
+  Docker daemon dies mid-grading, the result is `crashed` and the student is blamed. The worker
+  could re-check Docker (`docker image inspect`, like `DockerSandbox()` does at start) after a
+  `crashed` result, and release the job for a retry instead of saving it. Same principle as the
+  Week 2 finish_reason fix: infrastructure noise must not count against the code.
+
+- **(With the API) Fairness between users.** The queue is first in, first out, so one user
+  submitting 100 times delays everyone. Options: a per-user rate limit in the API, or a claim
+  query that prefers users with fewer running jobs.
+
+- **(Grader, needs its own plan) A returned lone surrogate is graded `crashed`.** Found
+  2026-10-02: `return "\ud800x"` gives `crashed` ("exited with code 0 without a result"), not
+  `wrong_answer`, because the runner's report can't be encoded. Harmless for CS1 problems, but the
+  label is wrong. A fix would change grading, so it needs a GRADER_VERSION bump.

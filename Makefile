@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -25,10 +25,13 @@ db-migrate: db-up  ## create/upgrade the tables (Alembic migrations, docs/databa
 db-sync: db-migrate  ## copy the problem folders into Postgres (safe to run again)
 	uv run python scripts/sync_problems.py
 
+worker: db-sync  ## grade queued submissions in Docker until Ctrl+C (docs/worker.md)
+	uv run python scripts/worker.py
+
 test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
 	uv run pytest
 
-test-docker:  ## run the hostile-submission tests in the Docker sandbox (needs Docker)
+test-docker: db-up  ## run the hostile-submission and worker tests in the Docker sandbox (needs Docker)
 	uv run pytest -m docker
 
 validate:  ## check every problem in the bank (Week 1, Step 3)

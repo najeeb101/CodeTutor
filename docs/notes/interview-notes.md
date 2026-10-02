@@ -279,3 +279,22 @@ Python `None` in a json column is JSON `null`, not SQL NULL, so it breaks that C
 *How I'd say it:* "I don't trust a storage format until I've round-tripped real data through
 it, and I put the rules that protect the eval data into the schema itself, so the database
 rejects a mistake that the application code would let through."
+
+## A job queue in Postgres: SKIP LOCKED, leases and fencing (Week 3, Step 2)
+The submission row is the job, so saving and enqueueing are one insert (no second system, no
+"saved but never queued" gap). A worker claims the oldest job with
+`UPDATE … WHERE id = (SELECT id … ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING …`.
+`FOR UPDATE` locks the row; **`SKIP LOCKED`** makes other workers skip it instead of waiting,
+so N workers claim N different jobs in parallel (tested: 8 threads, 40 jobs, each claimed
+exactly once). The claim commits at once and **no transaction stays open while grading**.
+A **lease** (`lease_expires_at`) covers worker crashes: after it expires, any worker may
+take the job again. That means a job can be processed twice (**at-least-once**), so the save
+must be idempotent. The **fencing token** is the `attempts` counter: the save only updates the
+row `WHERE attempts = <my claim's attempts>`. A slow worker whose lease expired writes
+nothing. Retries are capped (3), and the worker stops after 5 failures in a row, so a broken
+setup can't fail the whole queue. A partial index on queued/running rows keeps the claim fast
+as finished jobs pile up (EXPLAIN with 50 000 done rows: index scan, 16 kB index).
+*How I'd say it:* "I used Postgres as the queue: SKIP LOCKED for concurrent claims, a lease
+for crashed workers, and the attempt number as a fencing token, so a late worker can't
+overwrite a newer result. Delivery is at-least-once and the save is idempotent, which is the
+honest guarantee for any queue."
