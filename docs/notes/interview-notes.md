@@ -234,3 +234,16 @@ round-trip check in `fill_expected` now reads with the same parser that loads th
 *How I'd say it:* "When I replace a component for speed, I profile first to know the real gain,
 keep the old implementation as a reference, and add a differential test on the real data, so a
 faster path can never silently change what gets graded."
+
+## Rounding in metric reports (Week 2, Q15)
+Floats can't store most decimals exactly: 0.575 is really 0.57499999999999996, and a sum can
+come out as 0.5750000000000001. Python's `f"{x:.2f}"` rounds the stored binary value, and it
+breaks exact ties to the even digit (0.625 → "0.62", 0.875 → "0.88"). So the same true value
+can print differently for two models, and ties go up or down almost at random. In our report,
+5 cells looked wrong to anyone checking by hand (23/40 printed as 0.57, 5/8 as 0.62). The fix
+is one formatting function for every number: first remove float noise (cut at 12 decimals,
+far below any real difference between our values), then round half up with Python's
+`decimal` module. Only exact ties changed; no headline number moved.
+*How I'd say it:* "Every number in my reports goes through one formatter, so equal values
+always print the same and a reader can check any cell by hand. I found the issue because I
+re-computed the odd-looking cells with exact fractions instead of trusting the printed floats."

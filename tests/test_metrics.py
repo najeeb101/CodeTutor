@@ -8,7 +8,7 @@ import pytest
 
 from codetutor.evals import EvalRecord, ExtractMethod, ModelReply, pass_at_k
 from codetutor.evals import metrics as m
-from codetutor.evals.report import render_report
+from codetutor.evals.report import _fixed, render_report
 from codetutor.evals.run import REPO_ROOT, RunConfig, RunMeta
 from codetutor.grader import GradeResult, GradeStatus, TestResult, TestStatus
 from codetutor.problems import Problem, load_all
@@ -247,6 +247,27 @@ def test_report_is_deterministic_and_has_every_section(bank: dict[str, Problem])
     assert "big-model (partial)" in text
     assert "| – |" in text  # pass@5 can't be computed from 2 answers per problem
     assert "tie for the largest (first two)" in text  # the failing test's note
+
+
+@pytest.mark.parametrize(
+    ("value", "digits", "shown"),
+    [
+        (0.5749999999999999, 2, "0.58"),  # Q15: the same true value 23/40, with float noise...
+        (0.575, 2, "0.58"),
+        (0.5750000000000001, 2, "0.58"),  # ...always prints the same
+        (0.625, 2, "0.63"),  # exact in binary: Python's format would give 0.62 (ties to even)
+        (0.975, 2, "0.98"),  # stored a bit below .975: Python's format would give 0.97
+        (0.925, 2, "0.93"),
+        (92.5, 0, "93"),
+        (26 / 30, 3, "0.867"),
+        (0.0, 3, "0.000"),
+        (1.0, 3, "1.000"),
+    ],
+)
+def test_numbers_round_half_up_and_ignore_float_noise(
+    value: float, digits: int, shown: str
+) -> None:
+    assert _fixed(value, digits) == shown
 
 
 def test_report_survives_a_removed_problem(bank: dict[str, Problem]) -> None:

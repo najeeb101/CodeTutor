@@ -8,6 +8,7 @@ written by hand elsewhere (docs/notes/week2.md); this file only reports.
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from codetutor.evals import metrics
@@ -19,8 +20,20 @@ FAILURE_STATUSES = ["wrong_answer", "runtime_error", "timeout", "compile_error",
 SortKey = Callable[[str], Any]
 
 
+def _fixed(value: float, digits: int) -> str:
+    """`value` with `digits` decimals, rounded half up like on paper (0.575 -> "0.58").
+
+    Python's own format rounds ties to the even digit (0.625 -> "0.62") and sees float noise
+    (0.575 is stored as 0.57499999999999996), so equal values could print differently (Q15).
+    Cutting at 12 decimals first removes that noise (~1e-14 here) but never moves a real
+    value onto a tie: our values are fractions whose non-tie values sit > 4e-12 from a tie.
+    """
+    cleaned = Decimal(value).quantize(Decimal("1e-12"))
+    return str(cleaned.quantize(Decimal(10) ** -digits, rounding=ROUND_HALF_UP))
+
+
 def _num(value: float | None, digits: int = 3) -> str:
-    return "–" if value is None else f"{value:.{digits}f}"
+    return "–" if value is None else _fixed(value, digits)
 
 
 def _cell(text: str) -> str:
@@ -80,7 +93,7 @@ def _headline_section(runs: list[RunData]) -> str:
         interval = metrics.bootstrap_ci(stats)
         pass_1 = _num(metrics.pass_at_k_mean(stats, 1))
         if interval is not None:
-            pass_1 += f" [{interval[0]:.3f}, {interval[1]:.3f}]"
+            pass_1 += f" [{_fixed(interval[0], 3)}, {_fixed(interval[1], 3)}]"
         failures = metrics.failure_breakdown(run.records)
         latency = metrics.median_of([record.reply.latency_ms for record in run.records])
         reply_tokens = metrics.median_of([r.reply.completion_tokens for r in run.records])
@@ -95,7 +108,7 @@ def _headline_section(runs: list[RunData]) -> str:
                 f"{failures.hidden_only} of {failures.wrong}",
                 str(failures.cut_off),
                 str(failures.format_failures),
-                "–" if latency is None else f"{latency / 1000:.1f} s",
+                "–" if latency is None else f"{_fixed(latency / 1000, 1)} s",
                 _num(reply_tokens, 0),
                 _num(thinking, 0),
             ]
@@ -135,7 +148,10 @@ def _group_table(
         row = [label, "/".join(str(count) for count in counts)]
         for groups in per_run:
             group = groups.get(label)
-            row.append("–" if group is None else f"{group.pass_at_1:.2f} ({group.mean_reward:.2f})")
+            if group is None:
+                row.append("–")
+            else:
+                row.append(f"{_fixed(group.pass_at_1, 2)} ({_fixed(group.mean_reward, 2)})")
         rows.append(row)
     return _table([name, "Problems"] + [_label(run) for run in runs], rows)
 
@@ -207,7 +223,7 @@ def _all_problems_section(runs: list[RunData], problems: dict[str, Problem]) -> 
         row = [problem_id, problem.difficulty.value]
         for stats in per_run:
             s = stats.get(problem_id)
-            row.append("–" if s is None else f"{s.c}/{s.n} ({s.mean_reward:.2f})")
+            row.append("–" if s is None else f"{s.c}/{s.n} ({_fixed(s.mean_reward, 2)})")
         rows.append(row)
     header = ["Problem", "Difficulty"] + [_label(run) for run in runs]
     intro = "Each cell: accepted answers / answers (mean reward)."
@@ -227,6 +243,7 @@ HOW_TO_READ = """## 7. How to read this report
   they would look correct.
 - **Thinking tokens**: total − prompt − reply tokens (Gemini reports hidden reasoning only in
   the total).
+- **Rounding**: half up, like on paper (0.575 → 0.58), so equal values always print the same.
 - Caveats: one prompt version; one temperature; timeouts depend on machine load (the grader is
   deterministic otherwise); a partial run is marked and is not yet comparable."""
 
