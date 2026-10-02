@@ -151,6 +151,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   reward 0.989, 9 of 18 wrong answers hidden-only. Weak: word_frequency 1/10, group_anagrams
   2/10 (all 8 failures sort in the wrong order, on the *visible* example). Re-asked 3 seeded
   answers: byte-identical. Report regenerated with both models; the official-numbers test pins both.
+- **Done (2026-10-02): finish_reason fix.** An HTTP 200 reply with `finish_reason: "error"` is
+  now retried like a 503 and ends as `ModelError` (never graded). Test first: 2 new client
+  tests failed before the fix. Suite 290 passed, 2 skipped, 1 xfailed (~41 s); `make all` ~61 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
   recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
@@ -183,11 +186,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   pass@10 = 1.0 vs pass@1 = 0.867 means for GRPO. Week 2 Step 4: Q1 mean reward 0.953 vs
   pass@1 0.867; Q2 what a hidden-only failure is; Q3 a new prompt at 0.89 vs the interval
   0.78–0.94. Week 2 Step 4b: Q1 why the 7B's pass@5 is below the 1.5B's; Q2 the honest
-  sentence about 7B (4-bit) vs 1.5B (fp16); Q3 Dictionaries 0.58 vs 0.57.
-  (48 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb's calls (asked at the Step 4b STOP): (1) fix the client's
-  `finish_reason: "error"` bug (recommended, small step with a test); (2) Q11 fast YAML parser;
-  (3) Q15 report rounding; (4) Gemini n = 1: keep as a 3rd model (after 10:00 Qatar time,
+  sentence about 7B (4-bit) vs 1.5B (fp16); Q3 Dictionaries 0.58 vs 0.57. finish_reason fix:
+  Q1 what the client does with a 200 + `finish_reason: "length"` half answer; Q2 why the fix
+  raises `_Transient`, not `ModelError`; Q3 measured pass@1 if 10% of calls failed this way.
+  (51 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb's calls (asked at the Step 4b STOP; (1) the finish_reason fix is
+  done): (2) Q11 fast YAML parser (pytest ~41 s, `make all` ~61–65 s); (3) Q15 report rounding;
+  (4) Gemini n = 1: keep as a 3rd model (after 10:00 Qatar time,
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days) or drop. Then Step 5 (Najeeb's `docs/notes/week2.md`, README).
   `docs/notes/week1.md` text whenever he wants ("review").
@@ -309,6 +314,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   1.5B's 0.983 comes only from word_frequency (1/10 vs 2/10 → pass@5 0.5 vs 0.78). Dictionaries
   "0.58 vs 0.57" is the same true value (23/40 = 0.575 for both): `pass_at_k(10, 1, 1)` is
   0.09999999999999998, so the means fall on different sides of 0.575 before `:.2f` (Q15).
+
+- 2026-10-02: finish_reason bug fixed (Najeeb: "go" on recommendation 1). `_parse_reply` raises
+  `_Transient` when `finish_reason` is in `FAILED_FINISH_REASONS` (only `"error"`), so the
+  existing retry loop handles it like a 503 and ends in `ModelError`; the run harness already
+  never grades a `ModelError` (no change in `run.py`). Partial text from such a reply is thrown
+  away. `"length"` and `"content_filter"` stay normal replies (decisions about the answer, not
+  server failures). Retrying a long failed answer costs tokens on a paid API (fine at $0 budget).
+  No live check: OpenRouter isn't a `make_client` provider; the fake server sends the reply shape
+  seen live. The 2 old scratch answers stay as they are, excluded.
 
 ## Open questions
 - Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
