@@ -6,3 +6,5 @@ node_modules/
 next-env.d.ts
 # Copied from node_modules/monaco-editor by scripts/copy-monaco.mjs (npm postinstall)
 public/monaco/
+# Screenshots from a failed `make web-e2e`
+.e2e/

@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker api web-install web web-check test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker api web-install web web-check e2e web-e2e test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -42,6 +42,12 @@ web-check:  ## type-check and build the web UI (production build)
 
 web/node_modules:
 	cd web && npm ci
+
+e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make api`, `make web`)
+	uv run python scripts/e2e_check.py
+
+web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs the 3 servers; CHROME=... overrides)
+	cd web && npm run e2e
 
 test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
 	uv run pytest
