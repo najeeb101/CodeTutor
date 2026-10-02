@@ -63,11 +63,12 @@ every line in an interview.
 - `src/codetutor/grader/`: `runner.py` (child, stdlib only), `compare.py`, `sandbox.py`, `grader.py`, `models.py`
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
-- `src/codetutor/settings.py`: settings from the environment (`database_url()`); Week 3 adds `db/`, `worker/`, `api/`
+- `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`); Steps 2–3 add `worker/`, `api/`
+- `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `notes/`
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
 - `api/` (README points to `src/codetutor/api/`), `web/` (Next.js app, Week 3 Step 4), `tutor/`: placeholders
@@ -77,7 +78,7 @@ every line in an interview.
 - Linux via **WSL2 (Ubuntu 24.04)**, Python 3.12 (project requires >=3.11), **uv** (`uv sync`, `uv run`).
 - Week 1 dependencies are pre-approved: `pydantic` v2, `pyyaml`; dev: `pytest`, `pytest-timeout`, `ruff`.
   Week 3 approved (2026-10-02, added in the step that needs them): `psycopg[binary]` (Step 0, done),
-  `sqlalchemy` 2 + `alembic` (Step 1), `fastapi` + `uvicorn`, dev `httpx` (Step 3); npm in `web/`
+  `sqlalchemy` 2 + `alembic` (Step 1, done), `fastapi` + `uvicorn`, dev `httpx` (Step 3); npm in `web/`
   only: `next`, `react`, `@monaco-editor/react`, `typescript` (Step 4). Report the real package
   count when installing. Anything else: ask first.
 - Type hints and short docstrings on all public functions/classes. ruff (line length 100).
@@ -87,7 +88,8 @@ every line in an interview.
 - No global mutable state unless unavoidable (comment why). Limits/timeouts live in one place and are overridable.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate),
-  `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data). `test` depends
+  `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data), `db-migrate`
+  (`alembic upgrade head`) and `db-sync` (migrate + copy the problems in). `test` depends
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests in Docker (opt-in, marker `docker`, ~1 min; run it after any
   sandbox change). Docker works without `sg` since the WSL restart on 2026-10-01.
@@ -95,7 +97,9 @@ every line in an interview.
   Windows Ollama. Model calls need `uv run --env-file .env ...`. Bind local services to
   `127.0.0.1` (a plain port mapping could be reachable from the network).
 - Database: `DATABASE_URL`, else the dev URL in `settings.py` (fixed dev credentials, local only,
-  not a secret). Node 24 LTS via nvm in `~/.nvm` (WSL; never the Windows `npm` under `/mnt/c`).
+  not a secret). Tests use their own DB `codetutor_test` (`TEST_DATABASE_URL`), dropped and
+  re-created every run by the real migrations; they never read `DATABASE_URL`. Schema changes:
+  `docs/database.md` §4 (autogenerate with `--rev-id 000N`, then review by hand). Node 24 LTS via nvm in `~/.nvm` (WSL; never the Windows `npm` under `/mnt/c`).
 
 ## 8-week plan
 | Week | Deliverable |
@@ -190,6 +194,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `psycopg[binary]` 3.3.6 (2 packages, 14 → 16); `tests/test_db_smoke.py` (2 tests). nvm v0.40.8
   + Node v24.21.0 / npm 11.19.0 in WSL. Suite 303 passed, 2 skipped, 1 xfailed (34 s);
   `make all` 53 s (incl. starting the DB).
+- **Done (2026-10-02): Week 3 Step 1** (schema + migrations + problem sync). `sqlalchemy` 2.1.2 +
+  `alembic` 1.20.0 (+ Mako, MarkupSafe: 4 packages, 16 → 20). `src/codetutor/db/`: 5 tables
+  (`users`, `problem_versions` = sealed full copies, `problems` = current student view,
+  `submissions` = job + result, `test_results`), migration `0001_initial_schema` (autogenerated,
+  reviewed by hand), `sync.py` + `scripts/sync_problems.py`, `make db-migrate` / `db-sync`
+  (dev DB: 33 added, then 33 unchanged), `docs/database.md`, 2 interview notes. 45 new tests
+  (`test_db_schema.py` 36, `test_db_sync.py` 9; ~4 s): migration round trip, drift check,
+  every CHECK, every status, json vs jsonb, whole-bank round trip. Suite 348 passed, 2 skipped,
+  1 xfailed (41.2 s); `make all` 62 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
@@ -234,10 +247,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   names "4-bit" next to the 7B; Q2 why week2.md gives raw facts, not finished text; Q3 what
   happens to hidden-only wrong answers in a bank without hidden tests. Week 3 Step 0: Q1 why
   the port is `127.0.0.1:5432:5432`; Q2 why the dev password may be in compose.yaml but the
-  Gemini key never; Q3 why pin the image by digest.
-  (63 in total; answer key in Claude's memory.)
-- **Next action:** Week 3 Step 1 (schema + migrations + problem sync; `sqlalchemy` 2 + `alembic`),
-  starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  Gemini key never; Q3 why pin the image by digest. Week 3 Step 1: Q1 why `problems` holds only
+  the student view and hidden tests live in `problem_versions`; Q2 why `json`, not `jsonb`;
+  Q3 what `make db-sync` does after a hint typo fix without a version bump.
+  (66 in total; answer key in Claude's memory.)
+- **Next action:** Week 3 Step 2 (worker: claim with `FOR UPDATE SKIP LOCKED` + lease + retries,
+  grade in `DockerSandbox`, save result + test_results in one transaction; the claim index; NUL
+  cleanup before saving; leave unrevealed json columns unset), starting in plan mode. Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days; then add a README row).
@@ -417,6 +433,42 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Every computed number in the report uses it (temperature `:g` stays: config value).
   week2.md regenerated: 7 tie cells changed, no headline number; output byte-identical across
   two runs. The test imports the private `_fixed` directly (pure function).
+- 2026-10-02: Week 3 Step 1 (Najeeb approved the plan). **Two problem tables:** `problem_versions`
+  (sealed copy of every synced version, full `Problem.model_dump(mode="json")`, never updated;
+  only the worker reads it) and `problems` (current version, `to_student_view()` only; the API
+  reads it). The worker grades from the DB copy, so a submission is graded on the version the
+  student saw; FKs from `problems` and `submissions` to `problem_versions` enforce it. Rejected:
+  worker reads the files (old versions lost, worker needs the repo).
+- 2026-10-02: **Postgres `json`, not `jsonb`**, for every value the grader compares or shows
+  (measured: `jsonb` turned the float `1e300` into an int and `1E2` into `100`; `json` kept
+  floats, `-0.0` and `\u0000`). Pinned by tests, incl. all 33 problems round-tripped by `repr`.
+- 2026-10-02: Statuses are `text` + CHECK built from the Python enums (not Postgres ENUMs: hard
+  to change); migration 0001 keeps a frozen copy, and `test_every_*_status_is_allowed` fails if
+  a new status has no migration (Alembic doesn't compare CHECKs). Constraint naming convention
+  in `models.py`. Two `test_results` CHECKs keep hidden details out (`NOT (hidden AND
+  revealed)`; unrevealed rows have SQL NULL input/expected/actual). Measured trap: Python `None`
+  in a json column is JSON `null`, which that CHECK rejects, so Step 2 must leave those columns
+  unset. Extra CHECKs beyond the plan: `result_complete` (a set result has every summary
+  column), `version >= 1`, difficulty and job status lists.
+- 2026-10-02: Sync rules: new (id, version) → sealed copy + `problems` row; changed hash without
+  a bump → refused (also for hint typos and new buggy files; idea for a grading-only hash in
+  ideas.md); versions only go up; missing folder → `active = false` (never deleted), back →
+  "restored"; an empty bank is refused (a wrong `--root` would retire everything). All rules
+  are checked before writing, all violations are listed in one `SyncError`, the caller commits.
+  `load_all()` runs first for the bank-wide checks, then each folder is read again for its hash
+  (~0.1 s; keeps one loader).
+- 2026-10-02: Tests own `codetutor_test` (`database_url_for_tests()`; the name avoids pytest
+  collecting a `test_*` function), dropped `WITH (FORCE)` and re-created per run, built with the
+  real migrations (not `create_all`); tables truncated after each test; `recreate_database`
+  refuses names without "test". The migration round trip uses its own `codetutor_test_migrations`.
+- 2026-10-02: Found while testing: with the DB stopped, SQLAlchemy connections hung > 2 min
+  (killed by `timeout 120`; WSL mirrored networking drops instead of refusing). Every engine now
+  has `connect_timeout = DB_CONNECT_TIMEOUT_S` (5 s, `settings.py`); the sync script and Alembic
+  fail after ~6 s with "Run `make db-up`".
+- 2026-10-02: `alembic.ini` has no URL (env.py uses `settings`, or `config.attributes["url"]`
+  from tests); readable revision files (`--rev-id 0001` → `0001_initial_schema.py`); post-write
+  hooks run `ruff check --select I --fix` and `ruff format` on new migrations. No new
+  `TODO(najeeb)` (the fizzbuzz one is still open).
 
 ## Open questions
 - Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). Now pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
@@ -432,3 +484,5 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Timeouts depend on machine load, so grading is deterministic except for timeouts under heavy load. This also affects failure *labels*: a memory bomb can end as `timeout` or `runtime_error` depending on load (same reward, different label). Keep it in mind for Week 2 failure-type statistics.
 - The validator's "solution < 25% of the time limit" check is measured while 4 gradings run in parallel, so it can be flaky on a busy machine.
 - The input check compares with `==`: `[1]` and `[True]` count as equal, and a change undone before the function returns is not seen. It catches honest mistakes, not attackers.
+- Postgres `text` can't hold NUL (`\x00`, DataError): Step 2 must clean `stdout`/errors before saving, Step 3 must reject code with NUL.
+- The hidden tests are in the database (`problem_versions`); only code review keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
