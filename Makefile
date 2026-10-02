@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker api test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker api web-install web web-check test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -30,6 +30,18 @@ worker: db-sync  ## grade queued submissions in Docker until Ctrl+C (docs/worker
 
 api: db-sync  ## run the HTTP API on http://127.0.0.1:8000 until Ctrl+C (docs/api.md; dev login, not secure)
 	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port 8000
+
+web-install:  ## install the web UI's npm packages from package-lock.json (needs Node 24, nvm)
+	cd web && npm ci
+
+web: web/node_modules  ## run the web UI on http://localhost:3100 (WEB_PORT overrides; needs `make api`)
+	cd web && npm run dev
+
+web-check:  ## type-check and build the web UI (production build)
+	cd web && npm run build
+
+web/node_modules:
+	cd web && npm ci
 
 test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
 	uv run pytest

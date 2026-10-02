@@ -327,3 +327,33 @@ restarts and several API processes.
 serializes it. I lock the smallest thing that covers the rule: one user's row, so users don't
 block each other. And I test the race with real threads, including a run without the lock to
 show the test can fail."
+
+## JavaScript has one number type: format values where the types live (Week 3, Step 4)
+The grader treats `30` and `30.0` as different answers (exact mode), and Python's JSON keeps
+the difference (`30` vs `30.0`). But JavaScript has only one number type: `JSON.parse("32.0")`
+gives `32`. So a browser showing raw JSON would display `celsius_to_fahrenheit(0) → 32` for
+an answer that must be the float `32.0`. That is the very first problem, and the wrong type
+would be the lesson. Measured: 2 problems have whole-number floats in their visible tests. The
+fix is to **format values on the side that knows the types**. The API sends Python's own
+`repr()` text (`"32.0"`, `"'Fizz'"`, `"None"`) next to the raw values, and the UI shows only
+that. It's the same text the eval prompt shows models, so students and models see the same
+examples. Rejected: re-implementing Python's `repr` in TypeScript (quote rules, escapes,
+detecting floats).
+*How I'd say it:* "Data crosses a language boundary between the API and the browser, and the
+type systems don't match. I don't let the weaker side guess: the side that knows the types
+formats the value for display, and the raw value travels alongside."
+
+## Self-host third-party code you run in the browser (Week 3, Step 4)
+`@monaco-editor/react` by default downloads the Monaco editor at runtime from a public CDN
+(`cdn.jsdelivr.net`, no integrity check). That means third-party code running on every page
+view, a dependency on someone else's server, and no editor offline. Instead, `npm install`
+copies the prebuilt editor from `node_modules` (version-pinned by `package-lock.json`) into
+`public/`, and the loader is pointed there. Same principle as turning off Next.js telemetry
+and FastAPI's automatic OpenTelemetry exporters: nothing loads from, or is sent to, a third
+party at runtime unless we chose it. A side lesson: `npm audit` flags DOMPurify inside Monaco,
+but the advisory needs a mode Monaco never uses. And because the editor is prebuilt with
+DOMPurify inside, an npm "override" wouldn't change the served code. Know what you actually
+ship.
+*How I'd say it:* "I pin and serve front-end dependencies from my own origin, so the code
+users run is the code I reviewed and locked. For every audit warning, I check whether the
+vulnerable path is reachable in the code that's actually served."

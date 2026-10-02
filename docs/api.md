@@ -30,6 +30,22 @@ URL in `Location`. The UI then asks `GET /api/submissions/{id}` about once a sec
 `job_status` is `done` (the `result` is filled) or `failed`. Measured live: the submit request
 took 0.05 s, and a fizzbuzz result was ready 1.1 s later (worker in Docker).
 
+### Display text (Python `repr`)
+Values that a student sees also come as text, formatted by Python's `repr()` and cut at 500
+characters (`MAX_REPR_CHARS`). JavaScript has one number type, so `JSON.parse("32.0")` gives
+`32`, and a browser would show the wrong type (the grader treats 30 and 30.0 differently), and
+`null`/`true` instead of `None`/`True`:
+- each example (visible test) of a problem: `args_repr` (e.g. `"[1, 2], 3"`) and
+  `expected_repr` (e.g. `"32.0"`, `"'Fizz'"`, `"None"`);
+- each **revealed** test of a result: `args_repr`, `expected_repr`, `actual_repr`
+  (`actual_repr` is null when the test has an `error`: the error says what happened). Hidden
+  tests have no display text, just as they have no values.
+
+The raw JSON values stay in the answer too. The eval prompt shows models the same `repr` text
+(`evals/prompt.py`). Tests: `test_examples_carry_python_display_text`,
+`test_a_graded_result_never_shows_hidden_test_details`,
+`test_a_test_with_an_error_has_no_actual_text`, `test_long_display_text_is_cut`.
+
 ### Error codes
 | Code | When | `detail` |
 |---|---|---|
@@ -97,6 +113,7 @@ index (1.3 ms).
 ```bash
 make worker   # terminal 1: db-sync, then grade in Docker
 make api      # terminal 2 (after the worker has started): db-sync, then http://127.0.0.1:8000
+make web      # terminal 3: the web UI on http://localhost:3100 (web/README.md)
 ```
 Start them one after the other: both run `db-sync`, and two syncs at once are not guarded
 (database.md §6).

@@ -1,0 +1,26 @@
+{
+  "name": "codetutor-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeTutor web UI (Week 3 Step 4): problem list, Monaco editor, submit, results.",
+  "scripts": {
+    "postinstall": "node scripts/copy-monaco.mjs",
+    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1 --port ${WEB_PORT:-3100}",
+    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
+    "start": "NEXT_TELEMETRY_DISABLED=1 next start --hostname 127.0.0.1 --port ${WEB_PORT:-3100}",
+    "typecheck": "NEXT_TELEMETRY_DISABLED=1 next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "monaco-editor": "0.57.0",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
+  }
+}

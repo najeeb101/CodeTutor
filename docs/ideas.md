@@ -69,3 +69,21 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   2026-10-02: `return "\ud800x"` gives `crashed` ("exited with code 0 without a result"), not
   `wrong_answer`, because the runner's report can't be encoded. Harmless for CS1 problems, but the
   label is wrong. A fix would change grading, so it needs a GRADER_VERSION bump.
+
+- **(Step 5 or later) A committed browser test without new packages.** Week 3 Step 4 checked
+  the UI with a scratch script: Node 24's built-in `WebSocket` drives headless Chrome through
+  its DevTools protocol (log in, type into Monaco, submit, read the result table). Turned into
+  `make web-e2e`, it would catch UI regressions. Playwright would be easier to write but adds a
+  package plus ~300 MB of browsers.
+
+- **(If the API grows) Generate `web/lib/types.ts` from `/openapi.json`.** The TypeScript types
+  are written by hand from the pydantic models and can drift. A generator (e.g.
+  openapi-typescript, a new dev package) would keep them in sync, with a check in
+  `make web-check`.
+
+- **(UI) "Solved" marks in the problem list.** It needs the student's best result per problem:
+  one small endpoint (`GET /api/me/progress`) or a summary of `GET /api/submissions`.
+
+- **(When Monaco updates) Re-check `npm audit`.** monaco-editor 0.57 bundles DOMPurify 3.4.15
+  (low-severity XSS through `IN_PLACE` mode, which Monaco never uses). Upgrade when a Monaco
+  release ships DOMPurify >= 3.4.16.

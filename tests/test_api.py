@@ -14,7 +14,7 @@ from sqlalchemy import Engine, func, make_url, select, text
 from sqlalchemy.orm import Session
 
 from codetutor.api import create_app
-from codetutor.api.schemas import FAILED_MESSAGE
+from codetutor.api.schemas import FAILED_MESSAGE, MAX_REPR_CHARS, py_repr
 from codetutor.api.submissions import RateLimitedError, RateLimits, create_submission
 from codetutor.db.engine import make_engine
 from codetutor.db.models import SubmissionRow, UserRow
@@ -24,7 +24,7 @@ from codetutor.problems import StudentProblem
 from codetutor.settings import database_url_for_tests
 from codetutor.worker.jobs import MAX_CODE_CHARS, claim_next_job
 from codetutor.worker.loop import Outcome, process_job
-from conftest import BUGGY, SOLUTION, ProblemWriter, valid_meta
+from conftest import BUGGY, SOLUTION, ProblemWriter, valid_meta, valid_tests
 
 PROBLEM_ID = "cs1.loops.sum_of_evens"  # the conftest problem: t01-t04 visible, t05-t08 hidden
 HIDDEN_IDS = ("t05", "t06", "t07", "t08")
@@ -77,6 +77,11 @@ def _submit(client: TestClient, headers: dict[str, str], code: str = SOLUTION) -
     response = _post_submission(client, headers, code)
     assert response.status_code == 202, response.text
     return response.json()["id"]
+
+
+def _display_text(test: dict[str, object]) -> tuple[object, object, object]:
+    """A test result's Python display text: (args, expected, actual)."""
+    return (test["args_repr"], test["expected_repr"], test["actual_repr"])
 
 
 def _grade_next(engine: Engine) -> None:
@@ -191,6 +196,38 @@ def test_unknown_and_retired_problems_are_404(client: TestClient, db_session: Se
     assert client.get(f"/api/problems/{PROBLEM_ID}").status_code == 404
 
 
+def test_examples_carry_python_display_text(
+    client: TestClient, db_session: Session, write_problem: ProblemWriter, bank_root: Path
+) -> None:
+    # JavaScript would show the float 32.0 as 32, and None as null: Python formats them.
+    tests = valid_tests()
+    tests[0] |= {"input": [0], "expected": 32.0, "compare": "float"}
+    tests[1] |= {"input": ["it's"], "expected": "Fizz"}
+    tests[2] |= {"input": [[1, 2], 3], "expected": None}
+    tests[3] |= {"input": [{"a": 1}], "expected": [1, True]}
+    meta = valid_meta() | {"id": "cs1.loops.shapes", "order": 2}
+    write_problem(meta=meta, tests=tests, folder="cs1/03_loops/shapes")
+    sync_problems(db_session, bank_root)
+    db_session.commit()
+
+    body = client.get("/api/problems/cs1.loops.shapes").json()
+
+    text = [(e["args_repr"], e["expected_repr"]) for e in body["examples"]]
+    assert text == [
+        ("0", "32.0"),
+        ('"it\'s"', "'Fizz'"),
+        ("[1, 2], 3", "None"),
+        ("{'a': 1}", "[1, True]"),
+    ]
+    assert body["examples"][0]["expected"] == 32.0  # the raw JSON value is still there
+
+
+def test_long_display_text_is_cut() -> None:
+    text = py_repr(list(range(1000)))
+    assert len(text) == MAX_REPR_CHARS and text.endswith("…")
+    assert py_repr("x") == "'x'"
+
+
 # --- Submitting ---
 
 
@@ -278,11 +315,27 @@ def test_a_graded_result_never_shows_hidden_test_details(
         30,
         20,
     )
+    assert _display_text(tests["t01"]) == ("10", "30", "20")
     for test_id in HIDDEN_IDS:
         hidden = tests[test_id]
         assert hidden["hidden"] and not hidden["revealed"]
         assert (hidden["input"], hidden["expected"], hidden["actual"]) == (None, None, None)
+        assert _display_text(hidden) == (None, None, None)
     assert tests["t07"]["status"] == "wrong_answer"  # the student learns *that* it failed
+
+
+def test_a_test_with_an_error_has_no_actual_text(client: TestClient, db_engine: Engine) -> None:
+    headers = _login(client)
+    code = 'def sum_of_evens(n):\n    raise ValueError("no")\n'
+    submission_id = _submit(client, headers, code=code)
+    _grade_next(db_engine)
+
+    t01 = client.get(f"/api/submissions/{submission_id}", headers=headers).json()["result"][
+        "tests"
+    ][0]
+
+    assert (t01["status"], t01["error"]) == ("runtime_error", "ValueError: no")
+    assert _display_text(t01) == ("10", "30", None)
 
 
 def test_a_failed_job_shows_a_fixed_message_never_last_error(

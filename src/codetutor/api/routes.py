@@ -19,7 +19,9 @@ from codetutor.api.schemas import (
     FAILED_MESSAGE,
     MAX_ID,
     LoginIn,
+    ProblemOut,
     ProblemSummary,
+    ResultOut,
     SubmissionCreated,
     SubmissionIn,
     SubmissionOut,
@@ -84,12 +86,12 @@ def list_problems(session: SessionDep) -> list[ProblemSummary]:
 
 
 @router.get("/problems/{problem_id}")
-def get_problem(problem_id: str, session: SessionDep) -> StudentProblem:
+def get_problem(problem_id: str, session: SessionDep) -> ProblemOut:
     """The student view of one active problem: no hints, solutions or hidden tests."""
     row = session.get(ProblemRow, problem_id)
     if row is None or not row.active:
         raise HTTPException(404, f"no problem {problem_id!r}")
-    return StudentProblem.model_validate(row.student_view)
+    return ProblemOut.from_student_view(StudentProblem.model_validate(row.student_view))
 
 
 @router.post("/submissions", status_code=202)
@@ -132,13 +134,14 @@ def get_submission(
     if submission is None:
         raise HTTPException(404, f"no submission {submission_id}")
     summary = SubmissionSummary.model_validate(submission)
+    result = load_grade_result(session, submission.id)
     return SubmissionOut(
         **summary.model_dump(),
         code=submission.code,
         finished_at=submission.finished_at,
         # Never `last_error` itself: it can contain internal details.
         message=FAILED_MESSAGE if submission.job_status == JobStatus.FAILED else None,
-        result=load_grade_result(session, submission.id),
+        result=None if result is None else ResultOut.from_result(result),
     )
 
 
