@@ -154,9 +154,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - **Done (2026-10-02): finish_reason fix.** An HTTP 200 reply with `finish_reason: "error"` is
   now retried like a 503 and ends as `ModelError` (never graded). Test first: 2 new client
   tests failed before the fix. Suite 290 passed, 2 skipped, 1 xfailed (~41 s); `make all` ~61 s.
+- **Done (2026-10-02): Q11 part 1, fast YAML parser.** The loader uses libyaml (`CSafeLoader`,
+  pure-Python fallback): `load_all()` 0.59 s → 0.10 s; a differential test checks both parsers
+  read every bank file the same. Suite 291 passed, 2 skipped, 1 xfailed (28.6 s); `make all`
+  45 s (most of the drop from 61–65 s is run-to-run noise; the measured gain is ~2 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week1.md` text (its
-  numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 (suite time,
-  recommendation A: leave it); Q14 (rare memory-bomb flake, recommendation A: leave it).
+  numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q11 option B (parallel
+  bank validation, recommendation: leave it); Q14 (rare memory-bomb flake, recommendation A:
+  leave it).
 - **Check questions waiting for Najeeb** (he answers them at the end; answers are not written here):
   Module 3: Q1 why `while n != 0: n //= 10` never stops for -5; Q2 why factorial's big test is
   n = 1100, not 900; Q3 what a student sees when fizzbuzz checks % 3 before % 15.
@@ -189,9 +194,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   sentence about 7B (4-bit) vs 1.5B (fp16); Q3 Dictionaries 0.58 vs 0.57. finish_reason fix:
   Q1 what the client does with a 200 + `finish_reason: "length"` half answer; Q2 why the fix
   raises `_Transient`, not `ModelError`; Q3 measured pass@1 if 10% of calls failed this way.
-  (51 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb's calls (asked at the Step 4b STOP; (1) the finish_reason fix is
-  done): (2) Q11 fast YAML parser (pytest ~41 s, `make all` ~61–65 s); (3) Q15 report rounding;
+  YAML parser: Q1 why the differential test compares `repr`, not `==`; Q2 why fill_expected's
+  round-trip check uses `parse_yaml`; Q3 why 0.59 s → 0.10 s saves only ~2 s per suite.
+  (54 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb's calls (asked at the Step 4b STOP; (1) the finish_reason fix and
+  (2) the YAML parser are done): (3) Q15 report rounding;
   (4) Gemini n = 1: keep as a 3rd model (after 10:00 Qatar time,
   `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days) or drop. Then Step 5 (Najeeb's `docs/notes/week2.md`, README).
@@ -323,9 +330,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   server failures). Retrying a long failed answer costs tokens on a paid API (fine at $0 budget).
   No live check: OpenRouter isn't a `make_client` provider; the fake server sends the reply shape
   seen live. The 2 old scratch answers stay as they are, excluded.
+- 2026-10-02: Q11 part 1 (Najeeb: "go" on the next item). Profiled the suite first: the real
+  bank was loaded 5 times (~0.6 s each, almost all pure-Python YAML), while the biggest cost is
+  grading (`test_every_problem_in_the_bank_is_valid` 10.2 s). The loader now parses with
+  `yaml.CSafeLoader` when `yaml.__with_libyaml__` (true with PyYAML 6.0.3, no new dependency),
+  else `yaml.SafeLoader`; public `parse_yaml()`. `fill_expected`'s round-trip check uses the
+  same `parse_yaml`, because the check must use the parser that reads the file later. A
+  differential test compares `repr` of both parsers on every bank YAML (0.66 s; `repr` because
+  1 == 1.0 == True). Measured: `load_all()` 0.59 → 0.10 s; the four bank-loading tests/setups
+  0.58–0.63 s → 0.11–0.12 s; net gain ~2 s per suite. Trade-off: libyaml's error message for
+  broken YAML has line and column but no `^` snippet. `evals/run.py` (one config file) and
+  `tests/test_bank.py` keep `yaml.safe_load` (the latter stays an independent check).
 
 ## Open questions
-- Q11: suite time. Now pytest ~27–29 s, `make all` ~42 s (limit 60 s is for pytest). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
+- Q11: suite time. The YAML part is done (2026-10-02, ~2 s saved). Now pytest 28–41 s depending on machine load, `make all` 45–65 s (limit 60 s is for pytest); the biggest single test is bank validation (10.2 s). Bank validation costs ~0.33 s per problem plus ~2.2 s per timeout bug, twice per `make all`. Options: (A) leave it, the bank is complete; (B) make `validate_bank` grade all problems' jobs in one parallel pool (20 CPUs here), so the three timeouts overlap. Trade-off of B: more parallel load makes timeouts and the 25% timing check flakier. Measure before deciding.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q15: the report prints equal values differently at a .xx5 boundary (Dictionaries 0.575 shows as 0.58 for one model and 0.57 for the other; float error from `1 - 0.9`). Options: (A) round values to ~9 decimals before formatting in `report.py` (equal values always print the same; small code change + a test); (B) leave it and mention it in week2.md. Recommendation: A.
 
