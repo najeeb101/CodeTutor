@@ -1,14 +1,28 @@
-"""Shared test helpers: a valid problem as plain data, and a way to write it to disk."""
+"""Shared test helpers: a valid problem as plain data, a way to write it to disk, and a
+test database (Week 3)."""
 
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+import psycopg
 import pytest
 import yaml
+from alembic import command
+from alembic.config import Config
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from sqlalchemy import Engine, text
+from sqlalchemy.orm import Session
+
+from codetutor.db.engine import make_engine
+from codetutor.db.models import Base
+from codetutor.settings import database_url_for_tests
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 STARTER = '''def sum_of_evens(n: int) -> int:
     """Return the sum of all even numbers from 1 to n (inclusive)."""
@@ -115,3 +129,58 @@ def write_problem(tmp_path: Path) -> ProblemWriter:
         return path
 
     return _write
+
+
+# --- Test database (Week 3) ---
+
+
+def recreate_database(url: str) -> None:
+    """Drop the database named in `url` (if it exists) and create it again, empty.
+
+    Refuses names without "test", so a wrong URL can never wipe a real database.
+    """
+    name = conninfo_to_dict(url)["dbname"]
+    if "test" not in name:
+        raise RuntimeError(f"refusing to drop database {name!r}: test databases contain 'test'")
+    # DROP/CREATE DATABASE can't run inside a transaction or while connected to that database,
+    # so connect to the server's default "postgres" database with autocommit.
+    admin = make_conninfo(url, dbname="postgres", connect_timeout=3)
+    try:
+        with psycopg.connect(admin, autocommit=True) as conn:
+            # WITH (FORCE) also closes connections left open by an earlier, crashed run.
+            conn.execute(
+                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+            )
+            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    except psycopg.OperationalError as exc:
+        info = conninfo_to_dict(url)  # host and port only: the URL may contain a password
+        where = f"{info.get('host')}:{info.get('port', 5432)}"
+        pytest.fail(f"cannot reach Postgres at {where} ({exc}). Run `make db-up`.")
+
+
+def alembic_config(url: str) -> Config:
+    """The project's alembic.ini, pointed at `url` (env.py reads the "url" attribute)."""
+    config = Config(str(REPO_ROOT / "alembic.ini"))
+    config.attributes["url"] = url
+    return config
+
+
+@pytest.fixture(scope="session")
+def db_engine() -> Iterator[Engine]:
+    """An engine on a fresh test database, built by the real migrations (not create_all)."""
+    url = database_url_for_tests()
+    recreate_database(url)
+    command.upgrade(alembic_config(url), "head")
+    engine = make_engine(url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db_session(db_engine: Engine) -> Iterator[Session]:
+    """A session on the test database. Every table is emptied after the test."""
+    with Session(db_engine) as session:
+        yield session
+    tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+    with db_engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))

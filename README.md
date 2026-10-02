@@ -52,6 +52,7 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 ```bash
 make install    # install dependencies and the package (editable)
 make db-up      # start the local Postgres (compose.yaml, 127.0.0.1 only); make db-down stops it
+make db-sync    # create the tables (migrations) and copy the problems into Postgres
 make all        # lint + tests + validate every problem (starts the database if needed)
 make build      # write dist/problems.jsonl and dist/problems_student.jsonl
 ```
@@ -148,17 +149,18 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/grader/`: runner (child process), sandboxes (subprocess, Docker), comparison, `grade()`
 - `src/codetutor/bank/`: expected-value filler, validator, dataset builder
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
+- `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`); `docs/notes/` holds interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`); `docs/notes/` holds interview notes
 
 ## Roadmap
 | Week | Deliverable | |
 |---|---|---|
 | 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
-| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | next |
+| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | in progress (database done) |
 | 4 | AI tutor that gives hints, not answers | |
 | 5 | Simulated students, integrity checks, difficulty estimates | |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |

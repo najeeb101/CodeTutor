@@ -13,3 +13,21 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   big prime times out. So an RL model gets almost no push to learn the fast algorithm. Options to
   test in Week 6: give efficiency tests more weight, or a bonus only when *all* tests pass.
   Measure first; don't change the reward blindly.
+
+- **(Hosting, before strangers use it) A database role for the API without access to
+  `problem_versions`.** The hidden tests live in that table (the worker grades from it). The API
+  never queries it, but only code review stops it today. With a separate Postgres role for the
+  API (`GRANT SELECT` on `problems`, `submissions`, `test_results`, … but not on
+  `problem_versions`), the database itself would refuse. The worker keeps its own role.
+
+- **(Week 3+, if sync runs automatically) Guard against two syncs at once.** Sync is run by
+  hand today. If a deploy step ever runs it on several machines at the same time, take
+  `pg_advisory_xact_lock(<fixed number>)` at the start of the sync transaction, so the second
+  sync waits for the first.
+
+- **(If version bumps get annoying) Split `content_hash` into "affects grading" and "doesn't".**
+  Today any change to a problem folder (even a hint typo or a new buggy file) needs a version
+  bump before sync, because a stored copy never changes. A second hash over only what grading
+  uses (tests, function name, limits, input check) could allow in-place updates of the rest.
+  More rules to explain, so only do it if bumps become a real cost (e.g. for Week 2 eval
+  results, which warn about answers graded on an older version).

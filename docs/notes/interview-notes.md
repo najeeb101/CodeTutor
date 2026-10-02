@@ -247,3 +247,35 @@ far below any real difference between our values), then round half up with Pytho
 *How I'd say it:* "Every number in my reports goes through one formatter, so equal values
 always print the same and a reader can check any cell by hand. I found the issue because I
 re-computed the odd-looking cells with exact fractions instead of trusting the printed floats."
+
+## Schema migrations and drift tests (Week 3, Step 1)
+The database schema is code: SQLAlchemy model classes, plus numbered Alembic **migrations**
+(0001, 0002, …). Each migration says how to go one step up (`upgrade`) and back (`downgrade`).
+Every machine applies the same steps in the same order, so dev, test and production end up with
+the same tables, and `alembic_version` records which step a database is at. I autogenerate a
+migration from the models, then **read and edit it by hand**: autogenerate doesn't compare CHECK
+constraints, and it sees a column rename as drop + add, which would delete data. Two tests
+protect this. A **drift test** compares the models with a database built only by the
+migrations (`compare_metadata` must return no differences), which catches "changed a model,
+forgot the migration". A **round-trip test** runs head → base → head, which proves the
+downgrade works. The tests also build their database with the real migrations, never with
+`create_all()`, so they test what production will run.
+*How I'd say it:* "Schema changes are versioned and reviewed like code. The test suite builds its
+database from the migrations, and a drift test fails if the models and migrations disagree, so
+a missing migration fails a test before it ships."
+
+## Let the database defend the data (Week 3, Step 1)
+Two examples from the CodeTutor schema. (1) **json, not jsonb, measured first:** `jsonb`
+stores numbers as `numeric`, so the float `1e16` comes back as the int `10000000000000000`. The
+grader treats `30` and `30.0` as different answers, so `jsonb` could silently change test data.
+`json` keeps the exact text. A test pins both facts, and another round-trips all 33 problems
+through the database and compares `repr`. (2) **Rules as CHECK constraints:** hidden test
+details must never be stored, because they protect the reward from overfitting. The worker
+already grades with `reveal_hidden=False`, but the table also has
+`CHECK (NOT (hidden AND revealed))`, and a CHECK that an unrevealed row's input, expected and
+actual are SQL NULL. This is **defense in depth**: a future bug in the worker fails loudly at
+insert time instead of leaking the hidden tests. One trap I found and pinned with a test:
+Python `None` in a json column is JSON `null`, not SQL NULL, so it breaks that CHECK.
+*How I'd say it:* "I don't trust a storage format until I've round-tripped real data through
+it, and I put the rules that protect the eval data into the schema itself, so the database
+rejects a mistake that the application code would let through."

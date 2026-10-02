@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -18,6 +18,12 @@ db-down:  ## stop the local Postgres (the data is kept)
 
 db-reset:  ## stop the local Postgres AND delete its data (dev only)
 	docker compose down -v
+
+db-migrate: db-up  ## create/upgrade the tables (Alembic migrations, docs/database.md)
+	uv run alembic upgrade head
+
+db-sync: db-migrate  ## copy the problem folders into Postgres (safe to run again)
+	uv run python scripts/sync_problems.py
 
 test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
 	uv run pytest
