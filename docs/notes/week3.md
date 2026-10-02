@@ -110,7 +110,7 @@ before an interview.
 | Database | Postgres 17.11 + pgvector in Docker; 5 tables; 3 migrations |
 | API | FastAPI 0.142.2, 7 endpoints; Python packages 14 → 32 this week |
 | Web | Next.js 16.3.8, React 19.3, Monaco 0.57, TypeScript 7.0.2; 36 npm packages |
-| pytest | 417 tests (+33 Docker-only); 113 of them new this week (+1 Docker) |
+| pytest | 416 tests by default (+1 slow, +33 Docker-only); 113 of them new this week (+1 Docker) |
 | Code this week (non-blank lines) | db 637 (incl. migrations), worker 358, api 485, e2e.py 273, web 1,379; tests 1,121 |
 | Time | 1 day (2026-10-02), 10 commits before this wrap-up |
 

@@ -16,7 +16,7 @@ API and a web UI with a code editor). Next: Week 4 (an AI tutor that gives hints
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 417 pytest tests, plus 33 that run in Docker; 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 416 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
 | App | Postgres (5 tables), a grading queue in Postgres, a FastAPI service (7 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
 

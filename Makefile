@@ -49,7 +49,7 @@ e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make 
 web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs the 3 servers; CHROME=... overrides)
 	cd web && npm run e2e
 
-test: db-up  ## run the test suite (without the Docker-sandbox tests); starts the database first
+test: db-up  ## run the test suite (without the Docker and slow tests); starts the database first
 	uv run pytest
 
 test-docker: db-up  ## run the hostile-submission and worker tests in the Docker sandbox (needs Docker)
