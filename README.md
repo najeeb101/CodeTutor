@@ -5,8 +5,8 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Week 1 of 8 is done (problem bank + auto-grader). Next: Week 2, an eval harness that
-runs LLMs through the grader.
+**Status:** Weeks 1–2 of 8 are done: the problem bank, the auto-grader, and an eval harness that
+runs language models through the grader. Next: Week 3 (API, database, job queue, web UI).
 
 ## What is in it
 
@@ -15,7 +15,8 @@ runs LLMs through the grader.
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 179 pytest tests, including 27 hostile submissions (infinite loops, memory bombs, `os._exit`, fake results, output floods) |
+| Test suite | 301 pytest tests, plus 32 that run in Docker; 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
 not, and every buggy solution fails at least one test (a simple form of mutation testing).
@@ -97,6 +98,39 @@ print(result.status, result.reward, f"{result.passed}/{result.total}")
 accepted 1.0 10/10
 ```
 
+## Evaluate a model
+The eval harness gives a model the same view a student gets (description, starter code, visible
+tests), takes the code out of its reply, and grades it with the same `grade()`. Official results
+(10 answers per problem, temperature 0.8, seeds 0–9, graded in the Docker sandbox, on a laptop
+GPU):
+
+| Model | pass@1 [95% interval] | pass@10 | Mean reward | Wrong answers that pass every visible test |
+|---|---|---|---|---|
+| Qwen2.5-Coder 1.5B (fp16) | 0.867 [0.779, 0.942] | 1.000 | 0.953 | 15 of 44 |
+| Qwen2.5-Coder 7B (4-bit) | 0.945 [0.867, 1.000] | 1.000 | 0.989 | 9 of 18 |
+
+Both models solve every problem at least once in 10 tries, but not every time. A third (1.5B)
+and a half (7B) of their wrong answers pass every visible test: only the hidden tests catch
+them. Note that the two runs differ in size *and* precision (the 7B is 4-bit). Full report, by
+module, difficulty and concept: [lab/evals/reports/week2.md](lab/evals/reports/week2.md).
+
+```bash
+# Rebuild the report from the committed results (no model needed)
+uv run python scripts/eval_report.py lab/evals/results/*.jsonl --out lab/evals/reports/week2.md
+
+# Ask a local model to solve one problem (needs Ollama; grading uses Docker)
+ollama pull qwen2.5-coder:1.5b-instruct-fp16
+uv run python scripts/try_model.py ollama/qwen2.5-coder:1.5b-instruct-fp16 cs1.loops.fizzbuzz
+
+# A small test run: 2 problems x 2 answers, written to lab/evals/scratch/ (gitignored)
+uv run python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-1.5b-fp16.yaml \
+    --problems cs1.loops.fizzbuzz,cs1.strings.compress --samples 2
+```
+A full run (33 problems × 10 answers) takes about 15 minutes on an RTX 4060 laptop GPU. Runs are
+resumable, and a failed API call is retried, never graded as a wrong answer. Gemini needs an API
+key in `.env` (run with `uv run --env-file .env ...`). Setup, the model client and the report:
+[docs/evals.md](docs/evals.md).
+
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
    `tests.yaml` (inputs only) and 1–3 files in `buggy/`.
@@ -111,16 +145,18 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/problems/`: problem schema and loader
 - `src/codetutor/grader/`: runner (child process), sandboxes (subprocess, Docker), comparison, `grade()`
 - `src/codetutor/bank/`: expected-value filler, validator, dataset builder
-- `scripts/`: command-line wrappers for the above, plus the grading CLI
+- `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
+- `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
+- `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs; `docs/notes/` holds interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`); `docs/notes/` holds interview notes
 
 ## Roadmap
 | Week | Deliverable | |
 |---|---|---|
 | 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
-| 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | next |
-| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | |
+| 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
+| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | next |
 | 4 | AI tutor that gives hints, not answers | |
 | 5 | Simulated students, integrity checks, difficulty estimates | |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |
