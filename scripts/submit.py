@@ -1,4 +1,5 @@
-"""Submit a Python file for grading through the queue (a dev tool until the API exists).
+"""Submit a Python file for grading through the queue (a dev tool; the web UI and the API are
+the real way in, see README "Run the app").
 
 Usage:
     python scripts/submit.py cs1.loops.fizzbuzz my_fizzbuzz.py            # queue it

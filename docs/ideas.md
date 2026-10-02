@@ -70,11 +70,10 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   `wrong_answer`, because the runner's report can't be encoded. Harmless for CS1 problems, but the
   label is wrong. A fix would change grading, so it needs a GRADER_VERSION bump.
 
-- **(Step 5 or later) A committed browser test without new packages.** Week 3 Step 4 checked
-  the UI with a scratch script: Node 24's built-in `WebSocket` drives headless Chrome through
-  its DevTools protocol (log in, type into Monaco, submit, read the result table). Turned into
-  `make web-e2e`, it would catch UI regressions. Playwright would be easier to write but adds a
-  package plus ~300 MB of browsers.
+- **(If the UI grows) Playwright instead of the hand-written browser check.** `make web-e2e`
+  (Week 3 Step 5) drives Chrome through its DevTools protocol with no packages. Playwright
+  would give auto-waiting, traces and a test runner, at the cost of a package and ~150-300 MB
+  of browsers (plus Chromium's system libraries in WSL). Worth it once there are many UI flows.
 
 - **(If the API grows) Generate `web/lib/types.ts` from `/openapi.json`.** The TypeScript types
   are written by hand from the pydantic models and can drift. A generator (e.g.

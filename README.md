@@ -5,8 +5,9 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Weeks 1–2 of 8 are done: the problem bank, the auto-grader, and an eval harness that
-runs language models through the grader. Next: Week 3 (API, database, job queue, web UI).
+**Status:** Weeks 1–3 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
+language models through the grader, and the app around them (Postgres, a grading queue, an HTTP
+API and a web UI with a code editor). Next: Week 4 (an AI tutor that gives hints, not answers).
 
 ## What is in it
 
@@ -15,8 +16,9 @@ runs language models through the grader. Next: Week 3 (API, database, job queue,
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 301 pytest tests, plus 32 that run in Docker; 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 417 pytest tests, plus 33 that run in Docker; 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
+| App | Postgres (5 tables), a grading queue in Postgres, a FastAPI service (7 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
 not, and every buggy solution fails at least one test (a simple form of mutation testing).
@@ -41,6 +43,7 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - Docker with Compose (for the local database and the safe sandbox)
+- Node 24 (for the web UI only; installed with [nvm](https://github.com/nvm-sh/nvm))
 
 > **⚠️ Security:** the default sandbox is a subprocess with resource limits. It is **not secure**:
 > graded code can read your files and use the network. For code you don't trust, use the Docker
@@ -122,7 +125,7 @@ module, difficulty and concept: [lab/evals/reports/week2.md](lab/evals/reports/w
 uv run python scripts/eval_report.py lab/evals/results/*.jsonl --out lab/evals/reports/week2.md
 
 # Ask a local model to solve one problem (needs Ollama; grading uses Docker)
-ollama pull qwen2.5-coder:1.5b-instruct-fp16
+ollama pull qwen2.5-coder:1.5b-instruct-fp16   # from WSL, with Ollama on Windows: ollama.exe pull ...
 uv run python scripts/try_model.py ollama/qwen2.5-coder:1.5b-instruct-fp16 cs1.loops.fizzbuzz
 
 # A small test run: 2 problems x 2 answers, written to lab/evals/scratch/ (gitignored)
@@ -134,14 +137,40 @@ resumable, and a failed API call is retried, never graded as a wrong answer. Gem
 key in `.env` (run with `uv run --env-file .env ...`). Setup, the model client and the report:
 [docs/evals.md](docs/evals.md).
 
-## Run the grading worker
-Submissions are saved in Postgres as jobs; a worker grades them in the Docker sandbox.
+## Run the app
+Three terminals, started one after the other (each one syncs the problems into Postgres first):
 ```bash
-make worker      # terminal 1: sync the problems, then grade queued submissions until Ctrl+C
-uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait   # terminal 2
+make worker   # grades queued submissions in the Docker sandbox
+make api      # the HTTP API on http://127.0.0.1:8000 (interactive docs at /docs)
+make web      # the web UI on http://localhost:3100 (installs its npm packages the first time)
 ```
-Start more workers for more throughput; they share the queue safely. How it works:
-[docs/worker.md](docs/worker.md).
+Open http://localhost:3100, log in with any name (a development login: **not secure**), pick a
+problem, write code, submit. Then check the whole chain:
+```bash
+make e2e      # 9 checks over HTTP: API, worker, web pages, hidden tests stay hidden (~8 s)
+make web-e2e  # 8 checks in headless Chrome: log in, submit, results, limits, drafts (~17 s)
+```
+`make web-e2e` starts its own Chrome (in WSL, the Windows Chrome; `CHROME=/path` picks
+another one). Without the UI, `scripts/submit.py` sends a file to the queue:
+`uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait`.
+How it works: [docs/worker.md](docs/worker.md) (queue), [docs/api.md](docs/api.md) (API),
+[web/README.md](web/README.md) (UI).
+
+### Architecture (as built)
+```
+Browser ── http://localhost:3100 ──► Next.js (web/)
+                                       │  pages: problem list + problem text (rendered on the server)
+                                       │  /api/* is forwarded ──► FastAPI (src/codetutor/api/, :8000)
+                                                                   │ submit = one INSERT (the row is the job)
+                                                                   ▼
+                       Postgres: problems (student view), problem_versions (sealed, hidden tests),
+                                 submissions (job + result), test_results, users
+                                                                   ▲ claim: FOR UPDATE SKIP LOCKED + lease
+                                                                   │ save: result + tests, fenced by attempts
+                                         Worker (make worker) ── grade(problem, code) ──► Docker sandbox
+```
+The browser polls `GET /api/submissions/{id}` once per second until the job is done. There is
+no Redis: Postgres is the queue, so saving a submission and queueing it can never disagree.
 
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
@@ -160,17 +189,20 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
 - `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
 - `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
+- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits
+- `src/codetutor/e2e.py`: end-to-end checks of a running stack (`make e2e`)
+- `web/`: the web UI (Next.js + Monaco), with its own README
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`); `docs/notes/` holds interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`); `docs/notes/` holds weekly notes and interview notes
 
 ## Roadmap
 | Week | Deliverable | |
 |---|---|---|
 | 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
-| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | in progress (database, worker done) |
+| 3 | FastAPI + Postgres + job queue + minimal Next.js UI | ✅ done |
 | 4 | AI tutor that gives hints, not answers | |
 | 5 | Simulated students, integrity checks, difficulty estimates | |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |

@@ -70,13 +70,19 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
 
 ## Checked
 - `make web-check`: type check + production build.
-- A scripted browser run (headless Chrome through its DevTools protocol, not committed). It
-  logged in, submitted fizzbuzz's solution (Accepted 10/10) and a buggy version (6/10, the 4
-  failed hidden tests shown without details), hit the "3 waiting" limit, reloaded (the draft
-  and the login were kept), logged out, and saw no console errors.
+- `make web-e2e` (`scripts/e2e.mjs`, needs the worker, the API and this UI running): starts a
+  headless Chrome with a throw-away profile and remote-controls it through the DevTools
+  protocol (Node 24's built-in WebSocket, no packages). 8 checks: the page hydrates (Monaco and
+  the login form), log in, fizzbuzz's solution → Accepted 10/10, a buggy file → 6/10 with the
+  failed hidden tests shown without details, fast submits → the "3 waiting" message, reload
+  keeps the draft and the login, log out, no console errors. ~17 s. On a failure it saves
+  `web/.e2e/failure.png` and exits 1. In WSL it uses the Windows Chrome; `CHROME=/path`,
+  `WEB_URL` and `E2E_DEBUG_PORT` (9333) override the defaults.
+- `make e2e` (repo root) checks the same chain over plain HTTP, including the pages' HTML.
 
 ## Limitations
-- No automatic browser test in the repo yet (no JS test framework is approved; ideas.md).
+- The browser check is hand-written (no test framework) and opt-in: it is not part of
+  `make all`, because it needs the three servers and Chrome.
 - The problem list has no "solved" marks (it would need the student's submissions).
 - `lib/types.ts` is written by hand and can drift from the API's pydantic models.
 - The dev login: anyone can use any name (docs/api.md §2).

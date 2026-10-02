@@ -357,3 +357,23 @@ ship.
 *How I'd say it:* "I pin and serve front-end dependencies from my own origin, so the code
 users run is the code I reviewed and locked. For every audit warning, I check whether the
 vulnerable path is reachable in the code that's actually served."
+
+## Three layers of end-to-end checks (Week 3, Step 5)
+Unit tests prove each part works alone; they can all pass while the parts don't fit together.
+So the whole chain (browser → Next.js → API → Postgres → worker → sandbox → result) is
+checked in three layers. Each one is slower and catches different bugs:
+1. **In the test suite** (`tests/test_e2e.py`, ~2 s): a real uvicorn server on a free port and
+   the real worker loop, in threads, on the test database, checked over real HTTP. It catches
+   wiring bugs (routing, serialization, the worker and the API disagreeing about a row) on
+   every `make all`.
+2. **Against the running stack** (`make e2e`): the same checks, plus the web pages' HTML and
+   the `/api` rewrite, on the dev setup with Docker grading. It catches configuration bugs
+   (ports, proxy, the problems not synced, the worker not running).
+3. **In a real browser** (`make web-e2e`): headless Chrome, remote-controlled. It catches what
+   only a browser shows: hydration, the editor loading, React state after a reload.
+Each layer was shown to fail when it should. Without a worker, the check stops with "is `make
+worker` running?". Without the row lock, the race test let 12 of 12 through. And the browser
+check saves a screenshot when it fails.
+*How I'd say it:* "I test the seams, not only the parts: one fast end-to-end test runs in CI,
+a smoke check runs against the real stack, and a browser check covers what only a browser
+can see. And I make sure each check can actually fail."
