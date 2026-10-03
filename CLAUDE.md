@@ -40,12 +40,17 @@ every line in an interview.
   model evals and the RL reward. Never create a second grading path.
 - Product half: Next.js + Monaco (Wk 3) → FastAPI (Wk 3) → grader queue (**Postgres as the queue**:
   the submission row is the job, workers claim with `FOR UPDATE SKIP LOCKED` + a lease; no Redis,
-  decided 2026-10-02) + DockerSandbox, AI tutor (LiteLLM + RAG + Langfuse, Wk 4), Postgres
+  decided 2026-10-02) + DockerSandbox, AI tutor (Wk 4: own model client, RAG on pgvector,
+  traces as Postgres rows; Langfuse optional, decided 2026-10-02), Postgres
   (local Docker in dev, Supabase when hosted) + pgvector (Wk 3).
 - Week 3 steps: 0 dev environment → 1 schema + migrations + problem sync → 2 worker (queue) →
   3 API → 4 web UI → 5 end-to-end + docs. The worker grades once with `reveal_hidden=False` and
   stores only that (hidden details never reach DB rows the API reads); problem files stay the
   source of truth (synced into Postgres with version + content_hash).
+- Week 4 steps: 0 guardrail → 1 course notes + RAG → 2 tutor pipeline + `hints` table (the
+  trace) → 3 API + UI (hints, 👍/👎) → 4 offline tutor eval (buggy files as students, a model
+  fixes, `grade()` scores) → 5 wrap-up. The tutor model never sees `solution.py`; every hint
+  passes the guardrail (`tutor/guardrail.py`) or is replaced by a reference hint.
 - Lab half: eval harness (Wk 2), simulated students + integrity + quality estimates (Wk 5),
   dataset builder + GRPO with TRL on Qwen 0.5–1.5B (Wk 6–7).
 - Sandbox: behind a `Sandbox` protocol so backends swap. `SubprocessSandbox` = subprocess + rlimits
@@ -67,15 +72,16 @@ every line in an interview.
 - `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (7 endpoints), `submissions.py` (submit + rate limits), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?)
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
 - `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`
-- `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `notes/`
+- `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `notes/`
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
 - `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `lib/` incl. `api.ts` + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
-- `api/` (README points to `src/codetutor/api/` and docs/api.md), `tutor/`: placeholders
+- `api/`, `tutor/`: READMEs pointing to `src/codetutor/api/` + docs/api.md and `src/codetutor/tutor/` + docs/tutor.md
 - `dist/`: generated output (gitignored)
 
 ## Conventions
@@ -267,6 +273,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   marker `slow` (deselected by default; `make validate` in `make all` runs the same check). Suite
   413 passed, 2 skipped, 1 xfailed, 34 deselected: **35.8–38.0 s** on three runs (was
   47.9–64.8 s); `make all` 47.8–50.4 s, 33 valid. The slow test alone: 10.35 s, passes.
+- **Done (2026-10-03): Week 4 Step 0** (hint guardrail). `src/codetutor/tutor/guardrail.py`:
+  `check_hint` (rules `solution_line`, `code_block`, `code_statement`; text in the starter,
+  description or the student's own code is allowed) and `solution_lines` (now also used by
+  `e2e.forbidden_texts`). `tests/test_guardrail.py` (53 tests, 0.45 s) +
+  `tests/hints/guardrail_cases.yaml` (24 labelled hints). Measured: 0 of 66 bank hints 1–2
+  blocked; 9 of 33 hint 3s blocked (pinned); 298/298 generated leaks and 10/10 hand-written leaks
+  blocked; 1 accepted false alarm; 3 known misses written down. `docs/tutor.md` §1, 1 interview
+  note, 2 ideas. Suite 466 passed, 2 skipped, 1 xfailed, 34 deselected: **57.1 and 69.9 s on
+  battery power** (the same 413 old tests: 53.3 s on battery vs 35.8–38.0 s on mains the evening
+  before); `make e2e` live 9/9 (9.1 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -322,12 +338,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   real uvicorn server instead of using TestClient; Q2 why a test that expects the check to
   fail is useful; Q3 the two causes of `make web-e2e` taking 47 s. Q11 slow marker: Q1 which
   command still catches a bank problem whose solution fails its own tests; Q2 what
-  `uv run pytest -m docker` runs when addopts says `-m 'not docker and not slow'`.
-  (80 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb's click-through of the UI (README "Run the app") and his text in
-  `docs/notes/week3.md` ("review" when ready). Then Week 4 (AI tutor: LiteLLM or our own
-  client (decided 2026-10-01: own client, revisit), RAG over course notes, hint-not-answer
-  guardrail, Langfuse, hint ratings), starting in plan mode with a week overview. Still open for Najeeb: his text in `docs/notes/week2.md` and
+  `uv run pytest -m docker` runs when addopts says `-m 'not docker and not slow'`. Week 4
+  Step 0: Q1 why `number % 15 == 0` is allowed but `count += 1` in backticks is blocked; Q2 why
+  hints are checked against solution.py although the model never sees it; Q3 why "anything that
+  parses as Python is code" was rejected.
+  (83 in total; answer key in Claude's memory.)
+- **Next action:** Week 4 Step 1 (course notes + RAG) in plan mode: Claude drafts 8 notes in
+  `course/notes/`, Najeeb reviews them; pull `nomic-embed-text` into Ollama; migration 0004
+  (`CREATE EXTENSION vector` + `note_chunks`); retrieval eval (vector vs keyword). Also for
+  Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
+  ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
   2 days; then add a README row).
@@ -651,6 +671,37 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   a future CI must run `make all`. Measured the same evening: pytest 35.8–38.0 s (3 runs), the
   slow test alone 10.35 s; the rest of the drop from 47.9–64.8 s is machine load. Option B
   (parallel bank validation) dropped.
+- 2026-10-02: Week 4 decisions (Najeeb, all four recommendations): (1) traces are **rows in
+  Postgres** (needed anyway for ratings and Week 6–7 preference data); Langfuse Cloud only as an
+  optional last step (measured alternatives: Langfuse Cloud Hobby = 50k units/month, 30 days of
+  data, no card, data leaves the machine; self-hosting = 6 parts: web, worker, Postgres, Redis,
+  ClickHouse, S3). (2) The tutor model **never sees `solution.py`** (problem text, 3 reference
+  hints, student code, visible results, hidden pass/fail counts only). (3) RAG with
+  `nomic-embed-text` in Ollama + pgvector, measured against a keyword baseline. (4) Claude drafts
+  the 8 course notes, Najeeb reviews. Own model client kept (2026-10-01).
+- 2026-10-02: **Hint 3 = "bottom-out" hint** (Najeeb, recommendation A). Found while planning: our
+  own hint 3s contain solution lines inside sentences (9 problems with the final rule, e.g.
+  recursive_sum `return nums[0] + recursive_sum(nums[1:])`); the Week 1 check (fences, lines
+  starting with a keyword) missed them. Kept unchanged (rewriting = 9 version bumps and 9
+  "graded on an older version" warnings in the Week 2 report, though hints never affect
+  grading). The UI shows hint 3 only on request; the AI tutor is held to the strict rule.
+  **Deviation from brief §9** ("near-pseudocode but NOT code").
+- 2026-10-03: Week 4 Step 0 guardrail design, measured on the bank before choosing:
+  "anything that parses as Python" blocked 9 of 33 hint 1s ("first: 2024" is an annotation,
+  "return the" a return), so rejected. Final rules: a non-trivial solution line anywhere
+  (whitespace removed, `'` → `"`), fenced blocks (also inline ```` ```x``` ````), whole lines or
+  backtick spans that are statements (expressions allowed; an annotation without a value counts
+  as prose). Trivial solution lines (return + name/constant, `name = simple value`, `+=`/`-=`
+  of one, `else:`, headers of plain words) are not secrets, matched on the single-spaced line
+  (squashing first made `if need in seen:` look like one word). Trailing comments cut with
+  `tokenize` (found by a test: `high = len(nums) - 1  # ...` never matched). Text from the
+  starter, description or the student's own code is allowed. The generated-leak test is caught
+  by construction (it tests the details); the hand-written cases and Step 2's real hints are
+  the real test. `e2e.forbidden_texts` now uses `solution_lines` (was: stripped lines >= 12
+  characters, comments kept), checked live.
+- 2026-10-03: Measured: on battery power the suite is ~45% slower (the same 413 tests 53.3 s vs
+  35.8–38.0 s on mains); with Step 0's tests, 57.1 and 69.9 s on battery. Measure suite time on
+  mains power.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
@@ -658,7 +709,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
 ## Known limitations
-- The "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught.
+- The Week 1 "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught: 9 hint 3s contain solution lines (kept as bottom-out hints, docs/tutor.md §1.4).
+- The tutor guardrail compares text and parses code; it does not understand meaning. Known misses: code inside a sentence that is not a solution line, solution lines with renamed variables, a whole algorithm in words (docs/tutor.md §1.3).
 - Tests import helpers from `tests/conftest.py` directly (`from conftest import ...`). This works with pytest's default rootdir import mode; move them to a helpers module if that ever breaks.
 - The subprocess sandbox is NOT secure: student code can read the user's files and use the network; fork bombs and setsid() escapes are not stopped. Use `DockerSandbox` for untrusted code (docs/grader.md, sections 5–6).
 - The Docker sandbox shares the host kernel (a kernel bug can let code out), and the Docker daemon is root-equivalent, so the Week 3 worker must never expose it. In Docker, code that sleeps at the top level runs up to 5 s past the total limit (start-up margin); a daemon that fails mid-run shows up as `crashed`.
