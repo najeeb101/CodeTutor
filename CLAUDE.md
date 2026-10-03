@@ -69,15 +69,17 @@ every line in an interview.
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
-- `src/codetutor/db/`: `engine.py`, `models.py` (5 tables as `…Row` classes), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/db/`: `engine.py`, `models.py` (6 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (7 endpoints), `submissions.py` (submit + rate limits), `schemas.py`, `deps.py` (session, `current_user`)
-- `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?)
+- `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`
+- `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `notes/`
+- `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `reports/retrieval.md` (generated)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
 - `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `lib/` incl. `api.ts` + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
@@ -101,7 +103,8 @@ every line in an interview.
 - Tests: real subprocess runs (no mocking the sandbox); whole suite < 60 s; `pytest-timeout` enabled.
 - Make targets: `install`, `lint`, `format`, `test`, `validate`, `build`, `all` (= lint + test + validate),
   `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data), `db-migrate`
-  (`alembic upgrade head`), `db-sync` (migrate + copy the problems in), `worker` (db-sync, then
+  (`alembic upgrade head`), `db-sync` (migrate + copy the problems in), `notes-sync` (migrate +
+  embed the course notes; needs Ollama with `nomic-embed-text`), `worker` (db-sync, then
   grade queued submissions in Docker until Ctrl+C) and `api` (db-sync, then the HTTP API on
   127.0.0.1:8000; start it after the worker, two syncs at once are not guarded),
   `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
@@ -283,6 +286,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   note, 2 ideas. Suite 466 passed, 2 skipped, 1 xfailed, 34 deselected: **57.1 and 69.9 s on
   battery power** (the same 413 old tests: 53.3 s on battery vs 35.8–38.0 s on mains the evening
   before); `make e2e` live 9/9 (9.1 s).
+- **Done (2026-10-03): Week 4 Step 1** (course notes + search). 8 notes in `course/notes/`
+  (41 sections, checked: one per module, 40-350 words per section, examples parse, no bank
+  solution line). Migration 0004 (`CREATE EXTENSION vector`, pgvector 0.8.7; `note_chunks` with
+  `embedding vector(768)`), own `Vector` type (`db/vector.py`, no new package). `EmbeddingClient`
+  + `make_embedder` in `evals/clients.py` (shares ChatClient's HTTP/retry code; its 21 tests
+  unchanged). `nomic-embed-text` v1.5 pulled (274 MB). `make notes-sync`: 41 sections in 3.0 s,
+  second run 41 unchanged. `rag.py` (keyword ~20 ms, vector ~120-155 ms, hybrid ~160-175 ms per
+  question). Retrieval eval on 40 labelled questions (`lab/tutor/reports/retrieval.md`,
+  byte-identical across runs): recall@3 keyword 34/40, vector 39/40, **hybrid 40/40** (chosen
+  for Step 2); recall@1 vector 35/40 > hybrid 33/40. 35 new tests (~4 s). Suite 501 passed,
+  2 skipped, 1 xfailed, 34 deselected (50.7 s on battery); `make all` 68.3 s. **Najeeb: review
+  the notes** (optionally add questions of his own).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -341,12 +356,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `uv run pytest -m docker` runs when addopts says `-m 'not docker and not slow'`. Week 4
   Step 0: Q1 why `number % 15 == 0` is allowed but `count += 1` in backticks is blocked; Q2 why
   hints are checked against solution.py although the model never sees it; Q3 why "anything that
-  parses as Python is code" was rejected.
-  (83 in total; answer key in Claude's memory.)
-- **Next action:** Week 4 Step 1 (course notes + RAG) in plan mode: Claude drafts 8 notes in
-  `course/notes/`, Najeeb reviews them; pull `nomic-embed-text` into Ollama; migration 0004
-  (`CREATE EXTENSION vector` + `note_chunks`); retrieval eval (vector vs keyword). Also for
-  Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
+  parses as Python is code" was rejected. Week 4 Step 1: Q1 why keyword search missed "how do
+  I add up numbers in a loop"; Q2 why vector search refuses notes embedded by another model;
+  Q3 the honest reading of hybrid 40/40 vs vector 39/40.
+  (86 in total; answer key in Claude's memory.)
+- **Next action:** Week 4 Step 2 (tutor pipeline) in plan mode: pinned prompt (student code
+  marked as untrusted data), context without `solution.py`, hybrid search (top 3 sections),
+  model → guardrail → 1 retry → reference hint; `hints` table (migration 0005) as the trace;
+  CLI; model choice measured (7B vs 1.5B). Najeeb: review the 8 notes in `course/notes/`. Also
+  for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
   time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
@@ -702,6 +720,21 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - 2026-10-03: Measured: on battery power the suite is ~45% slower (the same 413 tests 53.3 s vs
   35.8–38.0 s on mains); with Step 0's tests, 57.1 and 69.9 s on battery. Measure suite time on
   mains power.
+- 2026-10-03: Week 4 Step 1 (Najeeb approved the plan). Notes in `course/notes/NN_<module>.md`
+  (named like the bank's module folders); one `##` section = one chunk, id
+  `"<file>#<heading slug>"`; embedded as `"search_document: <title> > <heading>\n\n<body>"`
+  (nomic's required task prefixes, checked on its model card; `search_query: ` for questions).
+  `make notes-sync` is separate from `db-sync` (the worker and the API must not need Ollama);
+  it embeds only new/changed sections (other hash or other model) and deletes removed ones.
+  `note_chunks` rows are replaced in place (unlike problem versions); Step 2's trace keeps chunk
+  ids + hashes. No vector index (41 rows: exact scan). Own `Vector` type instead of the
+  `pgvector` package (needs numpy), registered in the dialect's `ischema_names` so the drift test
+  reads the column back as `Vector(768)` (checked with `-W error`); migration 0004 keeps a frozen
+  `_Vector768` type. `make_embedder` only accepts models in `KNOWN_EMBEDDERS` (a wrong size or a
+  missing prefix fails silently). Keyword search builds the tsquery from `[a-z0-9]+` words
+  joined by `|` (no user operators). The notes are ruff-formatted (ruff formats Python blocks in
+  Markdown; `course/` is not excluded). Questions written before the notes (from the buggy
+  files); 4 of 40 have two relevant sections, labelled after the notes existed.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
@@ -722,6 +755,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - Postgres `text` can't hold NUL (`\x00`, DataError): the worker replaces it with U+FFFD in text columns, and `enqueue_submission` refuses code containing it.
 - The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
 - The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
+- The retrieval eval is small and optimistic: 40 questions (one = 2.5 points), and the same author (Claude) wrote the notes and the questions. `embed_model` stores the embedder's name, not the model digest, so a re-pulled model doesn't trigger re-embedding (docs/tutor.md §2.5).
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
