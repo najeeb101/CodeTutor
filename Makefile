@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync worker api web-install web web-check e2e web-e2e test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker api web-install web web-check e2e web-e2e test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -24,6 +24,9 @@ db-migrate: db-up  ## create/upgrade the tables (Alembic migrations, docs/databa
 
 db-sync: db-migrate  ## copy the problem folders into Postgres (safe to run again)
 	uv run python scripts/sync_problems.py
+
+notes-sync: db-migrate  ## embed the course notes into Postgres for the tutor (needs Ollama)
+	uv run python scripts/sync_notes.py
 
 worker: db-sync  ## grade queued submissions in Docker until Ctrl+C (docs/worker.md)
 	uv run python scripts/worker.py

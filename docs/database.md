@@ -1,4 +1,4 @@
-# Database (Week 3)
+# Database (Weeks 3-4)
 
 Postgres 17 (local: `compose.yaml`; hosted later: Supabase). The tables are SQLAlchemy 2 ORM
 classes in `src/codetutor/db/models.py`. Alembic migrations in
@@ -27,6 +27,7 @@ users ──────────────< submissions >─────�
 | `problems` | each problem's **current** version, student view only; `active = false` when its folder was removed | API |
 | `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) | API, worker |
 | `test_results` | one row per test of a graded submission (a `TestResult`) | API, Week 5 analytics |
+| `note_chunks` (Week 4) | one row per `##` section of a course note (`course/notes/`): text, `content_hash`, `embed_model`, and `embedding vector(768)` (pgvector). Replaced in place when a note changes; `make notes-sync` fills it | the tutor's search ([tutor.md](tutor.md) §2) |
 
 `problem_versions` / `problems` is the same split as `dist/problems.jsonl` /
 `problems_student.jsonl`: the internal view for grading, and the student view for everyone else.
@@ -68,6 +69,7 @@ and the whole bank's round trip in `test_db_sync.py`.
 ```bash
 make db-migrate   # create/upgrade the tables (alembic upgrade head); starts the DB if needed
 make db-sync      # db-migrate + copy the problem folders in (safe to run again)
+make notes-sync   # db-migrate + embed the course notes (needs Ollama; Week 4, tutor.md §2)
 uv run alembic current            # which migration the database is at
 uv run alembic check              # do the models and the migrations agree?
 uv run alembic upgrade head --sql # print the SQL without running it

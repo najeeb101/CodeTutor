@@ -4,6 +4,9 @@ test database (Week 3)."""
 from __future__ import annotations
 
 import copy
+import hashlib
+import math
+import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -19,7 +22,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from codetutor.db.engine import make_engine
-from codetutor.db.models import Base
+from codetutor.db.models import EMBEDDING_DIMENSIONS, Base
 from codetutor.settings import database_url_for_tests
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -184,3 +187,33 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
     tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
     with db_engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+
+
+class HashingEmbedder:
+    """A fake embedder for tests (no Ollama): each word adds 1 at a position chosen by its hash.
+
+    Texts that share words get similar vectors, always the same ones, so search tests are
+    deterministic. `calls` records how many texts each embed_documents call got.
+    """
+
+    def __init__(self, name: str = "fake/hashing", dimensions: int = EMBEDDING_DIMENSIONS) -> None:
+        self.name = name
+        self.dimensions = dimensions
+        self.calls: list[int] = []
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        self.calls.append(len(texts))
+        return [self._vector(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+    def _vector(self, text: str) -> list[float]:
+        vector = [0.0] * self.dimensions
+        for word in re.findall(r"[a-z0-9]+", text.lower()):
+            position = int(hashlib.sha256(word.encode()).hexdigest()[:8], 16) % self.dimensions
+            vector[position] += 1.0
+        if not any(vector):
+            vector[0] = 1.0  # pgvector's cosine distance of an all-zero vector is NaN
+        norm = math.sqrt(sum(value * value for value in vector))
+        return [value / norm for value in vector]

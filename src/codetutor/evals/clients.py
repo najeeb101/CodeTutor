@@ -1,8 +1,9 @@
-"""Talk to chat models over HTTP: one small client for both Ollama and Gemini.
+"""Talk to models over HTTP: chat models (Ollama, Gemini) and embedding models (Ollama).
 
-Both accept the OpenAI "chat completions" format, so one client covers both; only the base URL
-and the API key differ. Standard library only (urllib + json): no SDK and no LiteLLM (decision
-2026-10-01).
+Both providers accept the OpenAI "chat completions" format, so one client covers both; only the
+base URL and the API key differ. Ollama also serves OpenAI-style "/embeddings" (Week 4: the
+tutor's search). Standard library only (urllib + json): no SDK and no LiteLLM (decision
+2026-10-01). Used by the evals (Week 2) and the tutor (Week 4).
 
 Every failure is sorted into one kind:
 - transient (429 per minute, 5xx, timeout, dropped connection, or an HTTP 200 reply whose
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import math
 import os
 import random
 import re
@@ -26,7 +28,9 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Protocol
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Protocol, TypeVar
 
 from codetutor.evals.records import ModelReply
 
@@ -50,6 +54,26 @@ MAX_MESSAGE_CHARS = 500  # but quote only this much of it in our error message
 _DAILY_QUOTA = re.compile(r"per ?day", re.IGNORECASE)
 # Gemini says how long to wait in the body: "retryDelay": "33s".
 _RETRY_DELAY = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
+
+T = TypeVar("T")  # what a reply is parsed into
+
+EMBED_BATCH_SIZE = 32  # texts per /embeddings request
+
+
+@dataclass(frozen=True)
+class EmbedderInfo:
+    """What we must know about an embedding model: its vector size and its task prefixes."""
+
+    dimensions: int
+    document_prefix: str = ""  # put before every stored text
+    query_prefix: str = ""  # put before every search question
+
+
+# nomic-embed-text v1.5 gives 768 numbers, and its model card says every text *must* start with
+# a task prefix (checked on Hugging Face, 2026-10-02).
+KNOWN_EMBEDDERS = {
+    "nomic-embed-text": EmbedderInfo(768, "search_document: ", "search_query: "),
+}
 
 
 class ModelError(RuntimeError):
@@ -91,6 +115,17 @@ class ChatModel(Protocol):
     ) -> ModelReply: ...
 
 
+class Embedder(Protocol):
+    """Anything that turns texts into vectors. EmbeddingClient is the real one."""
+
+    name: str
+    dimensions: int
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
+
+    def embed_query(self, text: str) -> list[float]: ...
+
+
 def _retry_after_s(header: str | None, body: str) -> float | None:
     """The wait the server asked for: the Retry-After header, else Gemini's retryDelay."""
     if header:
@@ -102,8 +137,8 @@ def _retry_after_s(header: str | None, body: str) -> float | None:
     return float(match[1]) if match else None
 
 
-class ChatClient:
-    """A client for one model behind an OpenAI-compatible chat-completions endpoint.
+class _HttpClient:
+    """What our model clients share: one POST, with retries, a throttle and error sorting.
 
     Safe to share between threads: the only shared state is the throttle, which uses a lock.
     """
@@ -119,7 +154,6 @@ class ChatClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff_s: float = DEFAULT_BACKOFF_S,
         min_interval_s: float = 0.0,
-        extra_body: dict[str, Any] | None = None,
     ) -> None:
         self.name = name
         self.base_url = base_url.rstrip("/")
@@ -129,39 +163,24 @@ class ChatClient:
         self.max_retries = max_retries
         self.backoff_s = backoff_s
         self.min_interval_s = min_interval_s
-        self.extra_body = dict(extra_body or {})
         self._lock = threading.Lock()
         self._next_start = 0.0  # time.monotonic() before which no request may start
 
     def __repr__(self) -> str:
         # Never show the key, so it can't end up in logs or tracebacks.
-        return f"ChatClient(name={self.name!r}, base_url={self.base_url!r}, model={self.model!r})"
+        kind = type(self).__name__
+        return f"{kind}(name={self.name!r}, base_url={self.base_url!r}, model={self.model!r})"
 
-    def complete(
-        self,
-        messages: list[dict[str, str]],
-        *,
-        temperature: float,
-        max_tokens: int,
-        seed: int | None = None,
-    ) -> ModelReply:
-        """Send the messages and return the reply, retrying transient failures.
+    def _call(self, path: str, body: dict[str, Any], parse: Callable[[bytes, float], T]) -> T:
+        """POST `body` to `path`, then `parse(raw reply, latency_ms)`; retry transient failures.
 
         Raises QuotaExhaustedError, ModelConfigError, ModelUnavailableError or ModelError.
         """
-        body: dict[str, Any] = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            **self.extra_body,
-        }
-        if seed is not None:
-            body["seed"] = seed
         attempt = 0
         while True:
             try:
-                return self._post_once(body)
+                raw, latency_ms = self._post_once(path, body)
+                return parse(raw, latency_ms)
             except _Transient as exc:
                 if attempt == self.max_retries:
                     tries = attempt + 1
@@ -187,13 +206,14 @@ class ChatClient:
             self._next_start = start + self.min_interval_s
         time.sleep(start - now)  # sleep outside the lock, so other threads can book a slot
 
-    def _post_once(self, body: dict[str, Any]) -> ModelReply:
+    def _post_once(self, path: str, body: dict[str, Any]) -> tuple[bytes, float]:
+        """One POST: the raw reply and its latency in ms, or an exception of the right kind."""
         self._wait_for_turn()
         headers = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         request = urllib.request.Request(
-            f"{self.base_url}/chat/completions",
+            f"{self.base_url}{path}",
             data=json.dumps(body).encode("utf-8"),
             headers=headers,
             method="POST",
@@ -216,8 +236,7 @@ class ChatClient:
             raise _Transient(f"no reply within {self.timeout_s:g} s") from exc
         except (ConnectionError, http.client.HTTPException) as exc:
             raise _Transient(f"connection dropped: {exc!r}") from exc
-        latency_ms = (time.perf_counter() - start) * 1000
-        return self._parse_reply(raw, latency_ms)
+        return raw, (time.perf_counter() - start) * 1000
 
     def _http_error(self, exc: urllib.error.HTTPError) -> Exception:
         """Turn an HTTP error status into the right exception (see the module docstring)."""
@@ -235,6 +254,54 @@ class ChatClient:
         if exc.code in CONFIG_STATUSES:
             return ModelConfigError(message)
         return ModelError(message)
+
+    def _redact(self, text: str) -> str:
+        """Blank out the API key, in case a server ever echoes it back."""
+        if self._api_key:
+            return text.replace(self._api_key, "***")
+        return text
+
+
+class ChatClient(_HttpClient):
+    """A client for one model behind an OpenAI-compatible chat-completions endpoint.
+
+    `options` are _HttpClient's (api_key, timeout_s, max_retries, backoff_s, min_interval_s).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        base_url: str,
+        model: str,
+        *,
+        extra_body: dict[str, Any] | None = None,
+        **options: Any,
+    ) -> None:
+        super().__init__(name, base_url, model, **options)
+        self.extra_body = dict(extra_body or {})
+
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float,
+        max_tokens: int,
+        seed: int | None = None,
+    ) -> ModelReply:
+        """Send the messages and return the reply, retrying transient failures.
+
+        Raises QuotaExhaustedError, ModelConfigError, ModelUnavailableError or ModelError.
+        """
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            **self.extra_body,
+        }
+        if seed is not None:
+            body["seed"] = seed
+        return self._call("/chat/completions", body, self._parse_reply)
 
     def _parse_reply(self, raw: bytes, latency_ms: float) -> ModelReply:
         try:
@@ -264,11 +331,65 @@ class ChatClient:
             finish_reason=choice.get("finish_reason"),
         )
 
-    def _redact(self, text: str) -> str:
-        """Blank out the API key, in case a server ever echoes it back."""
-        if self._api_key:
-            return text.replace(self._api_key, "***")
-        return text
+
+class EmbeddingClient(_HttpClient):
+    """A client for one embedding model behind an OpenAI-compatible /embeddings endpoint.
+
+    It adds the model's task prefixes and checks every vector (count, size, finite numbers).
+    `options` are _HttpClient's (api_key, timeout_s, max_retries, backoff_s, min_interval_s).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        base_url: str,
+        model: str,
+        *,
+        info: EmbedderInfo,
+        batch_size: int = EMBED_BATCH_SIZE,
+        **options: Any,
+    ) -> None:
+        super().__init__(name, base_url, model, **options)
+        self.info = info
+        self.dimensions = info.dimensions
+        self.batch_size = batch_size
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """One vector per stored text, sent in batches of `batch_size`."""
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start : start + self.batch_size]
+            vectors += self._embed([self.info.document_prefix + text for text in batch])
+        return vectors
+
+    def embed_query(self, text: str) -> list[float]:
+        """The vector of one search question."""
+        [vector] = self._embed([self.info.query_prefix + text])
+        return vector
+
+    def _embed(self, inputs: list[str]) -> list[list[float]]:
+        def parse(raw: bytes, latency_ms: float) -> list[list[float]]:
+            return self._parse_vectors(raw, expected=len(inputs))
+
+        return self._call("/embeddings", {"model": self.model, "input": inputs}, parse)
+
+    def _parse_vectors(self, raw: bytes, *, expected: int) -> list[list[float]]:
+        try:
+            items = sorted(json.loads(raw)["data"], key=lambda item: item["index"])
+            vectors = [[float(number) for number in item["embedding"]] for item in items]
+        except (ValueError, KeyError, TypeError) as exc:
+            preview = raw[:MAX_MESSAGE_CHARS].decode("utf-8", errors="replace")
+            raise ModelError(self._redact(f"{self.name}: unexpected reply: {preview}")) from exc
+        if len(vectors) != expected:
+            raise ModelError(f"{self.name}: sent {expected} texts, got {len(vectors)} vectors")
+        for vector in vectors:
+            if len(vector) != self.dimensions:
+                raise ModelError(
+                    f"{self.name}: a vector has {len(vector)} numbers, expected {self.dimensions}"
+                )
+            if not all(math.isfinite(number) for number in vector):
+                raise ModelError(f"{self.name}: a vector contains NaN or infinity")
+        return vectors
 
 
 def make_client(
@@ -314,3 +435,21 @@ def make_client(
             extra_body=extra_body,
         )
     raise ValueError(f"unknown provider {provider!r} in {spec!r}: use 'ollama/...' or 'gemini/...'")
+
+
+def make_embedder(spec: str, *, timeout_s: float = DEFAULT_TIMEOUT_S) -> EmbeddingClient:
+    """An embedding client from a spec like "ollama/nomic-embed-text" (also its name).
+
+    Only Ollama, and only models in KNOWN_EMBEDDERS: a wrong size or a missing prefix would
+    give poor search results without any error, so unknown models are refused.
+    """
+    provider, _, model = spec.partition("/")
+    if provider != "ollama" or not model:
+        raise ValueError(f"embedding spec {spec!r} needs the form 'ollama/<model>'")
+    info = KNOWN_EMBEDDERS.get(model.split(":")[0])  # "nomic-embed-text:v1.5" is the same model
+    if info is None:
+        raise ValueError(
+            f"unknown embedding model {model!r}: add its size and prefixes to KNOWN_EMBEDDERS"
+        )
+    base_url = os.environ.get(OLLAMA_URL_ENV) or OLLAMA_BASE_URL
+    return EmbeddingClient(spec, base_url, model, info=info, timeout_s=timeout_s)

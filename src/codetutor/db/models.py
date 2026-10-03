@@ -1,4 +1,4 @@
-"""The database tables, as SQLAlchemy ORM classes (Week 3). See docs/database.md.
+"""The database tables, as SQLAlchemy ORM classes (Weeks 3-4). See docs/database.md.
 
 Two tables hold problems, like the two dist/ files:
 - `problem_versions` (internal): a sealed copy of every problem version ever synced, hidden
@@ -35,6 +35,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from codetutor.db.vector import Vector
 from codetutor.grader.models import GradeStatus, TestStatus
 from codetutor.problems.schema import Difficulty
 
@@ -60,6 +61,11 @@ class Base(DeclarativeBase):
         datetime: DateTime(timezone=True),
         float: Double(),
     }
+
+
+# The size of every note-chunk embedding (nomic-embed-text, docs/tutor.md §2). Another size
+# needs a migration: pgvector fixes it in the column type.
+EMBEDDING_DIMENSIONS = 768
 
 
 class JobStatus(StrEnum):
@@ -226,3 +232,25 @@ class TestResultRow(Base):
     expected: Mapped[Any] = mapped_column(JSON, nullable=True)
     actual: Mapped[Any] = mapped_column(JSON, nullable=True)
     duration_ms: Mapped[float]
+
+
+class NoteChunkRow(Base):
+    """One section of a course note, with its embedding, for the tutor's search (Week 4).
+
+    The notes in course/notes/ are the source of truth, like the problem files; `make
+    notes-sync` copies them here. Unlike problem versions, a chunk is replaced in place when its
+    note changes; a hint's trace keeps the ids and hashes of the chunks it used (Step 2).
+    """
+
+    __tablename__ = "note_chunks"
+    __table_args__ = (CheckConstraint("module BETWEEN 1 AND 8", name="module_known"),)
+
+    id: Mapped[str] = mapped_column(primary_key=True)  # e.g. "03_loops#for-loops-and-range"
+    module: Mapped[int]
+    note_title: Mapped[str]
+    heading: Mapped[str]
+    body: Mapped[str]  # the section's Markdown, without its "## heading" line
+    content_hash: Mapped[str]  # sha256 of title, heading and body (tutor/notes.py)
+    embed_model: Mapped[str]  # the embedder's name, e.g. "ollama/nomic-embed-text"
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())

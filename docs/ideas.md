@@ -97,3 +97,11 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   Compare token streams with names replaced (`tally[w]` ≈ `counts[word]`), the same idea as the
   AST-normalized similarity planned for copy detection. Needs care: short lines would then match
   far more prose.
+
+- **(When notes grow to thousands of sections) Indexes for search.** An HNSW index on
+  `note_chunks.embedding` (`vector_cosine_ops`) and a stored `tsvector` column with a GIN index.
+  At 41 rows a full scan is exact and fast, and an approximate index would only add recall loss.
+
+- **(Week 4 Step 2+, cheap to measure) Search experiments.** (1) Without nomic's task prefixes,
+  to see how much they matter. (2) Boost sections of the problem's own module. (3) Store the
+  embedding model's digest, not only its name, so a re-pulled model re-embeds the notes.

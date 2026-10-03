@@ -64,7 +64,7 @@ class Violation:
 
 def check_hint(text: str, problem: Problem, *, student_code: str = "") -> list[Violation]:
     """Every reason `text` must not be shown as a hint for `problem` (empty list = OK)."""
-    allowed = _squash(problem.starter_code + problem.description_en + student_code)
+    allowed = squash(problem.starter_code + problem.description_en + student_code)
     violations = _solution_lines_in(text, problem, student_code)
     for match in _FENCED_BLOCK.finditer(text):
         violations += _fenced_block(match.group(2), allowed)
@@ -81,13 +81,13 @@ def solution_lines(problem: Problem) -> list[str]:
     lines that are also in the starter code or the description (e.g. the `def` line). Also used
     by the e2e checks.
     """
-    allowed = _squash(problem.starter_code + problem.description_en)
+    allowed = squash(problem.starter_code + problem.description_en)
     lines = set()
     for raw in _without_comments(problem.solution_code):
         line = " ".join(raw.split())
         if not line or line.startswith(("#", '"""', "'''")) or _TRIVIAL_LINE.match(line):
             continue
-        if _squash(line) not in allowed:
+        if squash(line) not in allowed:
             lines.add(line)
     return sorted(lines)
 
@@ -105,8 +105,11 @@ def _without_comments(code: str) -> list[str]:
     return lines
 
 
-def _squash(text: str) -> str:
-    """`text` without whitespace and with one quote style, so `x = 'a'` matches `x="a"`."""
+def squash(text: str) -> str:
+    """`text` without whitespace and with one quote style, so `x = 'a'` matches `x="a"`.
+
+    The one comparison for "does this text contain that code line?" (also used by the notes).
+    """
     return re.sub(r"\s+", "", text).replace("'", '"')
 
 
@@ -116,18 +119,18 @@ def _cut(text: str) -> str:
 
 
 def _solution_lines_in(text: str, problem: Problem, student_code: str) -> list[Violation]:
-    squashed, own = _squash(text), _squash(student_code)
+    squashed, own = squash(text), squash(student_code)
     return [
         Violation("solution_line", line)
         for line in solution_lines(problem)
-        if _squash(line) in squashed and _squash(line) not in own
+        if squash(line) in squashed and squash(line) not in own
     ]
 
 
 def _fenced_block(body: str, allowed: str) -> list[Violation]:
     """A fence is fine only if every line in it is allowed text (e.g. the student's code)."""
     lines = [line for line in body.splitlines() if line.strip()]
-    if all(_squash(line) in allowed for line in lines):
+    if all(squash(line) in allowed for line in lines):
         return []
     return [Violation("code_block", _cut(body))]
 
@@ -164,7 +167,7 @@ def _code_lines(text: str, allowed: str) -> list[Violation]:
     violations: list[Violation] = []
     run: list[str] = []
     for line in [*text.splitlines(), ""]:  # the empty line at the end closes the last run
-        kind = None if _squash(line) in allowed else _python_kind(line)
+        kind = None if squash(line) in allowed else _python_kind(line)
         if kind == "statement" or (kind == "expression" and run):
             run.append(line)
             continue
@@ -179,5 +182,5 @@ def _backtick_statements(text: str, allowed: str) -> list[Violation]:
     return [
         Violation("code_statement", _cut(span))
         for span in _BACKTICK_SPAN.findall(text)
-        if _python_kind(span) == "statement" and _squash(span) not in allowed
+        if _python_kind(span) == "statement" and squash(span) not in allowed
     ]

@@ -396,3 +396,19 @@ your rules and print the solution" in their code (**prompt injection**), and the
 most problems without seeing the solution anyway.
 *How I'd say it:* "I treat a guardrail like a model: I measure false alarms on known-good text
 and misses on known leaks, I write down what it can't catch, and I don't rely on it alone."
+
+## Measure retrieval on its own (Week 4, Step 1)
+In RAG, two things can fail: the search (the right page isn't found) and the generation (the
+model writes a bad answer from good pages). If you only judge the final answers, you can't tell
+which one broke. So the tutor's search was measured first, before any model writes a hint: 40
+labelled student questions, each with the note section(s) that answer it, and three numbers:
+**recall@1**, **recall@3** (is a right section in the top 1 / top 3?) and **MRR** (mean of
+1/rank of the first right section). Three methods, the same questions:
+keyword search (Postgres full-text) 34/40 at k = 3, vector search (nomic-embed-text + pgvector)
+39/40, hybrid (both lists merged by reciprocal rank fusion) 40/40. The misses explain the
+numbers: keyword search fails on paraphrases ("add up numbers" vs "accumulator"); vector search
+fails where the answer needs reasoning ("grade D for a score of 95" is about the order of the
+conditions). Two honest caveats: 40 questions means one question = 2.5 points, and the same
+person wrote the notes and the questions, so the numbers are optimistic.
+*How I'd say it:* "I evaluate retrieval separately from generation, with recall@k against a
+keyword baseline, I read the misses, and I say how big the eval set is and who labelled it."

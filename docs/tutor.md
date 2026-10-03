@@ -5,11 +5,12 @@ problem, their code and their visible results, finds relevant course notes, and 
 a hint. A **guardrail** checks the hint before the student sees it. Every hint is saved as a row
 in Postgres (the trace), and students rate hints 👍/👎.
 
-Status: **Step 0 of 6 is done (the guardrail).** Next: course notes + retrieval (Step 1), the
-tutor pipeline (Step 2), API + UI (Step 3), the offline tutor eval (Step 4), wrap-up (Step 5).
+Status: **Steps 0-1 of 6 are done** (the guardrail, course notes + search). Next: the tutor
+pipeline (Step 2), API + UI (Step 3), the offline tutor eval (Step 4), wrap-up (Step 5).
 
-Code: `src/codetutor/tutor/`. Tests: `tests/test_guardrail.py`, with labelled hints in
-`tests/hints/guardrail_cases.yaml`.
+Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`). Tests:
+`tests/test_guardrail.py` (labelled hints in `tests/hints/guardrail_cases.yaml`),
+`tests/test_notes.py`, `tests/test_rag.py`.
 
 Decisions for the whole week (2026-10-02):
 - **Our own model client** (`evals/clients.py`), not LiteLLM.
@@ -92,3 +93,83 @@ tutoring systems the last hint is often a **bottom-out hint** that nearly gives 
 The UI will show hint 3 only when the student asks for the last hint (Step 3). The AI tutor is
 held to the strict rule at every level. This is a deviation from the brief, and the test pins
 the 9 problems.
+
+## 2. Course notes and search (Step 1)
+
+The tutor should base its hints on course material, the way a teaching assistant looks
+something up before answering. This part finds the right note section for a question, and it
+is **measured on its own**, before any model writes a hint.
+
+### 2.1 The notes
+`course/notes/01_variables.md` … `08_recursion.md`: one per module, named like the bank's
+module folders. Each note is an H1 title and 5-6 `##` sections (41 in total, 58-134 words each).
+The content follows the bank's concepts and the mistakes the buggy files show, explained in
+general (off-by-one with `range`, `split()` vs `split(" ")`, changing an input list, `return` vs
+`print`, `dict.get` with a default, base cases, the mutable default argument, …). Written by
+Claude, to be reviewed by Najeeb.
+
+`load_notes` checks every rule and lists all broken ones in one error: one note per module
+folder, at least 3 sections, 40-350 words per section (far inside the embedder's 2K-token
+window), every ```` ```python ```` example parses, and **no line of any bank solution**
+appears in a note (the guardrail's `solution_lines` and comparison).
+
+### 2.2 From sections to vectors
+- One section = one **chunk**, id `"<file>#<heading slug>"` (e.g.
+  `03_loops#while-loops-must-make-progress`). The embedded text is `<title> > <heading>`, a
+  blank line, then the body: the title and heading give a short section its context.
+- **Embedder:** `nomic-embed-text` v1.5 in Ollama (274 MB, 768 numbers per text, already
+  scaled to length 1). Its model card says every text **must** start with a task prefix:
+  `search_document: ` for notes, `search_query: ` for questions. `EmbeddingClient` in
+  `evals/clients.py` adds them (it shares the chat client's HTTP, retry and error code), and
+  `make_embedder` refuses unknown models, because a wrong size or a missing prefix fails
+  silently.
+- **Storage:** `note_chunks` with `embedding vector(768)` (pgvector 0.8.7, migration 0004). Our
+  own small `Vector` column type (`db/vector.py`) replaces the `pgvector` Python package, which
+  would need numpy. pgvector stores 4-byte floats.
+- **`make notes-sync`** embeds only new or changed sections (another text or another model),
+  and deletes removed ones. Measured: 41 sections in 3.0 s; a second run: 41 unchanged, no
+  model call.
+
+### 2.3 Three search methods (`rag.py`)
+| Method | How | Measured time per question |
+|---|---|---|
+| `keyword` | Postgres full-text search: any of the question's words (OR), English stemming, ranked by `ts_rank_cd` | ~20 ms |
+| `vector` | the question's embedding vs every section's, cosine distance (`<=>`) | ~120-155 ms (mostly the embedding call) |
+| `hybrid` | both lists (top 20 each) merged by **reciprocal rank fusion**: score = sum of 1/(60 + rank) | ~160-175 ms |
+
+There is no index: 41 rows are read in full, which is exact and fast. Vector search refuses to
+run when the stored sections were embedded by another model (vectors of two models can't be
+compared).
+
+### 2.4 Measured (2026-10-03, `lab/tutor/reports/retrieval.md`)
+40 labelled questions (`lab/tutor/retrieval_questions.yaml`, 5 per module): 15 `concept`
+("what is a base case?") and 25 `symptom` ("my while loop never ends and the test times
+out", "TypeError: unhashable type: 'list'"). A hit = a relevant section in the top k.
+
+| Method | recall@1 | recall@3 | MRR@10 | recall@3 concept | recall@3 symptom |
+|---|---|---|---|---|---|
+| keyword | 25/40 | 34/40 | 0.755 | 14/15 | 20/25 |
+| vector | **35/40** | 39/40 | **0.931** | 15/15 | 24/25 |
+| hybrid | 33/40 | **40/40** | 0.900 | 15/15 | 25/25 |
+
+- **Keyword search misses paraphrases:** "add up numbers in a loop" doesn't find "the
+  accumulator pattern"; "takes forever" doesn't find "fast enough". It is fine when the student
+  pastes an error message (the notes quote them).
+- **Vector search** misses one question: "my grade function says D for a score of 95". The
+  answer (the order of the conditions) needs reasoning, not similar words.
+- **Choice for Step 2: hybrid** (the plan's rule: best recall@3, because the tutor puts the top
+  3 sections into its prompt). Honestly, it is one question ahead of vector (40 vs 39), and
+  vector is better at rank 1. With 40 questions, one question is 2.5 points: these three
+  numbers say "vector and hybrid are both good, keyword is clearly worse", not more.
+- The report is byte-identical across two runs (Ollama's embeddings are deterministic here).
+
+### 2.5 Limits
+- **Same author:** Claude wrote the notes and the questions. The questions were written first
+  (from the buggy files), but the numbers are still optimistic. The best check: questions
+  written by someone else (Najeeb, or real students later).
+- Where two sections both answer a question, both count as relevant (4 of 40 questions); those
+  second labels were added after the notes existed.
+- The tutor's real search text will be built from the student's code and test results
+  (Step 2), not typed by a student. Measure again then.
+- `embed_model` stores the model's name, not its digest: re-pulling a newer `nomic-embed-text`
+  would not trigger re-embedding. Run `make notes-sync` after pulling, and check the report.

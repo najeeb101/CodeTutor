@@ -1,0 +1,147 @@
+# Labelled questions for the retrieval eval (scripts/eval_retrieval.py, docs/tutor.md §2).
+#
+# question: what a student might type.   style: concept (asks about an idea by name) or
+# symptom (describes what goes wrong, often an error message).
+# relevant: the note sections (chunk ids) that answer it; a search "hits" when any of them is
+# in its top k. Two ids only where both sections really answer the question.
+#
+# Written by Claude on 2026-10-03, from the bank's buggy files, BEFORE the notes existed; the ids
+# were added after. Same author as the notes, so the numbers are optimistic (docs/tutor.md §2).
+
+# --- 01 variables ---
+- question: What is the difference between / and // in Python?
+  style: concept
+  relevant: ["01_variables#division-and-remainder"]
+- question: my average comes out as a whole number, the decimals are gone
+  style: symptom
+  relevant: ["01_variables#division-and-remainder", "01_variables#converting-between-types"]
+- question: I wrote 2 + 3 * 4 and got 14 but I wanted 20
+  style: symptom
+  relevant: ["01_variables#operator-precedence"]
+- question: how do I get the leftover seconds after taking out the full minutes
+  style: symptom
+  relevant: ["01_variables#division-and-remainder"]
+- question: round(2.675, 2) gives 2.67 instead of 2.68, is Python broken?
+  style: symptom
+  relevant: ["01_variables#floats-are-approximate"]
+
+# --- 02 conditions ---
+- question: my grade function says D for a score of 95
+  style: symptom
+  relevant: ["02_conditions#order-matters-most-specific-case-first"]
+- question: when should I use elif instead of a second if?
+  style: concept
+  relevant: ["02_conditions#if-elif-and-else"]
+- question: the function returns None for some inputs
+  style: symptom
+  relevant: ["02_conditions#every-path-needs-a-return", "06_functions#return-vs-print"]
+- question: test fails when two numbers are equal, I used >
+  style: symptom
+  relevant: ["02_conditions#comparisons-and-boundaries"]
+- question: how do I check that two conditions are both true
+  style: concept
+  relevant: ["02_conditions#combining-conditions-and-or-not"]
+
+# --- 03 loops ---
+- question: my while loop never ends and the test times out
+  style: symptom
+  relevant: ["03_loops#while-loops-must-make-progress"]
+- question: the loop stops one number too early, n itself is missing
+  style: symptom
+  relevant: ["03_loops#for-loops-and-range"]
+- question: how do I add up numbers in a loop
+  style: concept
+  relevant: ["03_loops#the-accumulator-pattern"]
+- question: how to check if a number is divisible by 3
+  style: concept
+  relevant: ["03_loops#checking-divisibility"]
+- question: counting the digits of 0 gives 0 but it should be 1
+  style: symptom
+  relevant: ["03_loops#edge-cases-zero-one-and-negative-numbers"]
+
+# --- 04 strings ---
+- question: split(' ') gives me empty strings when there are two spaces
+  style: symptom
+  relevant: ["04_strings#splitting-text-into-words"]
+- question: Hello and hello are counted as different words
+  style: symptom
+  relevant: ["04_strings#upper-and-lower-case"]
+- question: how do I reverse a string
+  style: concept
+  relevant: ["04_strings#indexing-and-slicing"]
+- question: "TypeError: 'str' object does not support item assignment"
+  style: symptom
+  relevant: ["04_strings#strings-cannot-be-changed"]
+- question: how can I check if a character is a letter or a digit
+  style: concept
+  relevant: ["04_strings#checking-characters"]
+
+# --- 05 lists ---
+- question: "IndexError: list index out of range"
+  style: symptom
+  relevant: ["05_lists#indexes-and-indexerror"]
+- question: after calling my function the original list is changed too
+  style: symptom
+  relevant: ["05_lists#changing-a-list-vs-making-a-new-one"]
+- question: what is the difference between sort() and sorted()?
+  style: concept
+  relevant: ["05_lists#sort-vs-sorted"]
+- question: my function crashes when the list is empty
+  style: symptom
+  relevant: ["05_lists#empty-lists-and-other-edge-cases"]
+- question: how do I remove duplicates but keep the original order
+  style: concept
+  relevant: ["05_lists#membership-and-keeping-the-order"]
+
+# --- 06 functions ---
+- question: my function prints the right answer but the test says it returned None
+  style: symptom
+  relevant: ["06_functions#return-vs-print"]
+- question: the prime check takes forever for big numbers
+  style: symptom
+  relevant: ["06_functions#fast-enough-avoid-needless-work"]
+- question: what does a default value for a parameter do?
+  style: concept
+  relevant: ["06_functions#parameters-arguments-and-default-values"]
+- question: can a function change a variable that is outside of it?
+  style: concept
+  relevant: ["06_functions#scope-names-inside-a-function"]
+- question: "ZeroDivisionError: integer division or modulo by zero"
+  style: symptom
+  relevant: ["06_functions#guarding-against-bad-or-special-input"]
+
+# --- 07 dicts ---
+- question: KeyError when I try to add one to a count
+  style: symptom
+  relevant: ["07_dicts#keys-and-values", "07_dicts#counting-with-a-dictionary"]
+- question: how do I count how many times each word appears
+  style: concept
+  relevant: ["07_dicts#counting-with-a-dictionary"]
+- question: "TypeError: unhashable type: 'list'"
+  style: symptom
+  relevant: ["07_dicts#what-can-be-a-key"]
+- question: how do I loop over the keys and values of a dictionary together
+  style: concept
+  relevant: ["07_dicts#looping-over-a-dictionary"]
+- question: my check skips the number at index 0 when I use if seen.get(x)
+  style: symptom
+  relevant: ["07_dicts#is-it-there-in-versus-truthiness"]
+
+# --- 08 recursion ---
+- question: "RecursionError: maximum recursion depth exceeded"
+  style: symptom
+  relevant: ["08_recursion#recursionerror-maximum-recursion-depth-exceeded"]
+- question: what is a base case?
+  style: concept
+  relevant: ["08_recursion#base-case-and-recursive-case"]
+- question: my list default argument keeps the values from the last call
+  style: symptom
+  relevant:
+    - "08_recursion#the-mutable-default-argument-trap"
+    - "06_functions#parameters-arguments-and-default-values"
+- question: recursive fibonacci of 40 takes forever
+  style: symptom
+  relevant: ["08_recursion#repeated-work-why-naive-recursion-can-be-slow"]
+- question: how does binary search cut the list in half each time
+  style: concept
+  relevant: ["08_recursion#halving-the-search-binary-search"]

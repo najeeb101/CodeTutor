@@ -1,8 +1,8 @@
-"""Tests for the model client against a tiny fake server on 127.0.0.1 (no internet needed).
+"""Tests for the model clients against a tiny fake server on 127.0.0.1 (no internet needed).
 
-The fake server speaks just enough of the OpenAI chat-completions format. Each test queues the
-answers it wants (status, body, headers, delay), and the server records every request. So the
-tests send real HTTP and never mock the client.
+The fake server speaks just enough of the OpenAI chat-completions and embeddings formats. Each
+test queues the answers it wants (status, body, headers, delay), and the server records every
+request. So the tests send real HTTP and never mock the client.
 """
 
 from __future__ import annotations
@@ -26,7 +26,14 @@ from codetutor.evals import (
     QuotaExhaustedError,
     make_client,
 )
-from codetutor.evals.clients import GEMINI_BASE_URL, GEMINI_KEY_ENV, OLLAMA_URL_ENV
+from codetutor.evals.clients import (
+    GEMINI_BASE_URL,
+    GEMINI_KEY_ENV,
+    OLLAMA_URL_ENV,
+    EmbedderInfo,
+    EmbeddingClient,
+    make_embedder,
+)
 
 KEY = "test-key-12345"
 MESSAGES = [{"role": "user", "content": "Write f."}]
@@ -301,3 +308,93 @@ def test_make_client_for_gemini_hides_the_key(monkeypatch: pytest.MonkeyPatch) -
 def test_make_client_rejects_bad_specs(spec: str) -> None:
     with pytest.raises(ValueError):
         make_client(spec)
+
+
+# --- embeddings (Week 4) ---
+
+INFO = EmbedderInfo(3, document_prefix="doc: ", query_prefix="q: ")
+
+
+def vectors(*rows: list[float], shuffle: bool = False) -> Answer:
+    """A successful /embeddings reply, with each row's index (optionally in reverse order)."""
+    data = [{"object": "embedding", "index": i, "embedding": row} for i, row in enumerate(rows)]
+    payload = {"object": "list", "data": data[::-1] if shuffle else data}
+    return Answer(body=json.dumps(payload))
+
+
+def embedder_for(server: FakeServer, **options: Any) -> EmbeddingClient:
+    settings: dict[str, Any] = {"max_retries": 1, "backoff_s": 0.01, "timeout_s": 5.0}
+    settings.update(options)
+    return EmbeddingClient("test/embed", server.url, "embed", info=INFO, **settings)
+
+
+def test_embeddings_add_the_prefixes_and_keep_the_order(server: FakeServer) -> None:
+    server.answers += [vectors([1, 0, 0], [0, 1, 0], shuffle=True), vectors([0, 0, 1])]
+    client = embedder_for(server)
+    assert client.embed_documents(["a", "b"]) == [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+    assert client.embed_query("c") == [0.0, 0.0, 1.0]
+    assert server.seen[0].path == "/v1/embeddings"
+    assert server.seen[0].body == {"model": "embed", "input": ["doc: a", "doc: b"]}
+    assert server.seen[1].body["input"] == ["q: c"]
+
+
+def test_embeddings_are_sent_in_batches(server: FakeServer) -> None:
+    server.answers += [vectors([1, 0, 0], [1, 0, 0]), vectors([0, 1, 0])]
+    client = embedder_for(server, batch_size=2)
+    assert len(client.embed_documents(["a", "b", "c"])) == 3
+    assert [len(seen.body["input"]) for seen in server.seen] == [2, 1]
+
+
+@pytest.mark.parametrize(
+    ("answer", "message"),
+    [
+        (vectors([1, 0, 0]), "sent 2 texts, got 1 vectors"),
+        (vectors([1, 0], [0, 1]), "has 2 numbers, expected 3"),
+        (Answer(body='{"data": [{"index": 0, "embedding": "nope"}]}'), "unexpected reply"),
+    ],
+)
+def test_bad_embedding_replies_are_errors(server: FakeServer, answer: Answer, message: str) -> None:
+    server.answers.append(answer)
+    with pytest.raises(ModelError, match=message):
+        embedder_for(server).embed_documents(["a", "b"])
+
+
+def test_a_non_finite_number_in_a_vector_is_an_error(server: FakeServer) -> None:
+    # JSON has no NaN, but Python's json module (and some servers) write it anyway.
+    server.answers.append(Answer(body='{"data": [{"index": 0, "embedding": [1, NaN, 0]}]}'))
+    with pytest.raises(ModelError, match="NaN or infinity"):
+        embedder_for(server).embed_query("a")
+
+
+def test_a_missing_embedding_model_says_so(server: FakeServer) -> None:
+    # What Ollama 0.35 answers for a model that was never pulled (seen live, 2026-10-02).
+    body = '{"error":{"message":"model \\"embed\\" not found, try pulling it first"}}'
+    server.answers.append(Answer(404, body))
+    with pytest.raises(ModelConfigError, match="try pulling it first"):
+        embedder_for(server).embed_query("a")
+
+
+def test_embeddings_retry_a_busy_server(server: FakeServer) -> None:
+    server.answers += [Answer(503, "busy"), vectors([0, 1, 0])]
+    assert embedder_for(server).embed_query("a") == [0.0, 1.0, 0.0]
+    assert len(server.seen) == 2
+
+
+def test_make_embedder_knows_nomic_embed_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(OLLAMA_URL_ENV, "http://127.0.0.1:9/v1")
+    client = make_embedder("ollama/nomic-embed-text:v1.5")
+    assert (client.name, client.model, client.dimensions) == (
+        "ollama/nomic-embed-text:v1.5",
+        "nomic-embed-text:v1.5",
+        768,
+    )
+    assert client.info.query_prefix == "search_query: "
+    assert client.base_url == "http://127.0.0.1:9/v1"
+
+
+@pytest.mark.parametrize(
+    "spec", ["gemini/text-embedding-004", "ollama/", "ollama/some-unknown-embedder", "nomic"]
+)
+def test_make_embedder_rejects_bad_or_unknown_specs(spec: str) -> None:
+    with pytest.raises(ValueError):
+        make_embedder(spec)
