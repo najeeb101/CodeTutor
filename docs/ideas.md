@@ -86,3 +86,14 @@ Ideas that come up during a week but belong to a later week. Add them here inste
 - **(When Monaco updates) Re-check `npm audit`.** monaco-editor 0.57 bundles DOMPurify 3.4.15
   (low-severity XSS through `IN_PLACE` mode, which Monaco never uses). Upgrade when a Monaco
   release ships DOMPurify >= 3.4.16.
+
+- **(Week 4 Step 2+, measure first) A model as a second guardrail layer.** Ask a small model
+  "does this hint contain code or give the whole answer away?" after the text checks. It could
+  catch the known misses (code inside a sentence, renamed variables, a whole algorithm as a first
+  hint). Measure it on `tests/hints/guardrail_cases.yaml` and real hints before using it: it adds
+  a model call per hint, and a judge can be wrong too.
+
+- **(Week 5, with the integrity checks) Rename-proof solution matching in the guardrail.**
+  Compare token streams with names replaced (`tally[w]` ≈ `counts[word]`), the same idea as the
+  AST-normalized similarity planned for copy detection. Needs care: short lines would then match
+  far more prose.

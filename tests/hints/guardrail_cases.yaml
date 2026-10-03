@@ -1,0 +1,213 @@
+# Hand-written hints with the verdict the hint guardrail must give (tests/test_guardrail.py).
+#
+# expect: ok | blocked     what check_hint() must decide
+# leak: true | false       does the hint really give away code or the answer?
+#
+# leak: true + expect: ok is a KNOWN MISS: the guardrail lets it through, and docs/tutor.md §1
+# says so. leak: false + expect: blocked is a false alarm we accept (stricter than needed).
+# Optional: student_code (the student's own code, which a hint may quote), kinds (violation
+# kinds a blocked hint must include).
+
+# --- good hints: must pass -------------------------------------------------------------------
+
+- problem: cs1.loops.fizzbuzz
+  hint: "What should your function return for 15? Check which branch of your if/elif chain runs first."
+  expect: ok
+  leak: false
+  why: a question in words
+
+- problem: cs1.loops.fizzbuzz
+  student_code: |
+    def fizzbuzz(n: int) -> list[str]:
+        out = []
+        for number in range(1, n + 1):
+            if number % 3 == 0:
+                out.append("Fizz")
+            elif number % 15 == 0:
+                out.append("FizzBuzz")
+        return out
+  hint: "Your line `if number % 3 == 0:` runs before the check for 15, so 15 never gets there."
+  expect: ok
+  leak: false
+  why: quoting the student's own line back is allowed
+
+- problem: cs1.loops.fizzbuzz
+  hint: "The test `number % 15 == 0` is true for 15, 30 and 45."
+  expect: ok
+  leak: false
+  why: an expression in backticks, not a statement
+
+- problem: cs1.loops.fizzbuzz
+  hint: "Try `fizzbuzz(15)` by hand and compare your answer with the example."
+  expect: ok
+  leak: false
+  why: a call from the description
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    - Start with an empty list.
+    - Go through the numbers 1 to n.
+    - Pick the right word for each number.
+  expect: ok
+  leak: false
+  why: a plan in words, as a list
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    Example: fizzbuzz(5)
+    Which of these numbers is divisible by 3?
+  expect: ok
+  leak: false
+  why: "'Example: ...' parses as a Python annotation, but it is prose"
+
+- problem: cs1.functions.gcd
+  hint: "Euclid's idea: gcd(a, b) equals gcd(b, a % b). What should happen when b is 0?"
+  expect: ok
+  leak: false
+  why: the math idea, not the code
+
+- problem: cs1.dicts.word_frequency
+  hint: "Use a dictionary. For each word, add one to its count; a new word starts at 0."
+  expect: ok
+  leak: false
+  why: the algorithm in words (allowed on purpose)
+
+- problem: cs1.dicts.word_frequency
+  student_code: |
+    def word_frequency(text: str) -> dict[str, int]:
+        counts = {}
+        for word in text.split(" "):
+            counts[word] = counts.get(word, 0) + 1
+        return counts
+  hint: "Your line `counts[word] = counts.get(word, 0) + 1` is right. Look at how you split the text."
+  expect: ok
+  leak: false
+  why: a solution line the student already wrote is not a secret
+
+- problem: cs1.dicts.two_sum
+  hint: "Before you store the current number, check whether the number you need is already in your dict."
+  expect: ok
+  leak: false
+  why: the key idea in words
+
+# --- leaks: must be blocked ------------------------------------------------------------------
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    Here is a shorter way:
+    ```python
+    return [str(i) for i in range(1, n + 1)]
+    ```
+  expect: blocked
+  leak: true
+  kinds: [code_block]
+  why: a fenced block (not even from solution.py)
+
+- problem: cs1.loops.fizzbuzz
+  hint: "Use ```result.append(str(number))``` at the end."
+  expect: blocked
+  leak: true
+  kinds: [code_block, solution_line]
+  why: a fence inside a sentence
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    for i in range(1, n + 1):
+        out.append(str(i))
+  expect: blocked
+  leak: true
+  kinds: [code_block]
+  why: two unfenced lines of code
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    Inside the loop, write:
+    count += 1
+  expect: blocked
+  leak: true
+  kinds: [code_statement]
+  why: one whole line that is a statement
+
+- problem: cs1.loops.fizzbuzz
+  hint: "Write a helper `def is_fizz(number):` first."
+  expect: blocked
+  leak: true
+  kinds: [code_statement]
+  why: a def header in backticks
+
+- problem: cs1.dicts.word_frequency
+  hint: "Then do counts[word] = counts.get(word, 0) + 1 for each word."
+  expect: blocked
+  leak: true
+  kinds: [solution_line]
+  why: a solution line inside a sentence
+
+- problem: cs1.dicts.word_frequency
+  hint: "counts[word]=counts.get(word,0)+1 is all you need."
+  expect: blocked
+  leak: true
+  kinds: [solution_line]
+  why: other spacing does not hide a solution line
+
+- problem: cs1.functions.gcd
+  hint: "Loop and set a, b = b, a % b until b is 0."
+  expect: blocked
+  leak: true
+  kinds: [solution_line]
+  why: the key line of the solution
+
+- problem: cs1.dicts.two_sum
+  hint: "For each number compute need = target - number and look it up."
+  expect: blocked
+  leak: true
+  kinds: [solution_line]
+  why: a solution line in prose
+
+- problem: cs1.loops.fizzbuzz
+  hint: |
+    Sure! Here is the full solution:
+    def fizzbuzz(n: int) -> list[str]:
+        result = []
+        for number in range(1, n + 1):
+            if number % 15 == 0:
+                result.append('FizzBuzz')
+            elif number % 3 == 0:
+                result.append('Fizz')
+            elif number % 5 == 0:
+                result.append('Buzz')
+            else:
+                result.append(str(number))
+        return result
+  expect: blocked
+  leak: true
+  kinds: [solution_line, code_block]
+  why: what a successful prompt injection would produce
+
+# --- accepted false alarm ----------------------------------------------------------------------
+
+- problem: cs1.recursion.binary_search
+  hint: "Start with `low = 0` and think about where high should start."
+  expect: blocked
+  leak: false
+  kinds: [code_statement]
+  why: a trivial statement, but any statement in backticks counts as code (strict on purpose)
+
+# --- known misses: leaks the guardrail lets through ----------------------------------------------
+
+- problem: cs1.loops.fizzbuzz
+  hint: "You can just return ['FizzBuzz' if i % 15 == 0 else 'Fizz' if i % 3 == 0 else 'Buzz' if i % 5 == 0 else str(i) for i in range(1, n + 1)] and you are done."
+  expect: ok
+  leak: true
+  why: a different full solution inside a sentence (not a solution line, no backticks)
+
+- problem: cs1.dicts.word_frequency
+  hint: "Then tally[w] = tally.get(w, 0) + 1 for each word w."
+  expect: ok
+  leak: true
+  why: a solution line with renamed variables
+
+- problem: cs1.recursion.binary_search
+  hint: "Keep a low and a high index. Look at the middle item: if it is the target, return its index; if it is smaller, move low past it, otherwise move high below it. Stop when low passes high."
+  expect: ok
+  leak: true
+  why: the whole algorithm in words (fine as a last hint, too much as a first one)

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from codetutor.problems import Problem
+from codetutor.tutor.guardrail import solution_lines
 
 HTTP_TIMEOUT_S = 10.0
 # The first request to the API only checks that it is up. On WSL a port nobody listens on times
@@ -29,7 +30,6 @@ HTTP_TIMEOUT_S = 10.0
 PROBE_TIMEOUT_S = 3.0
 POLL_INTERVAL_S = 0.5
 RESULT_TIMEOUT_S = 60.0  # the slowest bank problem needs ~38 s in Docker
-MIN_SECRET_CHARS = 12  # shorter solution lines (e.g. "return x") are too common to check
 DISPLAY_FIELDS = ("input", "expected", "actual", "args_repr", "expected_repr", "actual_repr")
 
 
@@ -93,15 +93,10 @@ def _lower(items: Any) -> dict[str, str]:
 def forbidden_texts(problem: Problem) -> list[str]:
     """Texts a student must never receive: the hints and the solution's own lines.
 
-    Solution lines that also appear in the starter code or the description (e.g. the `def`
-    line) are allowed, and so are short ones.
+    The same lines the tutor's guardrail checks (`solution_lines`): lines also in the starter
+    code or the description (e.g. the `def` line) and trivial ones (`return result`) are left out.
     """
-    allowed = problem.starter_code + problem.description_en
-    lines = {line.strip() for line in problem.solution_code.splitlines()}
-    own_lines = sorted(
-        line for line in lines if len(line) >= MIN_SECRET_CHARS and line not in allowed
-    )
-    return [*problem.hints, *own_lines]
+    return [*problem.hints, *solution_lines(problem)]
 
 
 def _strings(value: Any) -> Iterator[str]:
