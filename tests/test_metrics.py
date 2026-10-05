@@ -8,7 +8,7 @@ import pytest
 
 from codetutor.evals import EvalRecord, ExtractMethod, ModelReply, pass_at_k
 from codetutor.evals import metrics as m
-from codetutor.evals.report import _fixed, render_report
+from codetutor.evals.report import fixed, render_report
 from codetutor.evals.run import REPO_ROOT, RunConfig, RunMeta
 from codetutor.grader import GradeResult, GradeStatus, TestResult, TestStatus
 from codetutor.problems import Problem, load_all
@@ -267,7 +267,7 @@ def test_report_is_deterministic_and_has_every_section(bank: dict[str, Problem])
 def test_numbers_round_half_up_and_ignore_float_noise(
     value: float, digits: int, shown: str
 ) -> None:
-    assert _fixed(value, digits) == shown
+    assert fixed(value, digits) == shown
 
 
 def test_report_survives_a_removed_problem(bank: dict[str, Problem]) -> None:

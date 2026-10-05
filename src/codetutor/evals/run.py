@@ -156,7 +156,7 @@ def make_sandbox(config: RunConfig) -> Sandbox:
     return DockerSandbox() if config.sandbox == "docker" else SubprocessSandbox()
 
 
-def _git_state() -> tuple[str | None, bool | None]:
+def git_state() -> tuple[str | None, bool | None]:
     """The current commit and whether there are uncommitted changes (None if git fails)."""
     try:
         commit = subprocess.run(
@@ -175,7 +175,7 @@ def _git_state() -> tuple[str | None, bool | None]:
     return commit, bool(status.strip())
 
 
-def _model_details(model: str) -> dict[str, JsonValue]:
+def model_details(model: str) -> dict[str, JsonValue]:
     """The exact model identity, where the provider tells us (Ollama: digest and precision)."""
     provider, _, name = model.partition("/")
     if provider != "ollama":
@@ -199,13 +199,13 @@ def _model_details(model: str) -> dict[str, JsonValue]:
 
 def _start_or_check_meta(config: RunConfig, problems: list[Problem], results_path: Path) -> RunMeta:
     """Write the meta file for a new run, or check that a resumed run has the same settings."""
-    commit, dirty = _git_state()
+    commit, dirty = git_state()
     current = RunMeta(
         config=config,
         prompt_version=PROMPT_VERSION,
         grader_version=GRADER_VERSION,
         problem_versions={problem.id: problem.version for problem in problems},
-        model_details=_model_details(config.model),
+        model_details=model_details(config.model),
         git_commit=commit,
         git_dirty=dirty,
         started_at=datetime.now(UTC),

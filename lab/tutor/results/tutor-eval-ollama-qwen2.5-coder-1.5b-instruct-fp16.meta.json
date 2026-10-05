@@ -1,0 +1,73 @@
+{
+  "settings": {
+    "student": "ollama/qwen2.5-coder:1.5b-instruct-fp16",
+    "tutor": "ollama/qwen2.5-coder:7b",
+    "samples": 5,
+    "temperature": 0.8,
+    "max_tokens": 1024,
+    "seed_base": 0
+  },
+  "student_prompt_version": "1",
+  "tutor_prompt_version": "1",
+  "tutor_config": {
+    "model": "ollama/qwen2.5-coder:7b",
+    "temperature": 0.2,
+    "seed": 0,
+    "max_tokens": 300,
+    "search_method": "hybrid",
+    "search_k": 3,
+    "max_words": 80,
+    "retries": 1
+  },
+  "grader_version": "0.2.1",
+  "problem_versions": {
+    "cs1.variables.celsius_to_fahrenheit": 1,
+    "cs1.variables.seconds_to_hms": 1,
+    "cs1.variables.rectangle_stats": 1,
+    "cs1.variables.average_of_three": 1,
+    "cs1.conditions.is_leap_year": 1,
+    "cs1.conditions.letter_grade": 1,
+    "cs1.conditions.max_of_three": 1,
+    "cs1.conditions.triangle_type": 1,
+    "cs1.loops.sum_of_evens": 1,
+    "cs1.loops.factorial": 1,
+    "cs1.loops.count_digits": 1,
+    "cs1.loops.fizzbuzz": 1,
+    "cs1.strings.is_palindrome": 1,
+    "cs1.strings.count_vowels": 1,
+    "cs1.strings.reverse_words": 1,
+    "cs1.strings.compress": 1,
+    "cs1.lists.second_largest": 2,
+    "cs1.lists.remove_duplicates": 1,
+    "cs1.lists.rotate_right": 1,
+    "cs1.lists.merge_sorted": 1,
+    "cs1.functions.is_prime": 1,
+    "cs1.functions.gcd": 1,
+    "cs1.functions.primes_up_to": 1,
+    "cs1.functions.running_total": 1,
+    "cs1.dicts.word_frequency": 1,
+    "cs1.dicts.first_unique_char": 1,
+    "cs1.dicts.group_anagrams": 1,
+    "cs1.dicts.two_sum": 1,
+    "cs1.recursion.recursive_sum": 1,
+    "cs1.recursion.fibonacci": 1,
+    "cs1.recursion.flatten": 1,
+    "cs1.recursion.binary_search": 1,
+    "cs1.recursion.valid_parentheses": 1
+  },
+  "model_details": {
+    "ollama/qwen2.5-coder:1.5b-instruct-fp16": {
+      "digest": "924fe2ce462dcab507234c6177f6ee1f08b4e239173d490161925b7fc060e193",
+      "quantization": "F16",
+      "parameter_size": "1.5B"
+    },
+    "ollama/qwen2.5-coder:7b": {
+      "digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+      "quantization": "Q4_K_M",
+      "parameter_size": "7.6B"
+    }
+  },
+  "git_commit": "d5ffa7264535ce9c3b19291f3fe0d9a87a605ca8",
+  "git_dirty": true,
+  "started_at": "2026-10-05T18:34:08.408266Z"
+}

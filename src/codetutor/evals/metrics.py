@@ -215,6 +215,19 @@ def bootstrap_ci(
     if not stats or any(problem.n < k for problem in stats.values()):
         return None
     values = [pass_at_k(problem.n, problem.c, k) for _, problem in sorted(stats.items())]
+    return bootstrap_mean_ci(values, rounds=rounds, seed=seed)
+
+
+def bootstrap_mean_ci(
+    values: list[float], rounds: int = 2000, seed: int = 0
+) -> tuple[float, float] | None:
+    """A 95% interval for the mean of `values` (one value per item, e.g. per problem).
+
+    Resamples the items with replacement `rounds` times and takes the 2.5% and 97.5% points of
+    the means. Deterministic for the same values (in the same order) and seed.
+    """
+    if not values:
+        return None
     rng = random.Random(seed)
     means = sorted(mean(rng.choices(values, k=len(values))) for _ in range(rounds))
     return means[int(0.025 * rounds)], means[int(0.975 * rounds) - 1]

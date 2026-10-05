@@ -20,7 +20,7 @@ FAILURE_STATUSES = ["wrong_answer", "runtime_error", "timeout", "compile_error",
 SortKey = Callable[[str], Any]
 
 
-def _fixed(value: float, digits: int) -> str:
+def fixed(value: float, digits: int) -> str:
     """`value` with `digits` decimals, rounded half up like on paper (0.575 -> "0.58").
 
     Python's own format rounds ties to the even digit (0.625 -> "0.62") and sees float noise
@@ -33,7 +33,7 @@ def _fixed(value: float, digits: int) -> str:
 
 
 def _num(value: float | None, digits: int = 3) -> str:
-    return "–" if value is None else _fixed(value, digits)
+    return "–" if value is None else fixed(value, digits)
 
 
 def _cell(text: str) -> str:
@@ -93,7 +93,7 @@ def _headline_section(runs: list[RunData]) -> str:
         interval = metrics.bootstrap_ci(stats)
         pass_1 = _num(metrics.pass_at_k_mean(stats, 1))
         if interval is not None:
-            pass_1 += f" [{_fixed(interval[0], 3)}, {_fixed(interval[1], 3)}]"
+            pass_1 += f" [{fixed(interval[0], 3)}, {fixed(interval[1], 3)}]"
         failures = metrics.failure_breakdown(run.records)
         latency = metrics.median_of([record.reply.latency_ms for record in run.records])
         reply_tokens = metrics.median_of([r.reply.completion_tokens for r in run.records])
@@ -108,7 +108,7 @@ def _headline_section(runs: list[RunData]) -> str:
                 f"{failures.hidden_only} of {failures.wrong}",
                 str(failures.cut_off),
                 str(failures.format_failures),
-                "–" if latency is None else f"{_fixed(latency / 1000, 1)} s",
+                "–" if latency is None else f"{fixed(latency / 1000, 1)} s",
                 _num(reply_tokens, 0),
                 _num(thinking, 0),
             ]
@@ -151,7 +151,7 @@ def _group_table(
             if group is None:
                 row.append("–")
             else:
-                row.append(f"{_fixed(group.pass_at_1, 2)} ({_fixed(group.mean_reward, 2)})")
+                row.append(f"{fixed(group.pass_at_1, 2)} ({fixed(group.mean_reward, 2)})")
         rows.append(row)
     return _table([name, "Problems"] + [_label(run) for run in runs], rows)
 
@@ -223,7 +223,7 @@ def _all_problems_section(runs: list[RunData], problems: dict[str, Problem]) -> 
         row = [problem_id, problem.difficulty.value]
         for stats in per_run:
             s = stats.get(problem_id)
-            row.append("–" if s is None else f"{s.c}/{s.n} ({_fixed(s.mean_reward, 2)})")
+            row.append("–" if s is None else f"{s.c}/{s.n} ({fixed(s.mean_reward, 2)})")
         rows.append(row)
     header = ["Problem", "Difficulty"] + [_label(run) for run in runs]
     intro = "Each cell: accepted answers / answers (mean reward)."
