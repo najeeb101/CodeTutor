@@ -335,6 +335,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Suite: 590 passed, 2 skipped, 1 xfailed, **70.4 and 83.9 s on battery** (status 1, 87%,
   Epic Games launcher running); the same suite minus 1 test was 42.3 s on mains an hour before.
   Re-measure on mains. `make web-check` OK.
+- **In progress (2026-10-05): Week 4 Step 4** (offline tutor eval; plan approved, D1-D6).
+  `tutor/tutor_eval.py` (hidden-only situations, 6 conditions, pinned student prompt v1,
+  phase 1 tutor hints, phase 2 seeded student answers graded in Docker, resumable, meta check),
+  `tutor/tutor_eval_report.py` (fix rate per situation then mean, bootstrap 95%, paired help
+  vs none, reading list), `scripts/tutor_eval.py`, 13 tests. **Pilot done** (no hint, 1.5B
+  student, n = 5): 54 situations in 33 problems, 270 answers, 0 failed calls, fix rate **0.58
+  [0.49, 0.67]** (never 8, always 11 situations), 26 min (5.7 s per answer). Committed
+  (ddbb025) with its results. Suite 603 passed (60.0 s on battery, 18%); `make all` 77 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -404,8 +412,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   shown submission's; Q2 why test_e2e.py uses a fake model; Q3 what a reload does while the
   tutor is thinking.
   (95 in total; answer key in Claude's memory.)
-- **Next action:** Week 4 Step 4 (offline tutor eval: buggy files as students, a model fixes
-  them after the hint, `grade()` scores) in plan mode. Najeeb: review the 8 notes in `course/notes/`. Also
+- **Next action (2026-10-06 morning, on mains power):** Week 4 Step 4, the full run (Najeeb
+  chose option A: all 5 remaining conditions, n = 5, ~2.2 h, resumable with Ctrl+C):
+  `uv run python scripts/tutor_eval.py` (needs Ollama, Docker, `make db-up`; it makes the 108
+  tutor hints first, then 1,350 answers; the 270 pilot answers are reused). Don't use the GPU
+  or run the suite meanwhile. Then: report, docs/tutor.md §5, interview note, STOP. Najeeb: review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -812,6 +823,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   three nullable trace columns use `JSON(none_as_null=True)` (Python side only, no DDL change).
   The tutor worker's note search uses an AUTOCOMMIT engine copy, so no transaction stays open
   during a model call.
+
+- 2026-10-05: Week 4 Step 4 (Najeeb approved the plan, D1-D6): situations = the hidden-only
+  bugs (all visible tests pass, a hidden one fails), counted 54 (the plan said ~50); conditions
+  none / teacher-1..3 / tutor-1..2; student `qwen2.5-coder:1.5b-instruct-fp16` (temperature
+  0.8, seed i, max_tokens 1024, n = 5); the student prompt = the Week 2 problem prompt + the
+  buggy code + `describe_result` + the hint + a task line, pinned by a sha256. Which
+  conditions run is not part of the run identity, so the pilot's `none` answers are reused.
+  The results file's meta was written while the eval code was uncommitted (`git_dirty: true`,
+  commit d5ffa72); the code was committed right after the pilot (ddbb025) without changes.
+- 2026-10-05: Pilot measured 5.7 s per student answer (plan guessed 2-3 s), so the full run is
+  ~2.2 h, not ~1 h. Options given (A all, B drop teacher-1/2, C n = 3); Najeeb chose A, to run
+  on 2026-10-06 morning. Not started on 18% battery.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
