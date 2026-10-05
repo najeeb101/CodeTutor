@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker api web-install web web-check e2e web-e2e test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -30,6 +30,9 @@ notes-sync: db-migrate  ## embed the course notes into Postgres for the tutor (n
 
 worker: db-sync  ## grade queued submissions in Docker until Ctrl+C (docs/worker.md)
 	uv run python scripts/worker.py
+
+tutor: db-sync notes-sync  ## answer queued hint requests with the local model until Ctrl+C (docs/tutor.md §4; needs Ollama)
+	uv run python scripts/tutor_worker.py
 
 api: db-sync  ## run the HTTP API on http://127.0.0.1:8000 until Ctrl+C (docs/api.md; dev login, not secure)
 	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port 8000

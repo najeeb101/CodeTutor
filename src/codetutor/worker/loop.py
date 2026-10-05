@@ -58,13 +58,18 @@ class WorkerStats:
         setattr(self, outcome.value, getattr(self, outcome.value) + 1)
 
 
-def _load_problem(session: Session, job: Job, cache: ProblemCache) -> Problem:
-    """The sealed copy of the version the student saw (from the database, not the files)."""
-    key = (job.problem_id, job.problem_version)
+def load_problem_copy(
+    session: Session, problem_id: str, version: int, cache: ProblemCache
+) -> Problem:
+    """The sealed copy of the version the student saw (from the database, not the files).
+
+    Used by both workers (grading and the tutor); the API never reads these copies.
+    """
+    key = (problem_id, version)
     if key not in cache:
         row = session.get(ProblemVersionRow, key)
         if row is None:  # impossible while the foreign key exists; checked to fail clearly
-            raise LookupError(f"no stored copy of {job.problem_id} v{job.problem_version}")
+            raise LookupError(f"no stored copy of {problem_id} v{version}")
         cache[key] = Problem.model_validate(row.problem)
     return cache[key]
 
@@ -85,7 +90,7 @@ def process_job(engine: Engine, sandbox: Sandbox, job: Job, cache: ProblemCache)
     """
     try:
         with Session(engine) as session:
-            problem = _load_problem(session, job, cache)
+            problem = load_problem_copy(session, job.problem_id, job.problem_version, cache)
         # reveal_hidden=False: hidden test details never reach the database (docs/database.md).
         result = grade(problem, job.code, reveal_hidden=False, sandbox=sandbox)
         with Session(engine) as session, session.begin():

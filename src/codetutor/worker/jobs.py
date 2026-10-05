@@ -94,7 +94,8 @@ def clean_text(value: str | None) -> str | None:
     return None if value is None else value.replace("\x00", NUL_REPLACEMENT)
 
 
-def _check_code(code: str) -> None:
+def check_code(code: str) -> None:
+    """Raise InvalidSubmissionError if `code` can't be stored (also used for hint requests)."""
     if len(code) > MAX_CODE_CHARS:
         raise InvalidSubmissionError(
             f"code is too long ({len(code)} > {MAX_CODE_CHARS} characters)"
@@ -105,6 +106,22 @@ def _check_code(code: str) -> None:
         code.encode("utf-8")
     except UnicodeEncodeError as exc:  # e.g. a lone surrogate like "\ud800"
         raise InvalidSubmissionError("code contains characters that are not valid text") from exc
+
+
+def current_problem_version(
+    session: Session, problem_id: str, expected_version: int | None = None
+) -> int:
+    """The current version of an active problem (also used for hint requests).
+
+    Raises UnknownProblemError, or ProblemChangedError if it isn't `expected_version` (the
+    version the student saw).
+    """
+    problem = session.get(ProblemRow, problem_id)
+    if problem is None or not problem.active:
+        raise UnknownProblemError(f"no active problem {problem_id!r}")
+    if expected_version is not None and expected_version != problem.version:
+        raise ProblemChangedError(problem_id, expected_version, problem.version)
+    return problem.version
 
 
 def enqueue_submission(
@@ -122,14 +139,10 @@ def enqueue_submission(
     problem the student didn't see. Returns the submission id. Saving the row IS enqueueing:
     one insert, no second system.
     """
-    _check_code(code)
-    problem = session.get(ProblemRow, problem_id)
-    if problem is None or not problem.active:
-        raise UnknownProblemError(f"no active problem {problem_id!r}")
-    if expected_version is not None and expected_version != problem.version:
-        raise ProblemChangedError(problem_id, expected_version, problem.version)
+    check_code(code)
+    version = current_problem_version(session, problem_id, expected_version)
     submission = SubmissionRow(
-        user_id=user_id, problem_id=problem_id, problem_version=problem.version, code=code
+        user_id=user_id, problem_id=problem_id, problem_version=version, code=code
     )
     session.add(submission)
     session.flush()  # assigns the id

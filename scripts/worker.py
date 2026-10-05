@@ -25,7 +25,7 @@ from codetutor.worker.loop import WorkerStoppedError, run_worker
 log = logging.getLogger("worker")
 
 
-def _install_stop_handlers(stop: threading.Event) -> None:
+def install_stop_handlers(stop: threading.Event) -> None:
     """First Ctrl+C / SIGTERM: stop after the current job. Second: stop at once."""
 
     def handle(signum: int, frame: FrameType | None) -> None:
@@ -50,7 +50,7 @@ def main() -> int:
         log.error("%s", exc)
         return 1
     stop = threading.Event()
-    _install_stop_handlers(stop)
+    install_stop_handlers(stop)
     engine = make_engine()
     log.info("worker started (%s)", engine.url.render_as_string(hide_password=True))
     try:

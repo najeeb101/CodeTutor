@@ -398,3 +398,24 @@ def test_make_embedder_knows_nomic_embed_text(monkeypatch: pytest.MonkeyPatch) -
 def test_make_embedder_rejects_bad_or_unknown_specs(spec: str) -> None:
     with pytest.raises(ValueError):
         make_embedder(spec)
+
+
+# --- keeping Ollama models loaded (the tutor worker, Week 4 Step 3) ---
+
+
+def test_keep_loaded_uses_ollamas_own_api_without_a_prompt(server: FakeServer) -> None:
+    server.answers += [Answer(body='{"done_reason": "load"}'), Answer(body='{"embeddings": []}')]
+    chat = ChatClient("ollama/model-x", server.url, "model-x", max_retries=0)
+    embedder = EmbeddingClient("ollama/embed", server.url, "embed", info=INFO, max_retries=0)
+    chat.keep_loaded()
+    embedder.keep_loaded("1m")
+    assert [(seen.path, seen.body) for seen in server.seen] == [
+        ("/api/generate", {"model": "model-x", "keep_alive": "10m"}),  # not under /v1
+        ("/api/embed", {"model": "embed", "input": [], "keep_alive": "1m"}),
+    ]
+
+
+def test_keep_loaded_is_only_for_ollama(server: FakeServer) -> None:
+    with pytest.raises(ValueError, match="only for Ollama"):
+        client_for(server).keep_loaded()
+    assert server.seen == []

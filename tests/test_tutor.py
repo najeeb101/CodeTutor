@@ -365,6 +365,17 @@ def test_every_hint_source_is_allowed(
     db_session.commit()
 
 
+# A queued request: no hint yet.
+_QUEUED: dict[str, Any] = dict.fromkeys(
+    ("text", "source", "settings", "retrieved", "attempts", "latency_ms")
+) | {"job_status": "queued"}
+
+
+def test_a_queued_request_has_no_hint_yet(db_session: Session, stored_problem: Problem) -> None:
+    db_session.add(_row(stored_problem, **_QUEUED))
+    db_session.commit()
+
+
 @pytest.mark.parametrize(
     ("changes", "constraint"),
     [
@@ -372,6 +383,12 @@ def test_every_hint_source_is_allowed(
         ({"source": "magic"}, "ck_hints_source_known"),
         ({"rating": 2, "rated_at": "2026-10-03T12:00:00+00:00"}, "ck_hints_rating_known"),
         ({"rating": 1}, "ck_hints_rated_together"),
+        ({"job_status": "lost"}, "ck_hints_job_status_known"),
+        ({"job_status": "queued"}, "ck_hints_result_iff_done"),  # a hint, but not done
+        ({"text": None}, "ck_hints_result_iff_done"),  # done, but no hint
+        ({"source": None}, "ck_hints_result_complete"),
+        ({"attempts": None}, "ck_hints_result_complete"),
+        (_QUEUED | {"rating": 1, "rated_at": "2026-10-05T12:00:00+00:00"}, "rated_when_done"),
     ],
 )
 def test_hint_rows_are_checked(
@@ -384,11 +401,13 @@ def test_hint_rows_are_checked(
 
 
 def _row(problem: Problem, **changes: Any) -> HintRow:
+    """A finished hint row (`changes` replace values)."""
     values: dict[str, Any] = {
         "problem_id": problem.id,
         "problem_version": problem.version,
         "level": 1,
         "student_code": BUGGY,
+        "job_status": "done",
         "text": GOOD,
         "source": "model",
         "settings": {},

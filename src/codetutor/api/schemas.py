@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import unicodedata
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
-from codetutor.db.models import JobStatus
+from codetutor.db.models import HintSource, JobStatus
 from codetutor.grader.models import GradeResult, GradeStatus, TestResult
 from codetutor.problems.schema import PROBLEM_ID_PATTERN, Difficulty, StudentProblem, VisibleTest
+from codetutor.tutor.jobs import MAX_QUESTION_CHARS
 
 MAX_REPR_CHARS = 500  # display text is cut here (a returned value can be up to 1 MB)
 MAX_NAME_CHARS = 40
@@ -25,6 +26,11 @@ MAX_ID = 2**63 - 1
 # Shown instead of `last_error`, which can hold internal details (docs/worker.md §7).
 FAILED_MESSAGE = (
     "Grading failed because of a problem on our side, not your code. Please submit again."
+)
+
+# Shown instead of a hint job's `last_error` (same reason).
+HINT_FAILED_MESSAGE = (
+    "The tutor could not answer because of a problem on our side, not your code. Please ask again."
 )
 
 _REQUEST = ConfigDict(extra="forbid")  # an unknown field in a request is an error (typos)
@@ -187,3 +193,82 @@ class SubmissionOut(SubmissionSummary):
     finished_at: datetime | None
     message: str | None  # FAILED_MESSAGE when job_status is "failed", else null
     result: ResultOut | None  # null until the job is done
+
+
+class HintIn(BaseModel):
+    """A hint request, about exactly one of: my graded submission, or code not graded yet.
+
+    `problem_version` is the version the student saw. Levels go in order (1, 2, then the last
+    hint 3); the server checks it.
+    """
+
+    model_config = _REQUEST
+
+    problem_id: Annotated[str, Field(pattern=PROBLEM_ID_PATTERN)]
+    problem_version: Annotated[int, Field(ge=1)]
+    level: Annotated[int, Field(ge=1, le=3)]
+    question: str | None = None
+    submission_id: Annotated[int | None, Field(ge=1, le=MAX_ID)] = None
+    code: str | None = None  # length and characters are checked by enqueue_hint
+
+    @field_validator("question")
+    @classmethod
+    def _clean_question(cls, question: str | None) -> str | None:
+        if question is None or not question.strip():
+            return None
+        question = question.strip()
+        if len(question) > MAX_QUESTION_CHARS:
+            raise ValueError(f"a question has at most {MAX_QUESTION_CHARS} characters")
+        # Line breaks and tabs are fine in a question; other control characters and lone
+        # surrogates are not (Postgres can't store NUL or "\ud800").
+        bad = {"Cc", "Cs"}
+        if any(unicodedata.category(c) in bad and c not in "\n\t" for c in question):
+            raise ValueError("the question must not contain control characters")
+        return question
+
+    @model_validator(mode="after")
+    def _one_subject(self) -> Self:
+        if (self.submission_id is None) == (self.code is None):
+            raise ValueError("send exactly one of submission_id and code")
+        return self
+
+
+class HintCreated(BaseModel):
+    """Answer to a hint request: queued; poll GET /api/hints/{id} for the hint."""
+
+    id: int
+    job_status: JobStatus
+
+
+class HintOut(BaseModel):
+    """One of my hints. Never the trace: blocked attempts can contain solution code (D7)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    problem_id: str
+    problem_version: int
+    submission_id: int | None
+    level: int
+    question: str | None
+    created_at: datetime
+    job_status: JobStatus
+    text: str | None  # null until done
+    # "model": the tutor wrote it; "fallback" / "reference": the teacher's own hint
+    source: HintSource | None
+    rating: int | None
+    message: str | None = None  # HINT_FAILED_MESSAGE when job_status is "failed"
+
+    @model_validator(mode="after")
+    def _failed_message(self) -> Self:
+        if self.job_status == JobStatus.FAILED:
+            self.message = HINT_FAILED_MESSAGE
+        return self
+
+
+class RatingIn(BaseModel):
+    """👍 (1) or 👎 (-1) for a hint. A new rating replaces the old one."""
+
+    model_config = _REQUEST
+
+    rating: Literal[1, -1]

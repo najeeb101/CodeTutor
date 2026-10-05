@@ -2,9 +2,9 @@
 status codes. Plain `def` (not `async def`): FastAPI runs them in its thread pool, and our
 database code is synchronous like the rest of the project.
 
-The API reads only `problems` (student view), `users`, `submissions` and `test_results`,
-never the sealed problem copies with the hidden tests. A test checks that no file in this
-package names that table or its class (tests/test_api.py).
+The API reads only `problems` (student view), `users`, `submissions`, `test_results` and
+`hints` (never the trace columns), never the sealed problem copies with the hidden tests. A
+test checks that no file in this package names that table or its class (tests/test_api.py).
 """
 
 from __future__ import annotations
@@ -15,12 +15,24 @@ from fastapi import APIRouter, HTTPException, Path, Query, Response
 from sqlalchemy import select, text
 
 from codetutor.api.deps import LimitsDep, SessionDep, UserDep
+from codetutor.api.hints import (
+    HintConflictError,
+    NotFoundError,
+    create_hint,
+    get_own_hint,
+    list_hints,
+    rate_hint,
+)
 from codetutor.api.schemas import (
     FAILED_MESSAGE,
     MAX_ID,
+    HintCreated,
+    HintIn,
+    HintOut,
     LoginIn,
     ProblemOut,
     ProblemSummary,
+    RatingIn,
     ResultOut,
     SubmissionCreated,
     SubmissionIn,
@@ -155,3 +167,86 @@ def my_submissions(
     """My newest submissions (optionally for one problem), newest first."""
     rows = list_submissions(session, user.id, problem_id=problem_id, limit=limit)
     return [SubmissionSummary.model_validate(row) for row in rows]
+
+
+@router.post("/hints", status_code=202)
+def ask_for_hint(
+    body: HintIn,
+    user: UserDep,
+    session: SessionDep,
+    limits: LimitsDep,
+    response: Response,
+) -> HintCreated:
+    """Queue a hint request. 202 Accepted: the tutor worker answers it; poll the Location."""
+    try:
+        hint_id = create_hint(
+            session,
+            user.id,
+            problem_id=body.problem_id,
+            problem_version=body.problem_version,
+            level=body.level,
+            limits=limits,
+            question=body.question,
+            submission_id=body.submission_id,
+            code=body.code,
+        )
+    except RateLimitedError as exc:
+        raise HTTPException(429, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
+    except NotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except UnknownProblemError as exc:
+        raise HTTPException(404, f"no problem {body.problem_id!r}") from exc
+    except ProblemChangedError as exc:
+        raise HTTPException(
+            409, f"this problem changed (now version {exc.current_version}); reload it"
+        ) from exc
+    except HintConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except (InvalidSubmissionError, ValueError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    session.commit()
+    response.headers["Location"] = f"/api/hints/{hint_id}"
+    return HintCreated(id=hint_id, job_status=JobStatus.QUEUED)
+
+
+@router.get("/hints/{hint_id}")
+def get_hint(
+    hint_id: Annotated[int, Path(ge=1, le=MAX_ID)],
+    user: UserDep,
+    session: SessionDep,
+) -> HintOut:
+    """One of my hints: its status, then its text. 404 also for other users' hints."""
+    row = get_own_hint(session, user.id, hint_id)
+    if row is None:
+        raise HTTPException(404, f"no hint {hint_id}")
+    return HintOut.model_validate(row)
+
+
+@router.get("/hints")
+def my_hints(
+    user: UserDep,
+    session: SessionDep,
+    problem_id: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)] = 20,
+) -> list[HintOut]:
+    """My newest hints (optionally for one problem), newest first."""
+    rows = list_hints(session, user.id, problem_id=problem_id, limit=limit)
+    return [HintOut.model_validate(row) for row in rows]
+
+
+@router.put("/hints/{hint_id}/rating")
+def rate(
+    hint_id: Annotated[int, Path(ge=1, le=MAX_ID)],
+    body: RatingIn,
+    user: UserDep,
+    session: SessionDep,
+) -> HintOut:
+    """👍 (1) or 👎 (-1) for one of my finished hints; a new rating replaces the old one."""
+    try:
+        row = rate_hint(session, user.id, hint_id, body.rating)
+    except NotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except HintConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    session.commit()
+    return HintOut.model_validate(row)

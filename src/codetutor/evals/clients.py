@@ -40,6 +40,7 @@ OLLAMA_URL_ENV = "OLLAMA_BASE_URL"
 GEMINI_KEY_ENV = "GEMINI_API_KEY"
 
 DEFAULT_TIMEOUT_S = 120.0  # the first Ollama call also loads the model into the GPU
+OLLAMA_KEEP_ALIVE = "10m"  # how long keep_loaded() keeps an Ollama model in memory
 DEFAULT_MAX_RETRIES = 4
 DEFAULT_BACKOFF_S = 2.0  # waits of about 2, 4, 8, 16 s (each randomly 50-100%: jitter)
 MAX_WAIT_S = 60.0  # never wait longer than this between two attempts
@@ -171,15 +172,40 @@ class _HttpClient:
         kind = type(self).__name__
         return f"{kind}(name={self.name!r}, base_url={self.base_url!r}, model={self.model!r})"
 
-    def _call(self, path: str, body: dict[str, Any], parse: Callable[[bytes, float], T]) -> T:
+    def keep_loaded(self, keep_alive: str = OLLAMA_KEEP_ALIVE) -> None:
+        """Ollama only: load the model now and keep it in memory for `keep_alive` (e.g. "10m").
+
+        Ollama unloads a model 5 minutes after its last request; loading the tutor's 7B again
+        took 13 s (2026-10-05), and 109 s right after a reboot. The request goes to Ollama's
+        own API (the OpenAI-style one can't set this), with no prompt: nothing is generated.
+        """
+        if not self.name.startswith("ollama/"):
+            raise ValueError(f"{self.name}: keep_loaded works only for Ollama models")
+        path, body = self._load_request(keep_alive)
+        root = self.base_url.removesuffix("/v1")
+        self._call(path, body, lambda raw, latency_ms: None, root=root)
+
+    def _load_request(self, keep_alive: str) -> tuple[str, dict[str, Any]]:
+        """The Ollama path and body that load this kind of model (see keep_loaded)."""
+        raise NotImplementedError
+
+    def _call(
+        self,
+        path: str,
+        body: dict[str, Any],
+        parse: Callable[[bytes, float], T],
+        *,
+        root: str | None = None,
+    ) -> T:
         """POST `body` to `path`, then `parse(raw reply, latency_ms)`; retry transient failures.
 
+        `root` replaces the base URL (Ollama's own API is not under /v1).
         Raises QuotaExhaustedError, ModelConfigError, ModelUnavailableError or ModelError.
         """
         attempt = 0
         while True:
             try:
-                raw, latency_ms = self._post_once(path, body)
+                raw, latency_ms = self._post_once(root or self.base_url, path, body)
                 return parse(raw, latency_ms)
             except _Transient as exc:
                 if attempt == self.max_retries:
@@ -206,14 +232,14 @@ class _HttpClient:
             self._next_start = start + self.min_interval_s
         time.sleep(start - now)  # sleep outside the lock, so other threads can book a slot
 
-    def _post_once(self, path: str, body: dict[str, Any]) -> tuple[bytes, float]:
+    def _post_once(self, base_url: str, path: str, body: dict[str, Any]) -> tuple[bytes, float]:
         """One POST: the raw reply and its latency in ms, or an exception of the right kind."""
         self._wait_for_turn()
         headers = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         request = urllib.request.Request(
-            f"{self.base_url}{path}",
+            f"{base_url}{path}",
             data=json.dumps(body).encode("utf-8"),
             headers=headers,
             method="POST",
@@ -279,6 +305,10 @@ class ChatClient(_HttpClient):
     ) -> None:
         super().__init__(name, base_url, model, **options)
         self.extra_body = dict(extra_body or {})
+
+    def _load_request(self, keep_alive: str) -> tuple[str, dict[str, Any]]:
+        # No prompt: Ollama only loads the model (reply "done_reason": "load").
+        return "/api/generate", {"model": self.model, "keep_alive": keep_alive}
 
     def complete(
         self,
@@ -353,6 +383,10 @@ class EmbeddingClient(_HttpClient):
         self.info = info
         self.dimensions = info.dimensions
         self.batch_size = batch_size
+
+    def _load_request(self, keep_alive: str) -> tuple[str, dict[str, Any]]:
+        # Embedding models don't support /api/generate; an empty input list only loads it.
+        return "/api/embed", {"model": self.model, "input": [], "keep_alive": keep_alive}
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """One vector per stored text, sent in batches of `batch_size`."""

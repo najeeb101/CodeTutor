@@ -19,15 +19,17 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from codetutor.db.models import HintRow, HintSource
+from codetutor.db.models import HintRow, HintSource, JobStatus
 from codetutor.evals.clients import ChatModel, Embedder, ModelError
 from codetutor.evals.extract import strip_thinking
 from codetutor.tutor.context import HintRequest, search_text
 from codetutor.tutor.guardrail import check_hint
 from codetutor.tutor.prompt import TUTOR_PROMPT_VERSION, build_messages, retry_message
 from codetutor.tutor.rag import Hit, RetrievalError, SearchMethod, search
+from codetutor.worker.jobs import clean_text
 
 CONTEXT_WINDOW_TOKENS = 4096  # Ollama's default (its FAQ); see the module docstring
 MAX_PROMPT_TOKENS = CONTEXT_WINDOW_TOKENS // 2
@@ -146,7 +148,8 @@ def save_hint(
     user_id: int | None = None,
     submission_id: int | None = None,
 ) -> HintRow:
-    """Store the shown hint and its trace. The caller commits."""
+    """Store a finished hint and its trace (offline runs; the tutor worker fills queued rows
+    with `tutor.jobs.save_hint_result`). The caller commits."""
     row = HintRow(
         user_id=user_id,
         problem_id=request.problem.id,
@@ -155,19 +158,28 @@ def save_hint(
         level=result.level,
         question=request.question,
         student_code=request.code,
-        text=result.text,
-        source=result.source.value,
-        model=result.model,
-        prompt_version=result.prompt_version,
-        settings=result.settings,
-        search_query=result.search_query,
-        retrieved=[asdict(item) for item in result.retrieved],
-        attempts=[asdict(attempt) for attempt in result.attempts],
-        latency_ms=result.latency_ms,
+        job_status=JobStatus.DONE.value,
+        finished_at=func.now(),
+        **result_columns(result),
     )
     session.add(row)
     session.flush()  # assigns row.id
     return row
+
+
+def result_columns(result: HintResult) -> dict[str, Any]:
+    """The `hints` columns that hold a finished hint and its trace."""
+    return {
+        "text": clean_text(result.text),
+        "source": result.source.value,
+        "model": result.model,
+        "prompt_version": result.prompt_version,
+        "settings": result.settings,
+        "search_query": clean_text(result.search_query),
+        "retrieved": [asdict(item) for item in result.retrieved],
+        "attempts": [asdict(attempt) for attempt in result.attempts],
+        "latency_ms": result.latency_ms,
+    }
 
 
 # How a blocked attempt is described to the model in the retry. The guardrail kinds all become

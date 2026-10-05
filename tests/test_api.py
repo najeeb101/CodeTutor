@@ -470,6 +470,10 @@ EXPECTED_ROUTES = {
     ("POST", "/api/submissions"),
     ("GET", "/api/submissions"),
     ("GET", "/api/submissions/{submission_id}"),
+    ("POST", "/api/hints"),
+    ("GET", "/api/hints"),
+    ("GET", "/api/hints/{hint_id}"),
+    ("PUT", "/api/hints/{hint_id}/rating"),
 }
 # Internal fields that must never be part of any request or response.
 FORBIDDEN_FIELDS = {
@@ -480,6 +484,12 @@ FORBIDDEN_FIELDS = {
     "solution_code",
     "buggy",
     "content_hash",
+    # The hint trace (Week 4): blocked attempts can contain solution code.
+    "settings",
+    "retrieved",
+    "search_query",
+    "student_code",
+    "claims",
 }
 
 

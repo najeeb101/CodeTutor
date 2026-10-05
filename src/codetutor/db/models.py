@@ -265,11 +265,15 @@ class NoteChunkRow(Base):
 
 
 class HintRow(Base):
-    """One hint shown to a student, with its full trace (Week 4, docs/tutor.md §3).
+    """One hint for a student, with its full trace (Week 4, docs/tutor.md §3-4).
+
+    The row is also the tutor's job, like `submissions` for grading (Step 3): the API saves a
+    queued row, the tutor worker claims it and fills in the result. Offline runs (scripts,
+    the safety run) insert finished rows and have no user.
 
     `text` is what the student saw. `attempts` keeps every model reply, including blocked ones
-    that may contain code from the solution, so the API must only ever return `text`. Offline
-    runs have no user. `rating` is the student's thumbs up (+1) or down (-1).
+    that may contain code from the solution, so the API must only ever return `text`.
+    `rating` is the student's thumbs up (+1) or down (-1).
     """
 
     __tablename__ = "hints"
@@ -282,6 +286,21 @@ class HintRow(Base):
         CheckConstraint(_one_of("source", HintSource), name="source_known"),
         CheckConstraint("rating IN (-1, 1)", name="rating_known"),
         CheckConstraint("(rating IS NULL) = (rated_at IS NULL)", name="rated_together"),
+        CheckConstraint(_one_of("job_status", JobStatus), name="job_status_known"),
+        # A done job has a hint, and only a done job has one.
+        CheckConstraint("(job_status = 'done') = (text IS NOT NULL)", name="result_iff_done"),
+        CheckConstraint(
+            "text IS NULL OR (source IS NOT NULL AND settings IS NOT NULL "
+            "AND retrieved IS NOT NULL AND attempts IS NOT NULL AND latency_ms IS NOT NULL)",
+            name="result_complete",
+        ),
+        CheckConstraint("rating IS NULL OR job_status = 'done'", name="rated_when_done"),
+        # The tutor worker's claim query, like ix_submissions_claimable.
+        Index(
+            "ix_hints_claimable",
+            "id",
+            postgresql_where=text(_one_of("job_status", [JobStatus.QUEUED, JobStatus.RUNNING])),
+        ),
         Index("ix_hints_user_id_problem_id_created_at", "user_id", "problem_id", "created_at"),
     )
 
@@ -293,15 +312,29 @@ class HintRow(Base):
     level: Mapped[int]
     question: Mapped[str | None]
     student_code: Mapped[str]
-    text: Mapped[str]  # the hint the student saw
-    source: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # --- The job (the tutor worker's bookkeeping, Step 3; same meaning as in submissions) ---
+    job_status: Mapped[str] = mapped_column(server_default=JobStatus.QUEUED.value)
+    # The fencing token. Not `attempts`: that name holds the model's replies (the trace).
+    claims: Mapped[int] = mapped_column(server_default=text("0"))
+    lease_expires_at: Mapped[datetime | None]
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    last_error: Mapped[str | None]  # why the job failed (ours, never shown to the student)
+
+    # --- The hint and its trace. NULL until done. ---
+    text: Mapped[str | None]  # the hint the student saw
+    source: Mapped[str | None]
     model: Mapped[str | None]  # None for level 3 (no model call)
     prompt_version: Mapped[str | None]
-    settings: Mapped[dict[str, Any]] = mapped_column(JSON)  # temperature, seed, search, ...
+    # none_as_null: Python None is SQL NULL here, not JSON null, so the CHECKs above see it.
+    settings: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))
     search_query: Mapped[str | None]
-    retrieved: Mapped[list[Any]] = mapped_column(JSON)  # [{chunk_id, content_hash, score}]
-    attempts: Mapped[list[Any]] = mapped_column(JSON)  # every model reply and why it was blocked
-    latency_ms: Mapped[float]
+    # [{chunk_id, content_hash, score}] of the note sections in the prompt
+    retrieved: Mapped[list[Any] | None] = mapped_column(JSON(none_as_null=True))
+    # every model reply, blocked or not
+    attempts: Mapped[list[Any] | None] = mapped_column(JSON(none_as_null=True))
+    latency_ms: Mapped[float | None]
     rating: Mapped[int | None]
     rated_at: Mapped[datetime | None]
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

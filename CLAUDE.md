@@ -71,12 +71,12 @@ every line in an interview.
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
 - `src/codetutor/db/`: `engine.py`, `models.py` (7 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
-- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (7 endpoints), `submissions.py` (submit + rate limits), `schemas.py`, `deps.py` (session, `current_user`)
-- `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run)
+- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `notes/`
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
@@ -105,8 +105,9 @@ every line in an interview.
   `db-up` / `db-down` / `db-reset` (local Postgres; `db-reset` deletes the data), `db-migrate`
   (`alembic upgrade head`), `db-sync` (migrate + copy the problems in), `notes-sync` (migrate +
   embed the course notes; needs Ollama with `nomic-embed-text`), `worker` (db-sync, then
-  grade queued submissions in Docker until Ctrl+C) and `api` (db-sync, then the HTTP API on
-  127.0.0.1:8000; start it after the worker, two syncs at once are not guarded),
+  grade queued submissions in Docker until Ctrl+C), `tutor` (db-sync + notes-sync, then answer
+  queued hint requests with the local 7B until Ctrl+C; needs Ollama) and `api` (db-sync, then the HTTP API on
+  127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
   `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
@@ -309,6 +310,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   injections 7B 0/10 blocked. **Default model: 7B.** Live 2026-10-05: fizzbuzz L1 good hint but
   109 s (cold model after reboot), L2 warm 5.0 s (retry shown; says "the student's code", not
   "you"). Suite 536 passed, 2 skipped, 1 xfailed (34.9 s); `make all` 55 s.
+- **Done (2026-10-05): Week 4 Step 3a** (hint backend). Migration 0006 (`hints` row = the
+  tutor's job: `job_status`, `claims` fencing token, lease; result columns nullable until done;
+  4 CHECKs; claim index), `tutor/jobs.py` + `tutor/loop.py` (`make tutor`: loads the 7B and
+  the embedder at start, refreshes them every 4 min with keep_alive 10m), `api/hints.py` + 4
+  endpoints (POST 202, GET one, GET list, PUT rating), levels in order (409), 1 waiting hint +
+  10 per 10 min per user (429), only 12 safe fields leave the API. Live (real 7B, buggy
+  fizzbuzz): L1 3.8 s, L2 5.7 s (retry shown), L3 0.8 s, 429/409/404 as planned, ratings
+  stored, heartbeat moved both expiries +10 min, Ctrl+C clean. Model reload after Ollama's
+  unload: 12.0 / 13.3 s. Suite 589 passed, 2 skipped, 1 xfailed (42.3 s); `make all` 56 s;
+  `make test-docker` 33 passed (41 s).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -371,11 +382,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   I add up numbers in a loop"; Q2 why vector search refuses notes embedded by another model;
   Q3 the honest reading of hybrid 40/40 vs vector 39/40. Week 4 Step 2: Q1 why prompts stay
   under 2,048 tokens; Q2 why the retry says only "it contains code"; Q3 why the API may return
-  only `text` from a hints row.
-  (89 in total; answer key in Claude's memory.)
-- **Next action:** Week 4 Step 3 (API + UI: hints and 👍/👎) in plan mode. Must handle the
-  109 s cold-model first hint (warm-up, timeout, or 202 + polling like submissions); return only
-  `text`; rate limit hints. Najeeb: review the 8 notes in `course/notes/`. Also
+  only `text` from a hints row. Week 4 Step 3a: Q1 why the tutor worker makes the hint, not the
+  API; Q2 what `JSON(none_as_null=True)` fixed; Q3 what is in GPU memory 15 min after the
+  tutor worker stops.
+  (92 in total; answer key in Claude's memory.)
+- **Next action:** Week 4 Step 3b (web UI: HintPanel, shared `lib/poll.ts`; e2e hint checks;
+  docs api.md / tutor.md §4 / database.md / README; interview note), plan approved 2026-10-05. Najeeb: review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -763,6 +775,25 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Docker Desktop was not running after a WSL restart; Claude started it with Najeeb's OK
   (`powershell.exe Start-Process`, daemon ready in ~9 s). The Step 2 interview note was missing
   and was added before the commit.
+- 2026-10-05: Week 4 Step 3 (Najeeb approved the plan, D1-D10). **A separate tutor worker**
+  makes hints (the hint needs the sealed problem copy; the API never reads it); **one table**:
+  the `hints` row is the job (`claims` is the fencing counter, since `attempts` already holds
+  the model replies); every level goes through the worker (level 3 too); levels in order
+  (level L needs a done hint of level >= L-1 for this problem); a request is about either my
+  graded submission (same problem and version, else 404/409) or `code`; hint limits in
+  `RateLimits` (1 waiting, 10 per 10 min); `HintOut` has 12 fields, never the trace; rating
+  is changeable (last wins); split into 3a (backend) and 3b (UI + e2e + docs).
+- 2026-10-05: Measured for D9: Ollama reload of the 7B after its idle unload 13.3 s / 12.0 s
+  (109 s only right after a reboot); 7B 4.42 GiB + nomic 0.3 GiB fit together (5.1 of 8 GB
+  used). `/api/generate` with no prompt loads a chat model (`done_reason: "load"`); embedding
+  models refuse `/api/generate`, `/api/embed` with `input: []` loads them. An OpenAI-style
+  chat call kept the earlier 10m keep-alive (expiry = call + 10 min). So the worker loads both
+  at start and refreshes every 4 min (`KEEP_LOADED_EVERY_S`); a failed refresh only logs.
+- 2026-10-05: Found by a test: in a `json` column, Python `None` is stored as JSON `null`,
+  which SQL sees as NOT NULL, so `ck_hints_result_complete` missed a missing `attempts`. The
+  three nullable trace columns use `JSON(none_as_null=True)` (Python side only, no DDL change).
+  The tutor worker's note search uses an AUTOCOMMIT engine copy, so no transaction stays open
+  during a model call.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
