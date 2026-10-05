@@ -298,6 +298,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   for Step 2); recall@1 vector 35/40 > hybrid 33/40. 35 new tests (~4 s). Suite 501 passed,
   2 skipped, 1 xfailed, 34 deselected (50.7 s on battery); `make all` 68.3 s. **Najeeb: review
   the notes** (optionally add questions of his own).
+- **Done (2026-10-03, committed 2026-10-05): Week 4 Step 2** (tutor pipeline). `context.py`
+  (`HintRequest`: student side only, hidden tests as counts, refuses a revealing result),
+  `prompt.py` (`TUTOR_PROMPT_VERSION = "1"`, pinned), `service.py` (`give_hint`: hybrid top 3 →
+  model → guardrail + empty/80-word checks → 1 retry → reference hint; level 3 = reference, no
+  model; `save_hint`), migration 0005 (`hints` = the trace, every attempt kept),
+  `scripts/ask_tutor.py`, safety run (`safety.py`, `scripts/tutor_safety.py`,
+  `lab/tutor/reports/tutor_safety.md`): 97 buggy-code situations per level + 10 injections;
+  first try blocked 7B 3% / 10% (L1 / L2), 1.5B 49% / 29%; reference shown 7B 3% / 1%;
+  injections 7B 0/10 blocked. **Default model: 7B.** Live 2026-10-05: fizzbuzz L1 good hint but
+  109 s (cold model after reboot), L2 warm 5.0 s (retry shown; says "the student's code", not
+  "you"). Suite 536 passed, 2 skipped, 1 xfailed (34.9 s); `make all` 55 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -358,12 +369,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   hints are checked against solution.py although the model never sees it; Q3 why "anything that
   parses as Python is code" was rejected. Week 4 Step 1: Q1 why keyword search missed "how do
   I add up numbers in a loop"; Q2 why vector search refuses notes embedded by another model;
-  Q3 the honest reading of hybrid 40/40 vs vector 39/40.
-  (86 in total; answer key in Claude's memory.)
-- **Next action:** Week 4 Step 2 (tutor pipeline) in plan mode: pinned prompt (student code
-  marked as untrusted data), context without `solution.py`, hybrid search (top 3 sections),
-  model → guardrail → 1 retry → reference hint; `hints` table (migration 0005) as the trace;
-  CLI; model choice measured (7B vs 1.5B). Najeeb: review the 8 notes in `course/notes/`. Also
+  Q3 the honest reading of hybrid 40/40 vs vector 39/40. Week 4 Step 2: Q1 why prompts stay
+  under 2,048 tokens; Q2 why the retry says only "it contains code"; Q3 why the API may return
+  only `text` from a hints row.
+  (89 in total; answer key in Claude's memory.)
+- **Next action:** Week 4 Step 3 (API + UI: hints and 👍/👎) in plan mode. Must handle the
+  109 s cold-model first hint (warm-up, timeout, or 202 + polling like submissions); return only
+  `text`; rate limit hints. Najeeb: review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -735,6 +747,22 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   joined by `|` (no user operators). The notes are ruff-formatted (ruff formats Python blocks in
   Markdown; `course/` is not excluded). Questions written before the notes (from the buggy
   files); 4 of 40 have two relevant sections, labelled after the notes existed.
+- 2026-10-03: Week 4 Step 2. Measured: Ollama's default window is 4,096 tokens and our
+  OpenAI-style calls can't change it; prompts of ~5,400 and ~18,000 tokens were cut to ~2,050
+  tokens keeping the END (system message lost, the model made up the code word), and reported
+  fewer tokens than the window. Rule: estimate `ceil(chars / 3)` < 2,048 before sending;
+  reported `prompt_tokens` >= 2,048 = "maybe cut", never shown (lowest seen: 3.42 chars/token).
+  The retry names only the kind of problem ("it contains code"), never the blocked line. The
+  model gets reference hints up to the current level, never hint 3. Student code and question
+  sit in fences longer than any backtick run inside them. `give_hint` never raises for model or
+  search failures (failed search = no notes, error kept; failed call = reference hint, no retry
+  here: the client retries transient errors). Settings: 7B, temperature 0.2, seed 0,
+  max_tokens 300, 80 words. The safety run strips the buggy files' comments
+  (`without_comments`), since they explain the bug.
+- 2026-10-05: Step 2 committed in a new session (the earlier session ended before its STOP).
+  Docker Desktop was not running after a WSL restart; Claude started it with Najeeb's OK
+  (`powershell.exe Start-Process`, daemon ready in ~9 s). The Step 2 interview note was missing
+  and was added before the commit.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
@@ -756,6 +784,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The worker can't tell a Docker daemon failure mid-run from a student crash: both are saved as `crashed` (idea in ideas.md). A dead worker's job waits up to the 5 min lease. FIFO across users (no fairness yet).
 - The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
 - The retrieval eval is small and optimistic: 40 questions (one = 2.5 points), and the same author (Claude) wrote the notes and the questions. `embed_model` stores the embedder's name, not the model digest, so a re-pulled model doesn't trigger re-embedding (docs/tutor.md §2.5).
+- The tutor's first hint after a model load can take ~110 s (measured 109 s after a reboot);
+  warm hints take ~1–5 s. Hint quality (does it help? does it follow "talk as you"?) is not
+  measured yet (Step 4). The `hints` table keeps blocked attempts, which may contain solution
+  code: only `text` may ever leave the server.
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
