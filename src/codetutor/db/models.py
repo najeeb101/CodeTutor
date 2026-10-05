@@ -77,6 +77,14 @@ class JobStatus(StrEnum):
     FAILED = "failed"  # gave up after retries (a system problem, not the student's mistake)
 
 
+class HintSource(StrEnum):
+    """Where a shown hint came from (Week 4, docs/tutor.md §3)."""
+
+    MODEL = "model"  # the model wrote it and it passed every check
+    FALLBACK = "fallback"  # the model's hints were blocked or failed: the reference hint
+    REFERENCE = "reference"  # level 3: the bottom-out reference hint, no model call
+
+
 def _one_of(column: str, values: Iterable[StrEnum]) -> str:
     """SQL for a CHECK that `column` holds one of the enum's values, e.g. "x IN ('a', 'b')".
 
@@ -254,3 +262,46 @@ class NoteChunkRow(Base):
     embed_model: Mapped[str]  # the embedder's name, e.g. "ollama/nomic-embed-text"
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class HintRow(Base):
+    """One hint shown to a student, with its full trace (Week 4, docs/tutor.md §3).
+
+    `text` is what the student saw. `attempts` keeps every model reply, including blocked ones
+    that may contain code from the solution, so the API must only ever return `text`. Offline
+    runs have no user. `rating` is the student's thumbs up (+1) or down (-1).
+    """
+
+    __tablename__ = "hints"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["problem_id", "problem_version"],
+            ["problem_versions.problem_id", "problem_versions.version"],
+        ),
+        CheckConstraint("level BETWEEN 1 AND 3", name="level_known"),
+        CheckConstraint(_one_of("source", HintSource), name="source_known"),
+        CheckConstraint("rating IN (-1, 1)", name="rating_known"),
+        CheckConstraint("(rating IS NULL) = (rated_at IS NULL)", name="rated_together"),
+        Index("ix_hints_user_id_problem_id_created_at", "user_id", "problem_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id"))
+    problem_id: Mapped[str]
+    problem_version: Mapped[int]
+    submission_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("submissions.id"))
+    level: Mapped[int]
+    question: Mapped[str | None]
+    student_code: Mapped[str]
+    text: Mapped[str]  # the hint the student saw
+    source: Mapped[str]
+    model: Mapped[str | None]  # None for level 3 (no model call)
+    prompt_version: Mapped[str | None]
+    settings: Mapped[dict[str, Any]] = mapped_column(JSON)  # temperature, seed, search, ...
+    search_query: Mapped[str | None]
+    retrieved: Mapped[list[Any]] = mapped_column(JSON)  # [{chunk_id, content_hash, score}]
+    attempts: Mapped[list[Any]] = mapped_column(JSON)  # every model reply and why it was blocked
+    latency_ms: Mapped[float]
+    rating: Mapped[int | None]
+    rated_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

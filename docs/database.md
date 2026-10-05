@@ -28,6 +28,7 @@ users ──────────────< submissions >─────�
 | `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) | API, worker |
 | `test_results` | one row per test of a graded submission (a `TestResult`) | API, Week 5 analytics |
 | `note_chunks` (Week 4) | one row per `##` section of a course note (`course/notes/`): text, `content_hash`, `embed_model`, and `embedding vector(768)` (pgvector). Replaced in place when a note changes; `make notes-sync` fills it | the tutor's search ([tutor.md](tutor.md) §2) |
+| `hints` (Week 4) | every hint shown to a student, with its **trace**: the shown `text`, `source` (model / fallback / reference), level, the student's code and question, the found note sections, every model attempt (incl. blocked ones, which may contain solution code: never return them to a student), settings, time; `rating` / `rated_at` for 👍/👎 | the tutor; later the API (only `text`), the Week 6–7 dataset |
 
 `problem_versions` / `problems` is the same split as `dist/problems.jsonl` /
 `problems_student.jsonl`: the internal view for grading, and the student view for everyone else.

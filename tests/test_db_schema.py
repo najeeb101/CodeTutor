@@ -27,7 +27,15 @@ from codetutor.grader.models import GradeStatus, TestStatus
 from codetutor.settings import database_url_for_tests
 from conftest import alembic_config, recreate_database
 
-TABLES = {"users", "problem_versions", "problems", "submissions", "test_results", "note_chunks"}
+TABLES = {
+    "users",
+    "problem_versions",
+    "problems",
+    "submissions",
+    "test_results",
+    "note_chunks",
+    "hints",
+}
 
 # A complete result, so a submission may be `done` (see ck_submissions_result_complete).
 DONE: dict[str, Any] = {

@@ -412,3 +412,18 @@ conditions). Two honest caveats: 40 questions means one question = 2.5 points, a
 person wrote the notes and the questions, so the numbers are optimistic.
 *How I'd say it:* "I evaluate retrieval separately from generation, with recall@k against a
 keyword baseline, I read the misses, and I say how big the eval set is and who labelled it."
+
+## Silent context truncation, and defense in depth for an LLM feature (Week 4, Step 2)
+An LLM feature fails quietly. The tutor showed two ways. (1) **Silent truncation:** Ollama
+gives a model a 4,096-token window by default. Measured: a longer prompt was cut to about
+2,050 tokens, *keeping the end*, so the system message with the rules was gone. The reply
+looked normal, and the reported prompt size was *below* the window, so a "close to the limit"
+check would never fire. Fix: keep prompts under half the window (estimate before sending, and
+treat a reported size at half the window or more as "maybe cut"). (2) **Several layers, each
+measured:** the prompt says "no code" and marks the student's text as data (prompt injection);
+the output guardrail blocks code anyway; one retry; then a teacher-written fallback hint. Every
+attempt, including blocked ones, is saved as a trace row. Measured on 97 buggy-code situations:
+the 7B's first try was blocked 3% (level 1) / 10% (level 2), the 1.5B's 49% / 29%, so the
+size of the model decides how often the fallback is shown.
+*How I'd say it:* "I don't trust the prompt alone: the output is checked, failures fall back to
+a safe answer, and every attempt is logged, so I can count how often each layer was needed."

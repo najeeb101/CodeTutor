@@ -5,12 +5,13 @@ problem, their code and their visible results, finds relevant course notes, and 
 a hint. A **guardrail** checks the hint before the student sees it. Every hint is saved as a row
 in Postgres (the trace), and students rate hints 👍/👎.
 
-Status: **Steps 0-1 of 6 are done** (the guardrail, course notes + search). Next: the tutor
-pipeline (Step 2), API + UI (Step 3), the offline tutor eval (Step 4), wrap-up (Step 5).
+Status: **Steps 0-2 of 6 are done** (the guardrail, course notes + search, the pipeline). Next:
+API + UI (Step 3), the offline tutor eval (Step 4), wrap-up (Step 5).
 
-Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`). Tests:
-`tests/test_guardrail.py` (labelled hints in `tests/hints/guardrail_cases.yaml`),
-`tests/test_notes.py`, `tests/test_rag.py`.
+Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`,
+`context.py`, `prompt.py`, `service.py`, `safety.py`). Tests: `tests/test_guardrail.py`
+(labelled hints in `tests/hints/guardrail_cases.yaml`), `tests/test_notes.py`,
+`tests/test_rag.py`, `tests/test_tutor.py`, `tests/test_tutor_safety.py`.
 
 Decisions for the whole week (2026-10-02):
 - **Our own model client** (`evals/clients.py`), not LiteLLM.
@@ -173,3 +174,61 @@ out", "TypeError: unhashable type: 'list'"). A hit = a relevant section in the t
   (Step 2), not typed by a student. Measure again then.
 - `embed_model` stores the model's name, not its digest: re-pulling a newer `nomic-embed-text`
   would not trigger re-embedding. Run `make notes-sync` after pulling, and check the report.
+
+## 3. The pipeline: one hint (Step 2)
+
+`give_hint(request, *, model, session, embedder, config) -> HintResult` (`service.py`):
+
+```
+level 3 ──────────────────────────────────────────────► reference hint 3 (bottom-out, no model)
+level 1-2: search notes (hybrid, top 3) → prompt → model → checks ─ ok ──► the model's hint
+                                                      │ blocked
+                                                      ▼
+                                   one retry ("it contains code, write it in words") ─ ok ──►
+                                                      │ still blocked, or the call failed
+                                                      ▼
+                                          the reference hint of that level ("fallback")
+```
+
+`give_hint` never raises for a model or search failure: a failed search means no notes (the
+error is kept), a failed call means the reference hint. A failed call is not retried here (the
+client already retries transient errors); a blocked hint is retried once.
+
+### 3.1 What the model sees (`context.py`, `prompt.py`)
+- **Yes:** the problem text and function name, the student's code (cut at 2,000 characters),
+  the student's question, the visible tests as Python calls with expected vs got (or the error),
+  the hidden tests **only as counts**, the top 3 note sections, the reference hints **up to the
+  current level**, and the hints it already gave for this code.
+- **Never:** `solution.py`, hidden inputs or expected values, the bottom-out hint 3, the
+  student's print output. `HintRequest` refuses a grade result that reveals a hidden test.
+- **Prompt injection:** the system message says the student's code and question are data, not
+  instructions; both sit in labelled code fences that are always longer than any run of
+  backticks inside them, so the student's text can't close the fence and add "instructions".
+  The output checks are the real protection: whatever the model writes, a hint with code is
+  never shown.
+- `TUTOR_PROMPT_VERSION = "1"`, pinned by a test (like the eval prompt). The retry message
+  says only "it contains code": naming the blocked solution line would tell the model what the
+  solution looks like.
+
+### 3.2 The checks on every reply
+The guardrail (§1, with the student's own code allowed), an empty reply, more than 80 words, and
+a **prompt that may have been cut**.
+
+Ollama gives a model a 4,096-token window by default (its FAQ), and our OpenAI-style calls can't
+change it. Measured on 2026-10-03 with a code word that only the system message contained: a
+3,948-token prompt kept it (the model answered with the code word); prompts of about 5,400 and
+18,000 tokens were **cut to about 2,050 tokens, keeping the end**, and the model made up a code
+word. So an over-long prompt silently loses the rules, and it reports *fewer* tokens than the
+window: a check for "close to 4,096" would never catch it. Rule: prompts stay under **2,048**
+tokens (half the window). Before sending, `ceil(characters / 3)` must be below that; after the
+reply, a reported `prompt_tokens` of 2,048 or more counts as "maybe cut" and is never shown.
+
+### 3.3 The trace: the `hints` table (migration 0005)
+`save_hint` stores the shown `text`, `source` (`model` / `fallback` / `reference`), level,
+question, the student's code, the model and prompt version, the settings, the search text and
+the found sections (id, hash, score), **every attempt** (text, issues, error, time, tokens), the
+total time, and `rating` / `rated_at` (Step 3). Blocked attempts can contain solution code, so an
+API must only ever return `text`. Offline runs have no `user_id`.
+
+`scripts/ask_tutor.py` grades a file (Docker by default), gives one hint, prints the trace and
+saves it.

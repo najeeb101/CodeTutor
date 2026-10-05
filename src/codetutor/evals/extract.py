@@ -64,6 +64,11 @@ class _Block:
         return self.tag.lower() in PYTHON_TAGS
 
 
+def strip_thinking(reply: str) -> str:
+    """`reply` without <think>...</think> sections (also used for tutor hints, Week 4)."""
+    return _THINK.sub("", reply)
+
+
 def _clean(code: str) -> str:
     """Remove common indentation (blocks inside Markdown lists are indented) and blank edges."""
     return textwrap.dedent(code).strip("\n")
@@ -83,7 +88,7 @@ def _pick_block(blocks: list[_Block], function_name: str) -> _Block:
 def extract_code(reply: str, function_name: str) -> Extraction:
     """Return the code to grade from a model's `reply` (see the module docstring for the rules)."""
     text = reply.replace("\r\n", "\n").replace("\r", "\n")
-    text = _THINK.sub("", text)
+    text = strip_thinking(text)
     blocks = [
         _Block(tag=match["tag"], code=_clean(match["code"])) for match in _FENCE.finditer(text)
     ]

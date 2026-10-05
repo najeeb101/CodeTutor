@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from codetutor.db.engine import make_engine
 from codetutor.db.models import EMBEDDING_DIMENSIONS, Base
+from codetutor.evals.records import ModelReply
 from codetutor.settings import database_url_for_tests
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -217,3 +218,27 @@ class HashingEmbedder:
             vector[0] = 1.0  # pgvector's cosine distance of an all-zero vector is NaN
         norm = math.sqrt(sum(value * value for value in vector))
         return [value / norm for value in vector]
+
+
+class ScriptedModel:
+    """A fake chat model: answers from a list (text, a ModelReply, or an exception to raise)."""
+
+    name = "fake/scripted"
+
+    def __init__(self, *replies: str | ModelReply | Exception) -> None:
+        self.replies = list(replies)
+        self.calls: list[list[dict[str, str]]] = []
+
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        temperature: float,
+        max_tokens: int,
+        seed: int | None = None,
+    ) -> ModelReply:
+        self.calls.append(messages)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply if isinstance(reply, ModelReply) else ModelReply(text=reply, prompt_tokens=900)

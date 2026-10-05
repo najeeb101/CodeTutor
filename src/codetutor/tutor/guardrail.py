@@ -105,6 +105,22 @@ def _without_comments(code: str) -> list[str]:
     return lines
 
 
+def without_comments(code: str) -> str:
+    """`code` with its `# comments` removed; lines that held only a comment are dropped.
+
+    A `#` inside a string stays. Used for the bank's buggy files, whose comments explain the
+    bug: a real student's code doesn't. `code` must be valid Python.
+    """
+    original = code.splitlines()
+    cut = _without_comments(code)
+    kept = [
+        line.rstrip()
+        for line, old in zip(cut, original, strict=True)
+        if line.strip() or not old.strip()
+    ]
+    return "\n".join(kept) + "\n"
+
+
 def squash(text: str) -> str:
     """`text` without whitespace and with one quote style, so `x = 'a'` matches `x="a"`.
 
