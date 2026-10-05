@@ -5,13 +5,14 @@ problem, their code and their visible results, finds relevant course notes, and 
 a hint. A **guardrail** checks the hint before the student sees it. Every hint is saved as a row
 in Postgres (the trace), and students rate hints 👍/👎.
 
-Status: **Steps 0-2 of 6 are done** (the guardrail, course notes + search, the pipeline). Next:
-API + UI (Step 3), the offline tutor eval (Step 4), wrap-up (Step 5).
+Status: **Steps 0-3 of 6 are done** (the guardrail, course notes + search, the pipeline, the
+tutor worker + API + UI). Next: the offline tutor eval (Step 4), wrap-up (Step 5).
 
 Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`,
-`context.py`, `prompt.py`, `service.py`, `safety.py`). Tests: `tests/test_guardrail.py`
-(labelled hints in `tests/hints/guardrail_cases.yaml`), `tests/test_notes.py`,
-`tests/test_rag.py`, `tests/test_tutor.py`, `tests/test_tutor_safety.py`.
+`context.py`, `prompt.py`, `service.py`, `safety.py`, `jobs.py`, `loop.py`). Tests:
+`tests/test_guardrail.py` (labelled hints in `tests/hints/guardrail_cases.yaml`),
+`tests/test_notes.py`, `tests/test_rag.py`, `tests/test_tutor.py`, `tests/test_tutor_safety.py`,
+`tests/test_tutor_jobs.py`, `tests/test_api_hints.py`.
 
 Decisions for the whole week (2026-10-02):
 - **Our own model client** (`evals/clients.py`), not LiteLLM.
@@ -232,3 +233,69 @@ API must only ever return `text`. Offline runs have no `user_id`.
 
 `scripts/ask_tutor.py` grades a file (Docker by default), gives one hint, prints the trace and
 saves it.
+
+## 4. The tutor worker, the API and the UI (Step 3)
+
+```
+browser ──POST /api/hints──► API ──insert hints row (queued)──► Postgres
+   ▲                                                              │ claim (SKIP LOCKED + lease)
+   └──GET /api/hints/{id} (poll 1 s)◄── text when done ◄── tutor worker: give_hint → save
+```
+
+**Why a separate worker, not the API.** A hint needs the sealed problem copy: the solution
+for the guardrail and the teacher's hints. Only the workers read `problem_versions`; the API
+never does (a source-scan test). So the API only saves a request, and `make tutor`
+(`scripts/tutor_worker.py`, `tutor/loop.py`) answers it. This also keeps a slow model off the
+API's request threads.
+
+**The queue** (`tutor/jobs.py`) is the grading queue's design ([worker.md](worker.md)): the
+`hints` row is the job (migration 0006), `FOR UPDATE SKIP LOCKED` claims, a 5-minute lease,
+`claims` as the fencing token (a late save after a lost lease writes nothing), 3 claims then
+`failed`. A model that is down or writes code is **not** a job error: `give_hint` already
+falls back to the teacher's hint, so the student always gets one. Job errors are ours
+(database, a broken problem copy). While the model works, no transaction is open: the note
+search reads through an AUTOCOMMIT engine copy.
+
+**What the worker gives `give_hint`:** the sealed problem copy, the code, the level and the
+question, the submission's stored result (graded with `reveal_hidden=False`) when the request
+is about a submission, and up to 3 earlier hints of this user for the same code ("don't repeat
+them").
+
+**Keeping the model loaded.** Ollama unloads a model 5 minutes after its last request.
+Measured on 2026-10-05: loading the 7B again took **13.3 s and 12.0 s** (109 s right after a
+reboot, with a cold disk); the 7B (4.42 GiB) and nomic-embed-text (0.3 GiB) fit on the GPU
+together (5.1 of 8 GB used). So the worker loads both at start (`keep_loaded()` in
+`evals/clients.py`: Ollama's own `/api/generate` with no prompt for the chat model,
+`/api/embed` with an empty list for the embedder, `keep_alive: "10m"`) and refreshes them
+every 4 minutes. Checked live: at the 4-minute mark both expiry times moved 10 minutes ahead.
+When the worker stops, Ollama unloads both 10 minutes later by itself. A failed refresh only
+logs a warning. If the model can't be reached at start, the worker stops with a clear message:
+running on fallbacks only would be silent.
+
+**Levels, limits, rating** (the API side, [api.md](api.md)): levels go in order (1 → 2 → the
+last hint); 1 waiting request and 10 per 10 minutes per user; the API returns only the 12
+fields of `HintOut`, never the trace; 👍/👎 is changeable, the last one wins.
+
+**The UI** (`web/components/HintPanel.tsx`): an optional question, "Get a hint" (level 1, then
+"Get a more specific hint" for level 2), "Show the last hint" after level 2 with a warning
+("gives away most of the answer"), each hint with its level and source ("from the AI tutor" /
+"from your teacher") and 👍/👎. The hint is about the shown submission when the editor holds
+exactly its code, else about the editor's code. While waiting: "The tutor is thinking…", and
+after 10 s "The first hint after a break can take up to 2 minutes". A request still waiting
+after a page reload is followed again.
+
+**Measured live (2026-10-05, real 7B, buggy fizzbuzz):** level 1 3.8 s and level 2 5.7 s from
+request to answer (the level 2 reply was blocked once, the retry was shown), level 3 0.8 s
+(no model call; the worker polls every second). `make e2e`: 11/11 checks (the hint 5.5 s);
+`make web-e2e`: 9/9 (ask + 👍 in the browser 2.8 s; the rated hint is still shown after a
+reload; gone after logout).
+
+### 4.1 Limitations
+- With temperature 0.2 and seed 0 the same situation gives the same hint word for word. A
+  student who asks again about the same code gets a different prompt (the earlier hint is in
+  it), so usually a different hint.
+- The level 2 hint for fizzbuzz says "The student's code…" although the prompt says "talk as
+  you", and it nearly states the fix. Hint quality is measured in Step 4, not here.
+- One tutor worker answers one hint at a time (one GPU). With many students the queue grows;
+  `Retry-After` and the 1-waiting limit keep it fair, not fast.
+- The model's name is stored per hint, but not the Ollama model digest (same as the notes).

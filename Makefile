@@ -49,10 +49,10 @@ web-check:  ## type-check and build the web UI (production build)
 web/node_modules:
 	cd web && npm ci
 
-e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make api`, `make web`)
+e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py
 
-web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs the 3 servers; CHROME=... overrides)
+web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs the 4 servers; CHROME=... overrides)
 	cd web && npm run e2e
 
 test: db-up  ## run the test suite (without the Docker and slow tests); starts the database first

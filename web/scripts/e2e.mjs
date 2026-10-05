@@ -1,5 +1,5 @@
-// Browser end-to-end check of the running web UI (make web-e2e). Needs the three servers:
-// `make worker`, `make api`, `make web`. No packages: Chrome is remote-controlled through its
+// Browser end-to-end check of the running web UI (make web-e2e). Needs the four servers:
+// `make worker`, `make tutor`, `make api`, `make web`. No packages: Chrome is remote-controlled through its
 // DevTools protocol over Node 24's built-in WebSocket.
 //
 // It starts its own headless Chrome with a throw-away profile (deleted at the end) and the
@@ -218,6 +218,17 @@ function steps(page) {
       expect(await page.js("document.body.textContent.includes('A hidden test failed')"), "no hidden-test hint");
       return `${heading}; ${hiddenFailed.length} hidden failures without details`;
     }],
+    ["ask the tutor about it, then rate the hint", async () => {
+      const about = await page.js("document.querySelector('.hints')?.textContent ?? ''");
+      expect(about.includes("your submission #"), "the hint panel is not about the graded submission");
+      await page.js("[...document.querySelectorAll('.hints button')].find((b) => b.textContent === 'Get a hint').click()");
+      const text = await waitFor(() => page.js("document.querySelector('.hint .hint-text')?.textContent"), "the hint (is `make tutor` running?)", 150_000);
+      const label = await page.js("document.querySelector('.hint p.muted').textContent");
+      expect(label.startsWith("Hint level 1"), `got "${label}"`);
+      await page.js("document.querySelector('.hint button[aria-label=Helpful]').click()");
+      await waitFor(() => page.js("document.querySelector('.hint button[aria-label=Helpful]').getAttribute('aria-pressed') === 'true'"), "the 👍 to be saved", 10_000);
+      return `${label}: "${text.slice(0, 60)}…" 👍`;
+    }],
     ["fast submits hit the 'waiting' limit", async () => {
       for (let click = 1; click <= 6; click++) {
         await waitFor(() => page.js("!document.querySelector('button.primary').disabled"), "the submit button");
@@ -237,13 +248,15 @@ function steps(page) {
       expect((await page.js("monaco.editor.getModels()[0].getValue()")) === BUGGY, "the draft was not kept");
       expect(await page.js(`document.querySelector('.login').textContent.includes(${JSON.stringify(USER)})`), "logged out by the reload");
       const history = await waitFor(() => page.js("document.querySelectorAll('.history li').length"), "the submission list");
-      return `draft kept, ${history} submissions listed`;
+      await waitFor(() => page.js("document.querySelector('.hint button[aria-label=Helpful]')?.getAttribute('aria-pressed') === 'true'"), "the rated hint after reload", 10_000);
+      return `draft kept, ${history} submissions listed, the rated hint still shown`;
     }],
     ["log out", async () => {
       await page.js("[...document.querySelectorAll('.login button')].find((b) => b.textContent === 'Log out').click()");
       await waitFor(() => page.js("!!document.querySelector('.login input')"), "the login form");
       expect(await page.js("document.querySelectorAll('.history li').length === 0"), "the old user's submissions are still shown");
-      return "login form back, submissions hidden";
+      expect(await page.js("document.querySelectorAll('.hint').length === 0"), "the old user's hints are still shown");
+      return "login form back, submissions and hints hidden";
     }],
     ["no errors in the browser console", async () => {
       expect(page.consoleErrors.length === 0, JSON.stringify(page.consoleErrors));

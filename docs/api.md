@@ -1,12 +1,15 @@
-# HTTP API (Week 3)
+# HTTP API (Weeks 3-4)
 
 FastAPI service for the web UI (Step 4): list problems, show one problem (student view), log
-in by name, submit code, read the result, list my submissions. The API **never grades**. It
-saves the submission row (that row is the job, [worker.md](worker.md)), and a worker grades it.
+in by name, submit code, read the result, list my submissions, and (Week 4) ask the AI tutor
+for a hint and rate it. The API **never grades and never writes hints**. It saves a row (that
+row is the job), and a worker does the work: the grading worker ([worker.md](worker.md)) or
+the tutor worker ([tutor.md](tutor.md) §4).
 
 Code: `src/codetutor/api/` (`app.py` builds the app, `routes.py` has the endpoints,
-`submissions.py` the submit logic and rate limits, `schemas.py` the request/response models,
-`deps.py` the session and the logged-in user). Tests: `tests/test_api.py`.
+`submissions.py` the submit logic and rate limits, `hints.py` the hint requests and ratings,
+`schemas.py` the request/response models, `deps.py` the session and the logged-in user).
+Tests: `tests/test_api.py`, `tests/test_api_hints.py`.
 
 ## 1. Endpoints (all under `/api`)
 
@@ -19,6 +22,10 @@ Code: `src/codetutor/api/` (`app.py` builds the app, `routes.py` has the endpoin
 | `POST /api/submissions` `{"problem_id","problem_version","code"}` | yes | rate limits (§4), then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
 | `GET /api/submissions/{id}` | yes | status, code, and the result once done | 200; 404 missing **or someone else's** |
 | `GET /api/submissions?problem_id=&limit=20` | yes | my submissions, newest first (limit 1–100) | 200 list of summaries (no code) |
+| `POST /api/hints` `{"problem_id","problem_version","level", "submission_id" or "code", "question"?}` | yes | rate limits (§4), level order, then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
+| `GET /api/hints/{id}` | yes | status, then the hint `text` and `source` | 200; 404 missing **or someone else's** |
+| `GET /api/hints?problem_id=&limit=20` | yes | my hints, newest first (limit 1–100) | 200 list |
+| `PUT /api/hints/{id}/rating` `{"rating": 1 or -1}` | yes | 👍 / 👎; a new rating replaces the old one | 200 the hint; 404; 409 not done yet; 422 |
 
 FastAPI also serves its automatic documentation at `http://127.0.0.1:8000/docs`.
 `test_the_api_has_exactly_the_planned_endpoints` pins this list: a new endpoint needs a
@@ -29,6 +36,24 @@ Grading takes 1–38 s, so a submit answers at once with **202 Accepted** and th
 URL in `Location`. The UI then asks `GET /api/submissions/{id}` about once a second until
 `job_status` is `done` (the `result` is filled) or `failed`. Measured live: the submit request
 took 0.05 s, and a fizzbuzz result was ready 1.1 s later (worker in Docker).
+
+### Ask for a hint, then poll (Week 4)
+The same pattern as submitting: `POST /api/hints` answers **202** with the hint's URL, the
+tutor worker writes the hint (warm: 1–5 s; the live check had answers 3.8 s and 5.7 s after the
+request), and the UI polls `GET /api/hints/{id}`. A hint answer has 12 fields: `id`,
+`problem_id`, `problem_version`, `submission_id`, `level`, `question`, `created_at`,
+`job_status`, `text` (null until done), `source`, `rating`, `message`.
+- **What it is about:** exactly one of `submission_id` (my graded submission of this problem
+  and version: the tutor sees its visible results and the hidden pass/fail count) or `code`
+  (not graded yet). A submission that isn't graded yet → 409; someone else's → 404.
+- **Levels in order:** 1 (a nudge) → 2 (more specific) → 3 (the teacher's last hint, which
+  gives most of the answer). Level L needs a finished hint of level L−1 or higher for this
+  problem first, else 409 `"ask for a level L-1 hint first"`. Asking again at a level is fine.
+- **`source`:** `"model"` (the AI tutor wrote it and it passed every check), `"fallback"` (the
+  tutor's hints were blocked or the model failed: the teacher's hint of that level),
+  `"reference"` (level 3). The UI says "from the AI tutor" or "from your teacher".
+- **Rating:** only my finished hints; the last rating wins (`rated_at` is updated). Ratings
+  are the preference data for Weeks 6–7.
 
 ### Display text (Python `repr`)
 Values that a student sees also come as text, formatted by Python's `repr()` and cut at 500
@@ -50,8 +75,8 @@ The raw JSON values stay in the answer too. The eval prompt shows models the sam
 | Code | When | `detail` |
 |---|---|---|
 | 401 | no `X-User-Id` header, or an unknown user id | text |
-| 404 | unknown or retired problem; a submission that is missing or not yours | text |
-| 409 | `problem_version` is not the current version (a sync ran after the student loaded it): reload the problem | text |
+| 404 | unknown or retired problem; a submission or hint that is missing or not yours | text |
+| 409 | `problem_version` is not the current version (a sync ran after the student loaded it): reload the problem. Hints also: the previous level first; the submission isn't graded yet or is on an older version; rating a hint that isn't done | text |
 | 422 | the request doesn't match its model, or the code can't be accepted (too long, NUL) | list of `{type, loc, msg}`, or text |
 | 429 | a rate limit (§4); the `Retry-After` header says how many seconds to wait | text |
 | 503 | the database can't be reached | text |
@@ -77,7 +102,13 @@ client then sends `X-User-Id: <id>` with every request that needs a user. One de
   error: `revealed: false`, with `input`/`expected`/`actual` null. A student learns *that* a
   hidden test failed, never its input.
 - **Internal job details:** a failed job shows one fixed `message` ("Grading failed because
-  of a problem on our side, not your code. Please submit again."), never `last_error`.
+  of a problem on our side, not your code. Please submit again."), never `last_error`. The
+  same for a failed hint job (`HINT_FAILED_MESSAGE`).
+- **The hint trace:** a `hints` row keeps every model attempt, including blocked ones that
+  can contain solution code, plus the settings and the found note sections. The API selects
+  only the 11 columns of `HINT_COLUMNS` (`api/hints.py`) and never the trace.
+  `test_the_trace_never_leaves_the_api` makes the fake model write a solution line first
+  (blocked) and checks that no answer contains it.
 - **Allow-list:** every endpoint has a pydantic response model, so a field that isn't listed
   is dropped even if a query loaded it. `test_no_internal_field_is_part_of_the_api` checks
   the published OpenAPI schema for `last_error`, `attempts`, `hints`, `solution_code`,
@@ -88,13 +119,17 @@ client then sends `X-User-Id: <id>` with every request that needs a user. One de
   exist (403 would say "it exists, but it's not yours").
 
 ## 4. Rate limits
-Counted in Postgres from the `submissions` table itself (`api/submissions.py`), not in memory.
+Counted in Postgres from the `submissions` and `hints` tables themselves
+(`find_limit_hit` in `api/submissions.py`), not in memory.
 So they survive restarts and hold across several API processes. Limits (`RateLimits`, tests pass
 smaller ones):
 - at most **3 waiting** (queued or running) submissions per user → 429, `Retry-After: 2`.
   This is the fairness rule: one user holds at most 3 places in the queue.
 - at most **10 submissions per 60 s** per user (a sliding window) → 429, and `Retry-After` is
   the time until the oldest one leaves the window (live: `Retry-After: 51`).
+- hints (Week 4): at most **1 waiting** hint request per user (`Retry-After: 2`; a warm hint
+  takes 1–5 s of GPU time) and at most **10 per 10 minutes**. The same user-row lock;
+  `test_requests_at_the_same_moment_never_pass_the_limit` (hints) lets exactly 5 of 12 in.
 
 **The race and the lock.** "Count, then insert" is a *check-then-act race*: two submits at the
 same moment can both count 9 and both insert. So `create_submission` first locks the user's
@@ -112,10 +147,11 @@ index (1.3 ms).
 ## 5. Commands
 ```bash
 make worker   # terminal 1: db-sync, then grade in Docker
-make api      # terminal 2 (after the worker has started): db-sync, then http://127.0.0.1:8000
-make web      # terminal 3: the web UI on http://localhost:3100 (web/README.md)
+make tutor    # terminal 2: db-sync + notes-sync, then answer hint requests (needs Ollama)
+make api      # terminal 3 (after the workers have started): db-sync, then http://127.0.0.1:8000
+make web      # terminal 4: the web UI on http://localhost:3100 (web/README.md)
 ```
-Start them one after the other: both run `db-sync`, and two syncs at once are not guarded
+Start them one after the other: they all run `db-sync`, and two syncs at once are not guarded
 (database.md §6).
 
 ```bash
@@ -130,6 +166,14 @@ curl -s -i -X POST http://127.0.0.1:8000/api/submissions -H 'X-User-Id: 1' \
 # HTTP/1.1 202 Accepted ... location: /api/submissions/<id>
 curl -s http://127.0.0.1:8000/api/submissions/<id> -H 'X-User-Id: 1'
 curl -s 'http://127.0.0.1:8000/api/submissions?limit=5' -H 'X-User-Id: 1'
+# A hint about that (graded) submission, then its text, then 👍:
+curl -s -i -X POST http://127.0.0.1:8000/api/hints -H 'X-User-Id: 1' \
+  -H 'content-type: application/json' \
+  -d '{"problem_id": "cs1.loops.fizzbuzz", "problem_version": 1, "level": 1, "submission_id": <id>}'
+# HTTP/1.1 202 Accepted ... location: /api/hints/<hint id>
+curl -s http://127.0.0.1:8000/api/hints/<hint id> -H 'X-User-Id: 1'
+curl -s -X PUT http://127.0.0.1:8000/api/hints/<hint id>/rating -H 'X-User-Id: 1' \
+  -H 'content-type: application/json' -d '{"rating": 1}'
 ```
 
 ## 6. Design notes
@@ -150,7 +194,8 @@ curl -s 'http://127.0.0.1:8000/api/submissions?limit=5' -H 'X-User-Id: 1'
   per-user limits. Real authentication and a per-IP limit are needed before hosting.
 - No request-size limit: uvicorn reads the whole body before the 50 000-character check. When
   hosted, the reverse proxy must limit it (ideas.md).
-- Polling costs one small query per second per waiting student. Server push is in ideas.md.
+- Polling costs one small query per second per waiting student (submissions and hints).
+  Server push is in ideas.md.
 - The 422 `detail` is a list for request-format errors and a string for our own checks.
 - Connecting to a stopped local database takes the 5 s connect timeout before the 503 (WSL
   mirrored networking drops instead of refusing; measured 5.0 s).

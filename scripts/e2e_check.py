@@ -1,19 +1,21 @@
 """Check the running app end to end: API, worker and web UI (make e2e).
 
-Start the stack first (three terminals): `make worker`, `make api`, `make web`. Then:
+Start the stack first (four terminals): `make worker`, `make tutor`, `make api`, `make web`.
+Then:
     python scripts/e2e_check.py                       # API + web UI, problem cs1.loops.fizzbuzz
     python scripts/e2e_check.py --no-web              # API + worker only
     python scripts/e2e_check.py --problem cs1.dicts.two_sum
 
 Each run logs in as a new user (e2e-<time>) and submits two answers: the problem's reference
-solution (must be accepted) and its first buggy solution (must fail, hidden tests hidden).
+solution (must be accepted) and its first buggy solution (must fail, hidden tests hidden). Then
+it asks the tutor for a level 1 hint about the buggy one and rates it.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from codetutor.e2e import RESULT_TIMEOUT_S, run_checks
+from codetutor.e2e import HINT_TIMEOUT_S, RESULT_TIMEOUT_S, run_checks
 from codetutor.problems import ProblemNotFoundError, get_problem
 
 
@@ -25,6 +27,9 @@ def main() -> int:
     parser.add_argument("--problem", default="cs1.loops.fizzbuzz", help="problem id")
     parser.add_argument(
         "--timeout", type=float, default=RESULT_TIMEOUT_S, help="seconds to wait for a result"
+    )
+    parser.add_argument(
+        "--hint-timeout", type=float, default=HINT_TIMEOUT_S, help="seconds to wait for a hint"
     )
     args = parser.parse_args()
 
@@ -38,6 +43,7 @@ def main() -> int:
         problem,
         web_url=None if args.no_web else args.web,
         result_timeout_s=args.timeout,
+        hint_timeout_s=args.hint_timeout,
     )
     for check in checks:
         mark = "✅" if check.ok else "❌"

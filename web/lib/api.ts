@@ -17,7 +17,7 @@ export class ApiError extends Error {
 const UNREACHABLE = "Can't reach the API. Is it running? (make api)";
 
 interface ApiOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT";
   userId?: number; // sent as X-User-Id (dev login, not secure)
   body?: unknown; // sent as JSON
 }

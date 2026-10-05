@@ -427,3 +427,20 @@ the 7B's first try was blocked 3% (level 1) / 10% (level 2), the 1.5B's 49% / 29
 size of the model decides how often the fallback is shown.
 *How I'd say it:* "I don't trust the prompt alone: the output is checked, failures fall back to
 a safe answer, and every attempt is logged, so I can count how often each layer was needed."
+
+## Move the work to the secret, not the secret to the API (Week 4, Step 3)
+A tutor hint needs two secret things: the solution (the guardrail compares the hint with it)
+and the teacher's hints. The API must never read them; a test even scans the API's source for
+the table name. The easy path was to let the API read "just the solution" for hints. Instead,
+the hint is made where the secrets already live: a separate **tutor worker** process, like the
+grading worker. The API only inserts a row (`queued`, HTTP 202); the worker claims it with
+`FOR UPDATE SKIP LOCKED` and a lease, writes the hint, and the browser polls. This also fixes
+the second problem, speed: a hint takes 1–5 s, and 12–13 s when Ollama must load the model
+again (109 s after a reboot), far too long for a request thread. The worker keeps the model
+loaded with a small "stay loaded" request every 4 minutes, so students rarely pay that cost.
+One more lesson from a test: in a `json` column, Python `None` is saved as JSON `null`, which
+SQL sees as NOT NULL, so a "result complete" CHECK missed a missing value until the column
+used `none_as_null=True`.
+*How I'd say it:* "I keep the trust boundary where it is: the public-facing service never
+gets the secret data. Slow or secret work goes to a worker behind a queue, and the API
+returns 202 plus a URL to poll."

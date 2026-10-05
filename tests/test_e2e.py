@@ -1,5 +1,6 @@
-"""End to end over real HTTP: a real uvicorn server and a real worker loop (both in threads) on
-the test database, checked by the same code as `make e2e` (codetutor.e2e)."""
+"""End to end over real HTTP: a real uvicorn server, a real grading worker loop and a real tutor
+worker loop with a fake model (all in threads) on the test database, checked by the same code as
+`make e2e` (codetutor.e2e)."""
 
 from __future__ import annotations
 
@@ -18,10 +19,13 @@ from codetutor.db.sync import sync_problems
 from codetutor.e2e import Check, forbidden_texts, run_checks
 from codetutor.grader import SubprocessSandbox
 from codetutor.problems import Problem, load_all
+from codetutor.tutor.loop import Tutor, run_tutor_worker
+from codetutor.tutor.service import TutorConfig
 from codetutor.worker.loop import run_worker
-from conftest import ProblemWriter
+from conftest import ProblemWriter, ScriptedModel
 
 SANDBOX = SubprocessSandbox()  # our own trusted test code (see test_worker.py)
+HINT = "Look at where your range stops: is n itself included?"
 START_TIMEOUT_S = 10.0
 
 
@@ -70,19 +74,51 @@ def worker(db_engine: Engine, api_url: str) -> Iterator[None]:
     thread.join(timeout=START_TIMEOUT_S)
 
 
+@pytest.fixture
+def tutor(db_engine: Engine, api_url: str) -> Iterator[None]:
+    """The real tutor worker loop with a fake model (one good hint), polling every 50 ms."""
+    stop = threading.Event()
+    tutor = Tutor(ScriptedModel(HINT), config=TutorConfig(search_method="keyword"))
+    thread = threading.Thread(
+        target=run_tutor_worker,
+        args=(db_engine, tutor, stop),
+        kwargs={"poll_interval_s": 0.05},
+        daemon=True,
+    )
+    thread.start()
+    yield
+    stop.set()
+    thread.join(timeout=START_TIMEOUT_S)
+
+
 def _report(checks: list[Check]) -> str:
     return "\n".join(f"{'ok ' if c.ok else 'BAD'} {c.name}: {c.detail}" for c in checks)
 
 
-def test_the_whole_chain_works_over_real_http(api_url: str, worker: None, problem: Problem) -> None:
+def test_the_whole_chain_works_over_real_http(
+    api_url: str, worker: None, tutor: None, problem: Problem
+) -> None:
     checks = run_checks(api_url, problem)
 
     assert all(check.ok for check in checks), _report(checks)
-    assert [check.name for check in checks][-3:] == [
+    assert [check.name for check in checks][-5:] == [
         "reference solution is accepted",
         "buggy solution fails, hidden tests stay hidden",
         "my submissions",
+        "a hint about the buggy submission",
+        "rate the hint",
     ]
+    assert checks[-2].detail.startswith("model hint")
+
+
+def test_without_a_tutor_the_hint_check_fails_and_says_why(
+    api_url: str, worker: None, problem: Problem
+) -> None:
+    checks = run_checks(api_url, problem, hint_timeout_s=1.0)
+
+    assert [check.ok for check in checks][-2:] == [True, False], _report(checks)
+    assert checks[-1].name == "a hint about the buggy submission"
+    assert "is `make tutor` running?" in checks[-1].detail
 
 
 def test_without_a_worker_the_check_fails_and_says_why(api_url: str, problem: Problem) -> None:

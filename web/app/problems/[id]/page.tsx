@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { InlineCode } from "@/components/InlineCode";
 import { Workspace } from "@/components/Workspace";
 import { ApiError, apiFetch } from "@/lib/api";
 import { parseDescription } from "@/lib/description";
@@ -14,12 +15,6 @@ const COMPARE_NOTE: Record<CompareMode, string | null> = {
   float: "floats are compared with a small tolerance",
   unordered: "any order",
 };
-
-// Text with `backticks` shown as code.
-function Inline({ text }: { text: string }) {
-  const parts = text.split("`");
-  return <>{parts.map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part))}</>;
-}
 
 // Code lines lose the indentation they all share (the description indents its examples).
 function dedent(lines: string[]): string {
@@ -35,7 +30,7 @@ function Description({ text, lang }: { text: string; lang?: "ar" }) {
         if (block.kind === "paragraph") {
           return (
             <p key={index}>
-              <Inline text={block.text} />
+              <InlineCode text={block.text} />
             </p>
           );
         }
@@ -44,7 +39,7 @@ function Description({ text, lang }: { text: string; lang?: "ar" }) {
             <ul key={index}>
               {block.items.map((item, itemIndex) => (
                 <li key={itemIndex}>
-                  <Inline text={item} />
+                  <InlineCode text={item} />
                 </li>
               ))}
             </ul>

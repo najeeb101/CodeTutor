@@ -7,7 +7,9 @@ reinforcement-learning training of a small code model.
 
 **Status:** Weeks 1–3 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
 language models through the grader, and the app around them (Postgres, a grading queue, an HTTP
-API and a web UI with a code editor). Next: Week 4 (an AI tutor that gives hints, not answers).
+API and a web UI with a code editor). Week 4 is in progress: an AI tutor that gives hints, not
+answers (a guardrail, search over course notes, a tutor worker, hints and 👍/👎 in the UI are
+done; the offline tutor eval is next).
 
 ## What is in it
 
@@ -138,23 +140,25 @@ key in `.env` (run with `uv run --env-file .env ...`). Setup, the model client a
 [docs/evals.md](docs/evals.md).
 
 ## Run the app
-Three terminals, started one after the other (each one syncs the problems into Postgres first):
+Four terminals, started one after the other (each one syncs the problems into Postgres first):
 ```bash
 make worker   # grades queued submissions in the Docker sandbox
+make tutor    # answers hint requests with the local Qwen 7B (needs Ollama, see "Evaluate a model")
 make api      # the HTTP API on http://127.0.0.1:8000 (interactive docs at /docs)
 make web      # the web UI on http://localhost:3100 (installs its npm packages the first time)
 ```
 Open http://localhost:3100, log in with any name (a development login: **not secure**), pick a
-problem, write code, submit. Then check the whole chain:
+problem, write code, submit, and ask the tutor for a hint ("Stuck? Ask the tutor"). Then check
+the whole chain:
 ```bash
-make e2e      # 9 checks over HTTP: API, worker, web pages, hidden tests stay hidden (~8 s)
-make web-e2e  # 8 checks in headless Chrome: log in, submit, results, limits, drafts (~17 s)
+make e2e      # 11 checks over HTTP: API, workers, web pages, hidden tests stay hidden, a hint (~19 s)
+make web-e2e  # 9 checks in headless Chrome: log in, submit, results, a hint + 👍, limits, drafts (~27 s)
 ```
 `make web-e2e` starts its own Chrome (in WSL, the Windows Chrome; `CHROME=/path` picks
 another one). Without the UI, `scripts/submit.py` sends a file to the queue:
 `uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait`.
 How it works: [docs/worker.md](docs/worker.md) (queue), [docs/api.md](docs/api.md) (API),
-[web/README.md](web/README.md) (UI).
+[docs/tutor.md](docs/tutor.md) (the tutor), [web/README.md](web/README.md) (UI).
 
 ### Architecture (as built)
 ```
@@ -164,13 +168,17 @@ Browser ── http://localhost:3100 ──► Next.js (web/)
                                                                    │ submit = one INSERT (the row is the job)
                                                                    ▼
                        Postgres: problems (student view), problem_versions (sealed, hidden tests),
-                                 submissions (job + result), test_results, users
+                                 submissions (job + result), test_results, users,
+                                 hints (job + hint + trace), note_chunks (pgvector)
                                                                    ▲ claim: FOR UPDATE SKIP LOCKED + lease
-                                                                   │ save: result + tests, fenced by attempts
+                                                                   │ save: fenced by a claim counter
                                          Worker (make worker) ── grade(problem, code) ──► Docker sandbox
+                                         Tutor  (make tutor)  ── give_hint ──► notes search + Qwen 7B
+                                                                               (Ollama) + guardrail
 ```
-The browser polls `GET /api/submissions/{id}` once per second until the job is done. There is
-no Redis: Postgres is the queue, so saving a submission and queueing it can never disagree.
+The browser polls `GET /api/submissions/{id}` (and `GET /api/hints/{id}`) once per second until
+the job is done. There is no Redis: Postgres is the queue, so saving a request and queueing it
+can never disagree. Only the two workers read the sealed problem copies; the API never does.
 
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
@@ -189,13 +197,15 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
 - `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
 - `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
-- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits
+- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits, hint requests
+- `src/codetutor/tutor/`: the AI tutor: guardrail, course-note search, prompt, `give_hint`, the hint queue and worker
+- `course/notes/`: the course notes the tutor searches
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack (`make e2e`)
 - `web/`: the web UI (Next.js + Monaco), with its own README
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`); `docs/notes/` holds weekly notes and interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`); `docs/notes/` holds weekly notes and interview notes
 
 ## Roadmap
 | Week | Deliverable | |

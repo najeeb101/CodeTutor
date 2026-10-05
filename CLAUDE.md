@@ -82,7 +82,7 @@ every line in an interview.
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
-- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `lib/` incl. `api.ts` + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
+- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `components/HintPanel.tsx` (Week 4), `lib/` incl. `api.ts`, `poll.ts` (shared polling) + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
 - `api/`, `tutor/`: READMEs pointing to `src/codetutor/api/` + docs/api.md and `src/codetutor/tutor/` + docs/tutor.md
 - `dist/`: generated output (gitignored)
 
@@ -111,7 +111,7 @@ every line in an interview.
   `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
-  `web-e2e` (headless Chrome via the DevTools protocol; both need worker + api + web running,
+  `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
   neither is in `make all`). `make all` stays Python-only. `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
@@ -320,6 +320,21 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   stored, heartbeat moved both expiries +10 min, Ctrl+C clean. Model reload after Ollama's
   unload: 12.0 / 13.3 s. Suite 589 passed, 2 skipped, 1 xfailed (42.3 s); `make all` 56 s;
   `make test-docker` 33 passed (41 s).
+- **Done (2026-10-05): Week 4 Step 3b = Step 3 done** (web UI + e2e + docs).
+  `web/components/HintPanel.tsx` (question, level 1 → 2 → last hint with a confirm, 👍/👎,
+  "from the AI tutor" / "from your teacher", waiting text + 10 s "can take up to 2 minutes",
+  follows a waiting request after reload), `lib/poll.ts` (`pollUntilFinished`, now also used by
+  `Workspace.tsx`), `components/InlineCode.tsx`. `e2e.py` + 2 steps (hint about the buggy
+  submission: 12 fields, no solution line; rate it), `test_e2e.py` runs the tutor loop with a
+  fake model (+1 test: no tutor → "is `make tutor` running?"), `e2e.mjs` + 1 step (ask + 👍;
+  reload keeps the rated hint; logout hides hints). Live: `make e2e` 11/11 (19 s, hint 5.5 s),
+  `make web-e2e` 9/9 (27 s, hint + 👍 2.8 s); screenshots light + dark checked. Docs: api.md,
+  tutor.md §4, database.md, README (Run the app: 4 terminals; diagram), web/README.md; 1
+  interview note. Once, `make web` failed with EADDRINUSE on 3100 though nothing listened
+  (not a Windows-reserved range); the retry worked.
+  Suite: 590 passed, 2 skipped, 1 xfailed, **70.4 and 83.9 s on battery** (status 1, 87%,
+  Epic Games launcher running); the same suite minus 1 test was 42.3 s on mains an hour before.
+  Re-measure on mains. `make web-check` OK.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -385,9 +400,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   only `text` from a hints row. Week 4 Step 3a: Q1 why the tutor worker makes the hint, not the
   API; Q2 what `JSON(none_as_null=True)` fixed; Q3 what is in GPU memory 15 min after the
   tutor worker stops.
-  (92 in total; answer key in Claude's memory.)
-- **Next action:** Week 4 Step 3b (web UI: HintPanel, shared `lib/poll.ts`; e2e hint checks;
-  docs api.md / tutor.md §4 / database.md / README; interview note), plan approved 2026-10-05. Najeeb: review the 8 notes in `course/notes/`. Also
+  Week 4 Step 3b: Q1 why the panel sends `submission_id` only when the editor code equals the
+  shown submission's; Q2 why test_e2e.py uses a fake model; Q3 what a reload does while the
+  tutor is thinking.
+  (95 in total; answer key in Claude's memory.)
+- **Next action:** Week 4 Step 4 (offline tutor eval: buggy files as students, a model fixes
+  them after the hint, `grade()` scores) in plan mode. Najeeb: review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar

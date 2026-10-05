@@ -7,16 +7,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CodeEditor } from "@/components/CodeEditor";
 import { ResultView } from "@/components/ResultView";
+import { HintPanel } from "@/components/HintPanel";
 import { ApiError, apiFetch } from "@/lib/api";
+import { pollUntilFinished } from "@/lib/poll";
 import { readStored, writeStored } from "@/lib/storage";
 import type { Problem, Submission, SubmissionCreated, SubmissionSummary } from "@/lib/types";
 import { useUser } from "@/lib/user";
 
-const POLL_INTERVAL_MS = 1000;
 const MAX_WAIT_MS = 120_000; // the slowest bank problem needs ~38 s in Docker
 const HISTORY_LIMIT = 10;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function draftKey(problemId: string): string {
   return `codetutor.draft.${problemId}`;
@@ -29,6 +28,14 @@ function errorText(error: unknown): string {
     return `${error.detail} (try again in ${error.retryAfterS} s)`;
   }
   return error.detail;
+}
+
+// The shown submission, if a hint can be about it: graded, on this problem version, and with
+// exactly the code in the editor (else the hint is about the editor's code, not graded yet).
+function gradedFor(current: Submission | null, code: string, problem: Problem): Submission | null {
+  if (!current || current.job_status !== "done") return null;
+  if (current.problem_version !== problem.version || current.code !== code) return null;
+  return current;
 }
 
 export function Workspace({ problem }: { problem: Problem }) {
@@ -91,29 +98,24 @@ export function Workspace({ problem }: { problem: Problem }) {
     void loadHistory();
   }, [loadHistory]);
 
-  // Ask for the result once per second until it is done or failed. Each request waits for the
-  // previous one (no setInterval pile-up when the API is slow).
+  // Ask for the result until it is done or failed (lib/poll.ts).
   const poll = useCallback(
     async (submissionId: number, userId: number) => {
       const generation = ++pollGeneration.current;
-      const deadline = Date.now() + MAX_WAIT_MS;
+      const isCurrent = () => pollGeneration.current === generation;
       try {
-        while (pollGeneration.current === generation) {
-          const submission = await apiFetch<Submission>(`/api/submissions/${submissionId}`, { userId });
-          if (pollGeneration.current !== generation) return;
-          setCurrent(submission);
-          if (submission.job_status === "done" || submission.job_status === "failed") {
-            await loadHistory();
-            return;
-          }
-          if (Date.now() > deadline) {
-            setMessage("Still grading after 2 minutes. Look at your submissions below later.");
-            return;
-          }
-          await sleep(POLL_INTERVAL_MS);
+        const end = await pollUntilFinished(
+          () => apiFetch<Submission>(`/api/submissions/${submissionId}`, { userId }),
+          setCurrent,
+          isCurrent,
+          MAX_WAIT_MS,
+        );
+        if (end === "finished") await loadHistory();
+        if (end === "timeout") {
+          setMessage("Still grading after 2 minutes. Look at your submissions below later.");
         }
       } catch (error) {
-        if (pollGeneration.current === generation) handleError(error);
+        if (isCurrent()) handleError(error);
       }
     },
     [loadHistory, handleError],
@@ -164,6 +166,7 @@ export function Workspace({ problem }: { problem: Problem }) {
         </p>
       )}
       {current && <ResultView submission={current} functionName={problem.function_name} />}
+      <HintPanel problem={problem} code={code} graded={gradedFor(current, code, problem)} />
 
       {history.length > 0 && (
         <>

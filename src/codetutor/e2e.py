@@ -1,8 +1,9 @@
-"""End-to-end checks of a running stack: API + worker, and optionally the web UI (Week 3).
+"""End-to-end checks of a running stack: API + workers, and optionally the web UI (Weeks 3-4).
 
 It walks through the app like a student: health, problem list, problem view, log in, submit the
 reference solution (must be accepted), submit a buggy solution (must fail, with hidden tests
-staying hidden), then "my submissions". Each step is a `Check`; the run stops at the first
+staying hidden), "my submissions", then ask the tutor for a hint about the buggy submission
+(no solution line, no trace fields) and rate it. Each step is a `Check`; the run stops at the first
 failure, with a message that says what to start or fix.
 
 Standard library only (urllib). `scripts/e2e_check.py` (`make e2e`) runs it against the dev
@@ -30,6 +31,22 @@ HTTP_TIMEOUT_S = 10.0
 PROBE_TIMEOUT_S = 3.0
 POLL_INTERVAL_S = 0.5
 RESULT_TIMEOUT_S = 60.0  # the slowest bank problem needs ~38 s in Docker
+HINT_TIMEOUT_S = 150.0  # loading the model after a reboot took 109 s
+# Every field a hint answer may have (api/schemas.py HintOut): never the trace.
+HINT_FIELDS = {
+    "id",
+    "problem_id",
+    "problem_version",
+    "submission_id",
+    "level",
+    "question",
+    "created_at",
+    "job_status",
+    "text",
+    "source",
+    "rating",
+    "message",
+}
 DISPLAY_FIELDS = ("input", "expected", "actual", "args_repr", "expected_repr", "actual_repr")
 
 
@@ -137,9 +154,11 @@ class _Run:
     web: str | None
     problem: Problem
     result_timeout_s: float
+    hint_timeout_s: float = HINT_TIMEOUT_S
     user_name: str = field(default_factory=lambda: f"e2e-{time.time_ns() // 1_000_000}")
     user_headers: dict[str, str] = field(default_factory=dict)
     submission_ids: list[int] = field(default_factory=list)
+    hint_id: int | None = None
 
     @property
     def base(self) -> str:
@@ -276,6 +295,48 @@ class _Run:
         )
         return f"{len(newest)} submissions, newest first"
 
+    def hint(self) -> str:
+        body = {
+            "problem_id": self.problem.id,
+            "problem_version": self.problem.version,
+            "level": 1,
+            "submission_id": self.submission_ids[-1],  # the buggy one
+        }
+        response = request("POST", f"{self.base}/api/hints", body=body, headers=self.user_headers)
+        _expect_status(response, 202, "POST /api/hints")
+        self.hint_id = response.json()["id"]
+        deadline = time.monotonic() + self.hint_timeout_s
+        while time.monotonic() < deadline:
+            response = request(
+                "GET", f"{self.base}/api/hints/{self.hint_id}", headers=self.user_headers
+            )
+            _expect_status(response, 200, f"GET /api/hints/{self.hint_id}")
+            hint = response.json()
+            _expect(hint["job_status"] != "failed", f"the hint failed: {hint['message']}")
+            if hint["job_status"] == "done":
+                return self._check_hint(hint)
+            time.sleep(POLL_INTERVAL_S)
+        raise E2EFailure(f"no hint after {self.hint_timeout_s:g} s: is `make tutor` running?")
+
+    def _check_hint(self, hint: dict[str, Any]) -> str:
+        _expect(set(hint) == HINT_FIELDS, f"unexpected hint fields: {sorted(set(hint))}")
+        # The teacher's hints 1-2 may be shown (a fallback); the solution's lines never.
+        leaked = [line for line in solution_lines(self.problem) if line in hint["text"]]
+        _expect(not leaked, f"the hint contains solution lines: {leaked}")
+        words = len(hint["text"].split())
+        return f"{hint['source']} hint, {words} words, no solution line"
+
+    def rating(self) -> str:
+        response = request(
+            "PUT",
+            f"{self.base}/api/hints/{self.hint_id}/rating",
+            body={"rating": 1},
+            headers=self.user_headers,
+        )
+        _expect_status(response, 200, f"PUT /api/hints/{self.hint_id}/rating")
+        _expect(response.json()["rating"] == 1, "the rating was not saved")
+        return "👍 saved"
+
 
 def run_checks(
     api_url: str,
@@ -283,10 +344,15 @@ def run_checks(
     *,
     web_url: str | None = None,
     result_timeout_s: float = RESULT_TIMEOUT_S,
+    hint_timeout_s: float = HINT_TIMEOUT_S,
 ) -> list[Check]:
     """Run every step in order, stopping at the first failure. Returns the checks done."""
     run = _Run(
-        api_url.rstrip("/"), web_url.rstrip("/") if web_url else None, problem, result_timeout_s
+        api_url.rstrip("/"),
+        web_url.rstrip("/") if web_url else None,
+        problem,
+        result_timeout_s,
+        hint_timeout_s,
     )
     steps: list[tuple[str, Callable[[], str]]] = [
         ("API health", run.health),
@@ -303,6 +369,8 @@ def run_checks(
         ("reference solution is accepted", run.solution_accepted),
         ("buggy solution fails, hidden tests stay hidden", run.buggy_fails_and_hidden_stays_hidden),
         ("my submissions", run.my_submissions),
+        ("a hint about the buggy submission", run.hint),
+        ("rate the hint", run.rating),
     ]
     checks: list[Check] = []
     for name, step in steps:

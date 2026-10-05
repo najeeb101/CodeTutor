@@ -112,3 +112,27 @@ export interface Submission extends SubmissionSummary {
   message: string | null; // set when job_status is "failed"
   result: GradeResult | null; // null until job_status is "done"
 }
+
+// "model": the tutor wrote it; "fallback": the tutor's hints were blocked or failed, so the
+// teacher's hint of that level; "reference": level 3, the teacher's last hint.
+export type HintSource = "model" | "fallback" | "reference";
+
+export interface HintCreated {
+  id: number;
+  job_status: JobStatus;
+}
+
+export interface Hint {
+  id: number;
+  problem_id: string;
+  problem_version: number;
+  submission_id: number | null; // the graded submission it is about, or null (editor code)
+  level: number; // 1-2: the tutor; 3: the teacher's last hint
+  question: string | null;
+  created_at: string;
+  job_status: JobStatus;
+  text: string | null; // null until job_status is "done"
+  source: HintSource | null;
+  rating: 1 | -1 | null;
+  message: string | null; // set when job_status is "failed"
+}
