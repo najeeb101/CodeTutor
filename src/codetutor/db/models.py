@@ -168,6 +168,11 @@ class SubmissionRow(Base):
             name="result_complete",
         ),
         CheckConstraint("reward >= 0 AND reward <= 1", name="reward_in_range"),
+        # The editor summary is one JSON object (or SQL NULL: no data). The API checks its keys.
+        CheckConstraint(
+            "editor_stats IS NULL OR json_typeof(editor_stats) = 'object'",
+            name="editor_stats_is_object",
+        ),
         # The worker's claim query looks only at queued and running jobs, oldest id first.
         # A partial index holds only those rows, so it stays small while done/failed rows
         # pile up (worker/jobs.py, docs/worker.md).
@@ -188,6 +193,11 @@ class SubmissionRow(Base):
     problem_version: Mapped[int]
     code: Mapped[str]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # What the web editor saw before this submit (Week 5 Step 0, api/schemas.py EditorStats):
+    # times and typed/pasted counts, no keystrokes. Sent by the browser, so a signal for a
+    # human, never proof. NULL = no data (scripts, older rows). none_as_null: Python None must
+    # be SQL NULL, not JSON null (which the CHECK would see as a non-object).
+    editor_stats: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))
 
     # --- The job (the worker's bookkeeping, Step 2) ---
     job_status: Mapped[str] = mapped_column(server_default=JobStatus.QUEUED.value)

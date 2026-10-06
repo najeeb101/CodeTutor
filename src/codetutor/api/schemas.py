@@ -152,6 +152,44 @@ class ProblemSummary(BaseModel):
     difficulty: Difficulty
 
 
+# Upper bounds for the editor summary: generous, only there to keep nonsense out of the database.
+MAX_EDITOR_MS = 30 * 24 * 3600 * 1000  # a page left open for 30 days
+MAX_EDITOR_COUNT = 10_000_000  # characters or edits (more than the 50,000-character code limit,
+# because deleted text was typed too)
+_Millis = Annotated[int, Field(ge=0, le=MAX_EDITOR_MS, strict=True)]
+_Count = Annotated[int, Field(ge=0, le=MAX_EDITOR_COUNT, strict=True)]
+
+
+class EditorStats(BaseModel):
+    """What the web editor saw since the page was opened or the last submit (Week 5 Step 0).
+
+    Times and counts only, no keystrokes. The browser sends it, so it can be faked: it is a
+    signal for a human (docs/api.md), never proof. `strict=True`: "5" or 5.0 is refused, so
+    every stored value is a plain integer.
+    """
+
+    model_config = _REQUEST
+
+    since_open_ms: _Millis  # this page view (a draft from an earlier visit: restored_draft)
+    active_ms: _Millis  # from the first edit to the submit (0 if nothing was edited)
+    typed_chars: _Count  # characters inserted by edits that were not pastes
+    pasted_chars: _Count
+    paste_count: _Count
+    largest_paste_chars: _Count
+    edit_count: _Count
+    restored_draft: Annotated[bool, Field(strict=True)]  # the code came from a saved draft
+
+    @model_validator(mode="after")
+    def _consistent(self) -> Self:
+        if self.largest_paste_chars > self.pasted_chars:
+            raise ValueError("largest_paste_chars can't be more than pasted_chars")
+        if (self.paste_count == 0) != (self.pasted_chars == 0):
+            raise ValueError("pasted_chars must be 0 exactly when paste_count is 0")
+        if self.active_ms > self.since_open_ms:
+            raise ValueError("active_ms can't be more than since_open_ms")
+        return self
+
+
 class SubmissionIn(BaseModel):
     """A submission. `problem_version` is the version the student saw (from GET problem)."""
 
@@ -161,6 +199,7 @@ class SubmissionIn(BaseModel):
     problem_id: Annotated[str, Field(pattern=PROBLEM_ID_PATTERN)]
     problem_version: Annotated[int, Field(ge=1)]
     code: str  # length and characters are checked by enqueue_submission (one place)
+    editor_stats: EditorStats | None = None  # the web UI sends it; scripts don't
 
 
 class SubmissionCreated(BaseModel):

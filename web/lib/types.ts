@@ -94,6 +94,18 @@ export interface SubmissionCreated {
   job_status: JobStatus;
 }
 
+// Sent with a submit, never returned (EditorStats in api/schemas.py; lib/editorStats.ts).
+export interface EditorStats {
+  since_open_ms: number;
+  active_ms: number;
+  typed_chars: number;
+  pasted_chars: number;
+  paste_count: number;
+  largest_paste_chars: number;
+  edit_count: number;
+  restored_draft: boolean;
+}
+
 export interface SubmissionSummary {
   id: number;
   problem_id: string;

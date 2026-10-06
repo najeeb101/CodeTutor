@@ -131,18 +131,24 @@ def enqueue_submission(
     code: str,
     *,
     expected_version: int | None = None,
+    editor_stats: dict[str, Any] | None = None,
 ) -> int:
     """Save a new submission as a queued job, graded on the problem's current version.
 
     `expected_version`: the version the student saw (the API sends it). If the current version
     is different, nothing is saved (ProblemChangedError), so code is never graded against a
     problem the student didn't see. Returns the submission id. Saving the row IS enqueueing:
-    one insert, no second system.
+    one insert, no second system. `editor_stats`: the web editor's summary, already checked by
+    the API (`EditorStats`); None for scripts.
     """
     check_code(code)
     version = current_problem_version(session, problem_id, expected_version)
     submission = SubmissionRow(
-        user_id=user_id, problem_id=problem_id, problem_version=version, code=code
+        user_id=user_id,
+        problem_id=problem_id,
+        problem_version=version,
+        code=code,
+        editor_stats=editor_stats,
     )
     session.add(submission)
     session.flush()  # assigns the id

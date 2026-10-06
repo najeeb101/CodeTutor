@@ -124,3 +124,14 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   repeated letters) and the fix rate fell 0.80 → 0.00. Ideas: tell the model to name only what
   the visible/hidden results support, and add a "you" check to the guardrail's output checks.
   Bump `TUTOR_PROMPT_VERSION` and re-run the tutor conditions (the `none` answers are reused).
+
+- **(Week 8 planning, or after Week 5 Step 3 if time allows) MCQ and true/false practice
+  questions.** Najeeb's idea (2026-10-06): short concept questions per module, so students check
+  their understanding, not only their code. Design sketch: one YAML file per module next to the
+  course notes (question, options, the right one, a one-line explanation, concept tags); wrong
+  options taken from real mistakes (each buggy file's misconception, e.g. `"a  b".split(" ")`);
+  answers saved per user and item. Bonus: right/wrong answers are ideal items for the Rasch
+  skill model (Week 5 Step 3), a second source of evidence besides code. Costs: 40-80 questions
+  (Claude drafts, Najeeb reviews), new tables (schema change), API endpoints, a UI page; ~1-2
+  days. Scope: a practice quiz, not an exam (exams are out of scope in the brief); the brief's
+  job map lists a "placement quiz" as Light.

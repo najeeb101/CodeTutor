@@ -9,6 +9,7 @@ import { CodeEditor } from "@/components/CodeEditor";
 import { ResultView } from "@/components/ResultView";
 import { HintPanel } from "@/components/HintPanel";
 import { ApiError, apiFetch } from "@/lib/api";
+import { EditorTracker } from "@/lib/editorStats";
 import { pollUntilFinished } from "@/lib/poll";
 import { readStored, writeStored } from "@/lib/storage";
 import type { Problem, Submission, SubmissionCreated, SubmissionSummary } from "@/lib/types";
@@ -48,12 +49,18 @@ export function Workspace({ problem }: { problem: Problem }) {
   // Each poll loop remembers the generation it started in. Starting a new poll, or leaving
   // the page, increments it, and the old loop stops at its next step.
   const pollGeneration = useRef(0);
+  // Counts typed and pasted characters for the editor summary sent with each submit. Made
+  // once per page view, in the browser (useState runs the initializer on the client again).
+  const [tracker] = useState(() => new EditorTracker());
 
   // The unsent draft (localStorage exists only in the browser, so read it after mounting).
   useEffect(() => {
     const draft = readStored(draftKey(problem.id));
-    if (draft !== null) setCode(draft);
-  }, [problem.id]);
+    if (draft !== null && draft !== problem.starter_code) {
+      tracker.expectReplace(draft, true); // our own change, not the student's typing
+      setCode(draft);
+    }
+  }, [problem.id, problem.starter_code, tracker]);
 
   useEffect(() => () => void pollGeneration.current++, []); // stop polling on unmount
 
@@ -63,6 +70,7 @@ export function Workspace({ problem }: { problem: Problem }) {
   }
 
   function resetCode() {
+    if (code !== problem.starter_code) tracker.expectReplace(problem.starter_code);
     setCode(problem.starter_code);
     writeStored(draftKey(problem.id), null);
   }
@@ -132,8 +140,14 @@ export function Workspace({ problem }: { problem: Problem }) {
       const created = await apiFetch<SubmissionCreated>("/api/submissions", {
         method: "POST",
         userId: user.id,
-        body: { problem_id: problem.id, problem_version: problem.version, code },
+        body: {
+          problem_id: problem.id,
+          problem_version: problem.version,
+          code,
+          editor_stats: tracker.summary(),
+        },
       });
+      tracker.reset(); // the next summary covers only the work after this submit
       setCurrent(null);
       void loadHistory();
       void poll(created.id, user.id);
@@ -150,7 +164,16 @@ export function Workspace({ problem }: { problem: Problem }) {
 
   return (
     <section className="workspace">
-      <CodeEditor value={code} onChange={changeCode} label={`Your code for ${problem.title}`} />
+      <CodeEditor
+        value={code}
+        onChange={changeCode}
+        tracker={tracker}
+        label={`Your code for ${problem.title}`}
+      />
+      <p className="muted">
+        With each submit we also send how long you worked and how much you typed or pasted (no
+        keystrokes).
+      </p>
       <div className="actions">
         <button type="button" className="primary" onClick={submit} disabled={sending}>
           {sending ? "Sending…" : "Submit"}

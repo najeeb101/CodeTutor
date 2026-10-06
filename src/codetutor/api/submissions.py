@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import Row, func, select
 from sqlalchemy.orm import Session
@@ -144,6 +144,8 @@ def create_submission(
     problem_version: int,
     code: str,
     limits: RateLimits,
+    *,
+    editor_stats: dict[str, Any] | None = None,
 ) -> int:
     """Check the user's limits, then queue the submission. Returns its id. Does not commit.
 
@@ -157,7 +159,14 @@ def create_submission(
     """
     lock_user(session, user_id)
     _check_limits(session, user_id, limits)
-    return enqueue_submission(session, user_id, problem_id, code, expected_version=problem_version)
+    return enqueue_submission(
+        session,
+        user_id,
+        problem_id,
+        code,
+        expected_version=problem_version,
+        editor_stats=editor_stats,
+    )
 
 
 def get_own_submission(session: Session, user_id: int, submission_id: int) -> SubmissionRow | None:

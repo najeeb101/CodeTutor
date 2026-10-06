@@ -462,3 +462,20 @@ a meta file that refuses changed settings) and the report is byte-identical for 
 paired by situation, with intervals. The honest result is 'a small positive effect we can't
 yet separate from noise', plus concrete failure cases, and I know what would sharpen it: more
 answers per situation, a second student model, and real student ratings."
+
+## Signals from the client are hints, not evidence (Week 5, Step 0)
+For paste and speed checks, the web editor sends a small summary with each submit: time on the
+page, time from the first edit, characters typed, characters pasted, the biggest paste, and
+whether the code came from a saved draft. No keystroke log: less data, less privacy risk, and
+the page tells the student. Two lessons. (1) **Anything the browser sends can be faked**: a
+cheater can send `pasted_chars: 0`. So these numbers only *inform* a human, and they are
+combined with server-side checks a client can't fake (code similarity). (2) **Measure the
+measurement**: the React wrapper for the editor applies a restored draft or "Reset" as a normal
+edit, so a naive counter would have called a reload "the student typed 141 characters in
+1 second". Found by reading the library source; the page now announces its own replacements,
+and a headless-browser run checked all three cases against the database row. The API is strict
+(whole numbers only, bounds, consistency rules, no unknown keys), and the UI clamps its numbers
+to the same rules, because a bad summary would refuse the whole submit.
+*How I'd say it:* "Client telemetry is cheap and useful, but it's attacker-controlled input.
+I validate it strictly, never let it cost the student their submission, never act on it
+alone, and test that it measures what I think it measures."

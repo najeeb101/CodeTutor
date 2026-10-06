@@ -19,7 +19,7 @@ Tests: `tests/test_api.py`, `tests/test_api_hints.py`.
 | `POST /api/login` `{"name"}` | no | find or create the user (dev login, §2) | 200 `{"id","name"}`; 422 bad name |
 | `GET /api/problems` | no | active problems, by module, then order | 200 `[{id,title,module,module_name,order,difficulty}]` |
 | `GET /api/problems/{id}` | no | the student view (`StudentProblem`) | 200; 404 unknown or retired |
-| `POST /api/submissions` `{"problem_id","problem_version","code"}` | yes | rate limits (§4), then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
+| `POST /api/submissions` `{"problem_id","problem_version","code","editor_stats"?}` | yes | rate limits (§4), then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
 | `GET /api/submissions/{id}` | yes | status, code, and the result once done | 200; 404 missing **or someone else's** |
 | `GET /api/submissions?problem_id=&limit=20` | yes | my submissions, newest first (limit 1–100) | 200 list of summaries (no code) |
 | `POST /api/hints` `{"problem_id","problem_version","level", "submission_id" or "code", "question"?}` | yes | rate limits (§4), level order, then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
@@ -36,6 +36,37 @@ Grading takes 1–38 s, so a submit answers at once with **202 Accepted** and th
 URL in `Location`. The UI then asks `GET /api/submissions/{id}` about once a second until
 `job_status` is `done` (the `result` is filled) or `failed`. Measured live: the submit request
 took 0.05 s, and a fizzbuzz result was ready 1.1 s later (worker in Docker).
+
+### The editor summary (Week 5)
+The web UI also sends `editor_stats` with each submit: what its editor saw since the page was
+opened or since the last submit. Times and counts only, no keystrokes:
+
+| Field | Meaning |
+|---|---|
+| `since_open_ms` | ms since the page was opened, or since the last submit |
+| `active_ms` | ms from the first edit to this submit (0 if nothing was edited) |
+| `typed_chars` | characters inserted by edits that were not pastes |
+| `pasted_chars`, `paste_count`, `largest_paste_chars` | pastes in this window |
+| `edit_count` | edits, pastes included |
+| `restored_draft` | the code came from a saved draft (a fast submit after a reload is normal) |
+
+`EditorStats` (`api/schemas.py`) checks it: every field is required, whole numbers only
+(`strict`: `"5"` or `5.0` is a 422), `>= 0`, at most 30 days / 10,000,000, no unknown keys, and
+consistent (`largest_paste_chars <= pasted_chars`; `paste_count` is 0 exactly when
+`pasted_chars` is; `active_ms <= since_open_ms`). A bad summary refuses the whole submit
+(422), so the UI keeps every number inside these rules. The field is optional: scripts
+(`submit.py`) send none, and the row's column stays SQL NULL ("no data", never a signal by
+itself). It is stored in `submissions.editor_stats` and **never returned** by any endpoint.
+
+**The browser can lie.** Anyone can send `pasted_chars: 0` with pasted code. The summary is
+a *signal for a human* (Week 5 integrity checks), never proof; server-side checks that a client
+can't fake (code similarity) carry more weight. The UI tells the student, under the editor,
+that it sends this summary.
+
+Measured live (2026-10-06, headless Chrome): typing 11 characters and pasting a 24-character
+block gave `typed_chars: 11`, `pasted_chars: 24`, `paste_count: 1`, `edit_count: 12`; a
+reload with a draft, then submit, gave all zeros with `restored_draft: true`; "Reset", then
+submit, gave all zeros (our own replacements are not counted as typing).
 
 ### Ask for a hint, then poll (Week 4)
 The same pattern as submitting: `POST /api/hints` answers **202** with the hint's URL, the
@@ -104,6 +135,8 @@ client then sends `X-User-Id: <id>` with every request that needs a user. One de
 - **Internal job details:** a failed job shows one fixed `message` ("Grading failed because
   of a problem on our side, not your code. Please submit again."), never `last_error`. The
   same for a failed hint job (`HINT_FAILED_MESSAGE`).
+- **The editor summary:** `editor_stats` goes in with a submit and never comes back out
+  (`test_the_editor_summary_never_comes_back`).
 - **The hint trace:** a `hints` row keeps every model attempt, including blocked ones that
   can contain solution code, plus the settings and the found note sections. The API selects
   only the 11 columns of `HINT_COLUMNS` (`api/hints.py`) and never the trace.

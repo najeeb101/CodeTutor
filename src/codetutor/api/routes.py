@@ -117,7 +117,13 @@ def submit(
     """Queue code for grading. 202 Accepted: the worker grades it later; poll the Location."""
     try:
         submission_id = create_submission(
-            session, user.id, body.problem_id, body.problem_version, body.code, limits
+            session,
+            user.id,
+            body.problem_id,
+            body.problem_version,
+            body.code,
+            limits,
+            editor_stats=body.editor_stats.model_dump() if body.editor_stats else None,
         )
     except RateLimitedError as exc:
         raise HTTPException(429, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc

@@ -25,7 +25,7 @@ users ──────────────< submissions >─────�
 | `users` | one row per person (Week 3: name-only dev login, not secure) | API |
 | `problem_versions` | a sealed copy of **every** problem version ever synced, hidden tests and solution included; rows are never updated | the worker (Step 2) only |
 | `problems` | each problem's **current** version, student view only; `active = false` when its folder was removed | API |
-| `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) | API, worker |
+| `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) + `editor_stats` (Week 5, migration 0007: the web editor's times and typed/pasted counts, NULL for scripts, [api.md](api.md) §1) | API, worker; Week 5 integrity checks |
 | `test_results` | one row per test of a graded submission (a `TestResult`) | API, Week 5 analytics |
 | `note_chunks` (Week 4) | one row per `##` section of a course note (`course/notes/`): text, `content_hash`, `embed_model`, and `embedding vector(768)` (pgvector). Replaced in place when a note changes; `make notes-sync` fills it | the tutor's search ([tutor.md](tutor.md) §2) |
 | `hints` (Week 4) | one row per hint request. The row is also the **tutor worker's job** (migration 0006, like `submissions`): `job_status`, `claims` (the fencing token), `lease_expires_at`, `started_at`, `finished_at`, `last_error`. When done: the shown `text`, `source` (model / fallback / reference) and the **trace**: the found note sections, every model attempt (incl. blocked ones, which may contain solution code: never return them to a student), settings, time. Also level, question, the student's code, `submission_id`; `rating` / `rated_at` for 👍/👎. Offline runs insert finished rows without a user | the tutor worker; the API (11 safe columns only, [api.md](api.md) §3), the Week 6–7 dataset |
@@ -48,6 +48,9 @@ users ──────────────< submissions >─────�
   `ck_hints_result_complete` could not see a missing value (found by a test, 2026-10-05).
 - **Submissions:** `job_status` is one of queued/running/done/failed. `done` ⇔ `result_status`
   is set, and a set result has every summary column. `reward` is between 0 and 1.
+  `editor_stats` is SQL NULL or one JSON object (`ck_submissions_editor_stats_is_object`; its
+  keys are checked by the API). It uses `JSON(none_as_null=True)`, so Python `None` is SQL NULL,
+  not JSON `null` (which the CHECK refuses).
 - **Hints:** the same job statuses; `done` ⇔ `text` is set, a set `text` has `source`,
   `settings`, `retrieved`, `attempts` and `latency_ms`; a rating only on a done hint, always
   with `rated_at`; level 1–3.

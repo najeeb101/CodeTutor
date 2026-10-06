@@ -11,6 +11,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, make_url, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from codetutor.api import create_app
@@ -284,6 +285,99 @@ def test_bad_submissions_are_refused(
 ) -> None:
     response = _post_submission(client, _login(client), code=code, problem_id=problem_id)
     assert response.status_code == status
+
+
+# --- The editor summary (Week 5 Step 0) ---
+
+STATS = {
+    "since_open_ms": 95_000,
+    "active_ms": 80_000,
+    "typed_chars": 140,
+    "pasted_chars": 60,
+    "paste_count": 2,
+    "largest_paste_chars": 45,
+    "edit_count": 120,
+    "restored_draft": False,
+}
+
+
+def _post_with_stats(client: TestClient, headers: dict[str, str], stats: object) -> httpx.Response:
+    body = {"problem_id": PROBLEM_ID, "problem_version": 1, "code": SOLUTION, "editor_stats": stats}
+    return client.post("/api/submissions", json=body, headers=headers)
+
+
+def test_the_editor_summary_is_stored_as_sent(client: TestClient, db_session: Session) -> None:
+    response = _post_with_stats(client, _login(client), STATS)
+    assert response.status_code == 202, response.text
+
+    row = db_session.get(SubmissionRow, response.json()["id"])
+    assert row is not None and row.editor_stats == STATS
+
+
+def test_no_editor_summary_is_sql_null_not_json_null(
+    client: TestClient, db_session: Session
+) -> None:
+    submission_id = _submit(client, _login(client))  # like scripts/submit.py: no summary
+
+    is_null = db_session.scalar(
+        select(SubmissionRow.editor_stats.is_(None)).where(SubmissionRow.id == submission_id)
+    )
+    assert is_null is True
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"typed_chars": -1},
+        {"typed_chars": "140"},  # strict: no strings
+        {"typed_chars": 140.0},  # strict: no floats
+        {"restored_draft": "false"},
+        {"since_open_ms": 31 * 24 * 3600 * 1000},  # above the 30-day bound
+        {"keystrokes": [1, 2, 3]},  # unknown key
+        {"largest_paste_chars": 61},  # more than pasted_chars
+        {"paste_count": 0},  # but 60 characters pasted
+        {"active_ms": 96_000},  # more than since_open_ms
+    ],
+    ids=["negative", "string", "float", "bool_string", "too_long", "unknown_key",
+         "largest_paste", "paste_count", "active_ms"],
+)  # fmt: skip
+def test_a_bad_editor_summary_is_refused_and_nothing_is_saved(
+    client: TestClient, db_session: Session, change: dict[str, object]
+) -> None:
+    response = _post_with_stats(client, _login(client), STATS | change)
+
+    assert response.status_code == 422, response.text
+    assert db_session.scalar(select(func.count()).select_from(SubmissionRow)) == 0
+
+
+def test_a_missing_editor_summary_field_is_refused(client: TestClient) -> None:
+    stats = {key: value for key, value in STATS.items() if key != "edit_count"}
+    assert _post_with_stats(client, _login(client), stats).status_code == 422
+
+
+def test_the_editor_summary_never_comes_back(client: TestClient) -> None:
+    headers = _login(client)
+    submission_id = _post_with_stats(client, headers, STATS).json()["id"]
+
+    one = client.get(f"/api/submissions/{submission_id}", headers=headers).json()
+    listed = client.get("/api/submissions", headers=headers).json()
+
+    assert "editor_stats" not in one and all("editor_stats" not in item for item in listed)
+
+
+@pytest.mark.parametrize("value", ["[1, 2]", "null", "5"])
+def test_the_database_refuses_an_editor_summary_that_is_not_an_object(
+    client: TestClient, db_session: Session, value: str
+) -> None:
+    submission_id = _submit(client, _login(client))
+    db_session.commit()
+
+    with pytest.raises(IntegrityError, match="ck_submissions_editor_stats_is_object"):
+        db_session.execute(
+            text("UPDATE submissions SET editor_stats = CAST(:value AS json) WHERE id = :id"),
+            {"value": value, "id": submission_id},
+        )
+    db_session.rollback()
 
 
 # --- Results ---

@@ -33,6 +33,7 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
 | `lib/api.ts` | `apiFetch` + `ApiError` (status, detail, Retry-After): the only API caller |
 | `lib/poll.ts` | `pollUntilFinished`: the polling loop shared by submissions and hints |
 | `lib/types.ts` | the API's answers as TypeScript types (written by hand) |
+| `lib/editorStats.ts` | `EditorTracker`: counts typed and pasted characters for the editor summary sent with each submit |
 | `lib/user.tsx`, `lib/storage.ts` | the logged-in user (React context + localStorage) |
 | `lib/description.ts` | turns a problem's hard-wrapped text into paragraphs, lists and code |
 | `scripts/copy-monaco.mjs` | copies Monaco into `public/monaco` after `npm install` |
@@ -61,6 +62,14 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
   shows the API's message and the `Retry-After` seconds.
 - **Drafts.** Your unsent code is kept per problem in localStorage. "Reset to starter code"
   clears it.
+- **Editor summary (Week 5).** `EditorTracker` listens to Monaco (`onDidChangeModelContent`,
+  `onDidPaste`) and each submit sends its summary (times, typed and pasted characters; no
+  keystrokes; [docs/api.md](../docs/api.md) §1), then starts a new window. Typed = all inserted
+  characters minus pasted ones, so the order of Monaco's two events doesn't matter. The
+  `@monaco-editor/react` wrapper applies a new `value` prop (a restored draft, "Reset") as a
+  normal edit, not a "flush" (read in its source), so `Workspace` announces its own
+  replacements (`expectReplace`) and the tracker skips them. Auto-indent, auto-closed brackets
+  and undo count as typing (an approximation). A line under the editor tells the student.
 
 ## Decisions
 - **Monaco is served by us**, not loaded from `cdn.jsdelivr.net` (the default of
