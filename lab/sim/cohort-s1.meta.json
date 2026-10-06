@@ -1,0 +1,576 @@
+{
+  "config": {
+    "ai_max_pastes": 2,
+    "ai_user_seeds": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "course_start": "2026-09-07T00:00:00Z",
+    "difficulty_base": {
+      "easy": -1.0,
+      "hard": 1.0,
+      "medium": 0.0
+    },
+    "difficulty_jitter_sd": 0.3,
+    "honest_paste_share": 0.15,
+    "ide_paste_problem_share": 0.8,
+    "ide_paster_share": 0.1,
+    "learning_per_attempt": 0.4,
+    "own_style_share": 0.7,
+    "personas": {
+      "ai_user": {
+        "cheat_share": 0.6,
+        "count": 4,
+        "max_attempts": 3,
+        "skill_mean": 0.0
+      },
+      "average": {
+        "cheat_share": 0.0,
+        "count": 20,
+        "max_attempts": 4,
+        "skill_mean": 0.0
+      },
+      "copier": {
+        "cheat_share": 0.6,
+        "count": 4,
+        "max_attempts": 3,
+        "skill_mean": -0.5
+      },
+      "quitter": {
+        "cheat_share": 0.0,
+        "count": 6,
+        "max_attempts": 4,
+        "skill_mean": 0.0
+      },
+      "strong": {
+        "cheat_share": 0.0,
+        "count": 14,
+        "max_attempts": 3,
+        "skill_mean": 1.5
+      },
+      "struggling": {
+        "cheat_share": 0.0,
+        "count": 12,
+        "max_attempts": 5,
+        "skill_mean": -1.5
+      }
+    },
+    "quitter_last_module": [
+      3,
+      5
+    ],
+    "reference_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "retype_share": 0.3,
+    "seed": 1,
+    "skill_sd": 0.5
+  },
+  "difficulty": {
+    "cs1.conditions.is_leap_year": -1.3276519645312423,
+    "cs1.conditions.letter_grade": -0.9905996449504849,
+    "cs1.conditions.max_of_three": -1.3066309510032619,
+    "cs1.conditions.triangle_type": -0.43104883353075896,
+    "cs1.dicts.first_unique_char": 0.3072866035461054,
+    "cs1.dicts.group_anagrams": 0.20887410673588847,
+    "cs1.dicts.two_sum": 0.03854167458985692,
+    "cs1.dicts.word_frequency": 0.06545154400817473,
+    "cs1.functions.gcd": -0.9403626255419724,
+    "cs1.functions.is_prime": 0.3698271525086771,
+    "cs1.functions.primes_up_to": 0.2727093078459627,
+    "cs1.functions.running_total": -1.109663279869755,
+    "cs1.lists.merge_sorted": -0.04341069244947616,
+    "cs1.lists.remove_duplicates": -0.28326638702779416,
+    "cs1.lists.rotate_right": 0.06089075319298926,
+    "cs1.lists.second_largest": 0.09621333029965447,
+    "cs1.loops.count_digits": -0.8360595098985305,
+    "cs1.loops.factorial": -0.9599876186024185,
+    "cs1.loops.fizzbuzz": -1.2741912831205937,
+    "cs1.loops.sum_of_evens": -0.9402064070548739,
+    "cs1.recursion.binary_search": 0.21614027905777608,
+    "cs1.recursion.fibonacci": 0.13356653170831456,
+    "cs1.recursion.flatten": 0.023059044515775697,
+    "cs1.recursion.recursive_sum": -1.3246924073788133,
+    "cs1.recursion.valid_parentheses": 1.064869881340022,
+    "cs1.strings.compress": 0.16139915359831014,
+    "cs1.strings.count_vowels": -1.0194225281118063,
+    "cs1.strings.is_palindrome": -0.9984984149120283,
+    "cs1.strings.reverse_words": -0.4517487003782225,
+    "cs1.variables.average_of_three": -1.2293630952914896,
+    "cs1.variables.celsius_to_fahrenheit": -0.6135445740533612,
+    "cs1.variables.rectangle_stats": -0.9800992573185214,
+    "cs1.variables.seconds_to_hms": -0.5651663173900687
+  },
+  "git_commit": "12510d6d0d735cf554628a8a0cef1991c0bd6ebb",
+  "git_dirty": false,
+  "inputs": {
+    "lab/evals/results/qwen2.5-coder-1.5b-fp16-t0.8-n10.jsonl": "c828501db18547ea41dc3590ca7c0ed270abf6409f8529d40588e9877d2b8555",
+    "lab/evals/results/qwen2.5-coder-7b-q4-t0.8-n10.jsonl": "de3abaf9266095814fa216bb553362c14267e60e37d0dc9cd0a0d571b9287b97",
+    "lab/tutor/results/tutor-eval-ollama-qwen2.5-coder-1.5b-instruct-fp16.jsonl": "ddd2235d8426bed1219260dd3b948c9435969e8abf6c82dcbafaac681202d556"
+  },
+  "problem_versions": {
+    "cs1.conditions.is_leap_year": 1,
+    "cs1.conditions.letter_grade": 1,
+    "cs1.conditions.max_of_three": 1,
+    "cs1.conditions.triangle_type": 1,
+    "cs1.dicts.first_unique_char": 1,
+    "cs1.dicts.group_anagrams": 1,
+    "cs1.dicts.two_sum": 1,
+    "cs1.dicts.word_frequency": 1,
+    "cs1.functions.gcd": 1,
+    "cs1.functions.is_prime": 1,
+    "cs1.functions.primes_up_to": 1,
+    "cs1.functions.running_total": 1,
+    "cs1.lists.merge_sorted": 1,
+    "cs1.lists.remove_duplicates": 1,
+    "cs1.lists.rotate_right": 1,
+    "cs1.lists.second_largest": 2,
+    "cs1.loops.count_digits": 1,
+    "cs1.loops.factorial": 1,
+    "cs1.loops.fizzbuzz": 1,
+    "cs1.loops.sum_of_evens": 1,
+    "cs1.recursion.binary_search": 1,
+    "cs1.recursion.fibonacci": 1,
+    "cs1.recursion.flatten": 1,
+    "cs1.recursion.recursive_sum": 1,
+    "cs1.recursion.valid_parentheses": 1,
+    "cs1.strings.compress": 1,
+    "cs1.strings.count_vowels": 1,
+    "cs1.strings.is_palindrome": 1,
+    "cs1.strings.reverse_words": 1,
+    "cs1.variables.average_of_three": 1,
+    "cs1.variables.celsius_to_fahrenheit": 1,
+    "cs1.variables.rectangle_stats": 1,
+    "cs1.variables.seconds_to_hms": 1
+  },
+  "rows": 3076,
+  "students": [
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-001",
+      "persona": "struggling",
+      "skill": -0.9559072944322384
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-002",
+      "persona": "average",
+      "skill": 0.2321826112862755
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-003",
+      "persona": "strong",
+      "skill": 1.22037759783652
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-004",
+      "persona": "strong",
+      "skill": 1.0105771278516102
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-005",
+      "persona": "strong",
+      "skill": 1.2397020636999267
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-006",
+      "persona": "ai_user",
+      "skill": 0.05157408947079509
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-007",
+      "persona": "average",
+      "skill": -0.014242812491837233
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-008",
+      "persona": "ai_user",
+      "skill": 0.4467035048443974
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-009",
+      "persona": "strong",
+      "skill": 0.558181200932566
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-010",
+      "persona": "struggling",
+      "skill": -1.2804524644324964
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-011",
+      "persona": "average",
+      "skill": -0.5633902477343185
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-012",
+      "persona": "strong",
+      "skill": 2.447874231309223
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-013",
+      "persona": "struggling",
+      "skill": -1.1511677827657623
+    },
+    {
+      "ide_paster": false,
+      "last_module": 4,
+      "name": "sim-014",
+      "persona": "quitter",
+      "skill": -0.5756993671094923
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-015",
+      "persona": "ai_user",
+      "skill": -0.01708000525903647
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-016",
+      "persona": "copier",
+      "skill": 0.12317332002590098
+    },
+    {
+      "ide_paster": false,
+      "last_module": 5,
+      "name": "sim-017",
+      "persona": "quitter",
+      "skill": 0.006205314844504406
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-018",
+      "persona": "average",
+      "skill": -0.7314131645091343
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-019",
+      "persona": "strong",
+      "skill": 0.9696133731852769
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-020",
+      "persona": "average",
+      "skill": 0.09234054409430006
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-021",
+      "persona": "average",
+      "skill": 0.19876929595660883
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-022",
+      "persona": "struggling",
+      "skill": -1.383452679429379
+    },
+    {
+      "ide_paster": true,
+      "last_module": 8,
+      "name": "sim-023",
+      "persona": "struggling",
+      "skill": -1.5539956361490055
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-024",
+      "persona": "average",
+      "skill": 0.37111084088887486
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-025",
+      "persona": "average",
+      "skill": -0.404881307954095
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-026",
+      "persona": "average",
+      "skill": -0.10439259916094057
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-027",
+      "persona": "average",
+      "skill": 0.887178671234411
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-028",
+      "persona": "copier",
+      "skill": -0.30976258989051286
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-029",
+      "persona": "strong",
+      "skill": 1.8333771511040522
+    },
+    {
+      "ide_paster": false,
+      "last_module": 4,
+      "name": "sim-030",
+      "persona": "quitter",
+      "skill": -0.3999955304736247
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-031",
+      "persona": "strong",
+      "skill": 0.8980417082766388
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-032",
+      "persona": "copier",
+      "skill": -0.6078763233801996
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-033",
+      "persona": "average",
+      "skill": 0.01794090558311644
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-034",
+      "persona": "average",
+      "skill": -0.28369912481249543
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-035",
+      "persona": "strong",
+      "skill": 1.6538391335444425
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-036",
+      "persona": "average",
+      "skill": -0.3417791451434729
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-037",
+      "persona": "struggling",
+      "skill": -1.5217529831639065
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-038",
+      "persona": "average",
+      "skill": 0.09412585447195679
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-039",
+      "persona": "struggling",
+      "skill": -1.487617256234666
+    },
+    {
+      "ide_paster": false,
+      "last_module": 5,
+      "name": "sim-040",
+      "persona": "quitter",
+      "skill": 0.4174555079490647
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-041",
+      "persona": "average",
+      "skill": 0.6598885354603508
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-042",
+      "persona": "strong",
+      "skill": 2.198439231721756
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-043",
+      "persona": "struggling",
+      "skill": -1.6017491431775692
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-044",
+      "persona": "average",
+      "skill": -0.12345805303210473
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-045",
+      "persona": "average",
+      "skill": -0.01867647298266303
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-046",
+      "persona": "struggling",
+      "skill": -1.782921176190745
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-047",
+      "persona": "average",
+      "skill": -0.4447239596393164
+    },
+    {
+      "ide_paster": false,
+      "last_module": 3,
+      "name": "sim-048",
+      "persona": "quitter",
+      "skill": 0.03674209823595692
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-049",
+      "persona": "strong",
+      "skill": 1.6514965353402014
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-050",
+      "persona": "ai_user",
+      "skill": 0.7659001368002414
+    },
+    {
+      "ide_paster": false,
+      "last_module": 4,
+      "name": "sim-051",
+      "persona": "quitter",
+      "skill": -0.3072094249374724
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-052",
+      "persona": "struggling",
+      "skill": -1.0621286321313366
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-053",
+      "persona": "strong",
+      "skill": 1.9685880322208251
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-054",
+      "persona": "strong",
+      "skill": 1.7173751983925403
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-055",
+      "persona": "struggling",
+      "skill": -0.44732618545795844
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-056",
+      "persona": "struggling",
+      "skill": -0.9048168893543977
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-057",
+      "persona": "copier",
+      "skill": -1.1347126762310449
+    },
+    {
+      "ide_paster": true,
+      "last_module": 8,
+      "name": "sim-058",
+      "persona": "average",
+      "skill": 0.32520261359110986
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-059",
+      "persona": "strong",
+      "skill": 1.577908666466243
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-060",
+      "persona": "average",
+      "skill": 0.5325979440912612
+    }
+  ]
+}

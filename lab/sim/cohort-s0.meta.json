@@ -16,6 +16,8 @@
     },
     "difficulty_jitter_sd": 0.3,
     "honest_paste_share": 0.15,
+    "ide_paste_problem_share": 0.8,
+    "ide_paster_share": 0.1,
     "learning_per_attempt": 0.4,
     "own_style_share": 0.7,
     "personas": {
@@ -67,6 +69,7 @@
       3,
       4
     ],
+    "retype_share": 0.3,
     "seed": 0,
     "skill_sd": 0.5
   },
@@ -105,11 +108,12 @@
     "cs1.variables.rectangle_stats": -1.2039143344235264,
     "cs1.variables.seconds_to_hms": -1.418973431410345
   },
-  "git_commit": "1f000f554a2d4560adc0488d8db0b8b7368b299b",
+  "git_commit": "12510d6d0d735cf554628a8a0cef1991c0bd6ebb",
   "git_dirty": false,
   "inputs": {
     "lab/evals/results/qwen2.5-coder-1.5b-fp16-t0.8-n10.jsonl": "c828501db18547ea41dc3590ca7c0ed270abf6409f8529d40588e9877d2b8555",
-    "lab/evals/results/qwen2.5-coder-7b-q4-t0.8-n10.jsonl": "de3abaf9266095814fa216bb553362c14267e60e37d0dc9cd0a0d571b9287b97"
+    "lab/evals/results/qwen2.5-coder-7b-q4-t0.8-n10.jsonl": "de3abaf9266095814fa216bb553362c14267e60e37d0dc9cd0a0d571b9287b97",
+    "lab/tutor/results/tutor-eval-ollama-qwen2.5-coder-1.5b-instruct-fp16.jsonl": "ddd2235d8426bed1219260dd3b948c9435969e8abf6c82dcbafaac681202d556"
   },
   "problem_versions": {
     "cs1.conditions.is_leap_year": 1,
@@ -146,367 +150,427 @@
     "cs1.variables.rectangle_stats": 1,
     "cs1.variables.seconds_to_hms": 1
   },
-  "rows": 3046,
+  "rows": 3145,
   "students": [
     {
+      "ide_paster": true,
       "last_module": 8,
       "name": "sim-001",
       "persona": "average",
       "skill": 0.9021649659597704
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-002",
       "persona": "strong",
-      "skill": 2.2112344544688813
+      "skill": 1.5488646858645003
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-003",
       "persona": "strong",
-      "skill": 1.950262871109811
+      "skill": 0.4780092355652812
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-004",
-      "persona": "strong",
-      "skill": 2.3102556053270287
-    },
-    {
-      "last_module": 3,
-      "name": "sim-005",
-      "persona": "quitter",
-      "skill": -0.7924273176178543
-    },
-    {
-      "last_module": 8,
-      "name": "sim-006",
       "persona": "strong",
       "skill": 2.408494430815297
     },
     {
+      "ide_paster": false,
+      "last_module": 4,
+      "name": "sim-005",
+      "persona": "quitter",
+      "skill": -0.6761275087033691
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-006",
+      "persona": "strong",
+      "skill": 0.8998925863212861
+    },
+    {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-007",
       "persona": "strong",
-      "skill": 0.8238724912966309
+      "skill": 1.4065984284388695
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-008",
-      "persona": "struggling",
-      "skill": -1.982085825556788
-    },
-    {
-      "last_module": 5,
-      "name": "sim-009",
-      "persona": "quitter",
-      "skill": -0.1257174773924871
-    },
-    {
-      "last_module": 8,
-      "name": "sim-010",
-      "persona": "copier",
-      "skill": -1.100107413678714
-    },
-    {
-      "last_module": 8,
-      "name": "sim-011",
-      "persona": "average",
-      "skill": -0.09340157156113056
-    },
-    {
-      "last_module": 8,
-      "name": "sim-012",
-      "persona": "average",
-      "skill": 0.0316651750022701
-    },
-    {
-      "last_module": 8,
-      "name": "sim-013",
-      "persona": "copier",
-      "skill": -0.15335706095147916
-    },
-    {
-      "last_module": 8,
-      "name": "sim-014",
       "persona": "struggling",
       "skill": -1.900439628023649
     },
     {
-      "last_module": 8,
-      "name": "sim-015",
-      "persona": "average",
+      "ide_paster": false,
+      "last_module": 4,
+      "name": "sim-009",
+      "persona": "quitter",
       "skill": -0.8437331362810984
     },
     {
+      "ide_paster": false,
       "last_module": 8,
-      "name": "sim-016",
-      "persona": "strong",
-      "skill": 1.1491548837733967
+      "name": "sim-010",
+      "persona": "copier",
+      "skill": -1.3934789434987187
     },
     {
-      "last_module": 4,
-      "name": "sim-017",
-      "persona": "quitter",
-      "skill": 0.19453772899331773
-    },
-    {
+      "ide_paster": false,
       "last_module": 8,
-      "name": "sim-018",
-      "persona": "average",
-      "skill": -0.8934789434987188
-    },
-    {
-      "last_module": 8,
-      "name": "sim-019",
+      "name": "sim-011",
       "persona": "average",
       "skill": -1.4127071310905048
     },
     {
+      "ide_paster": false,
       "last_module": 8,
-      "name": "sim-020",
+      "name": "sim-012",
       "persona": "average",
-      "skill": 0.7696782259866575
+      "skill": 0.055742467640385915
     },
     {
+      "ide_paster": false,
       "last_module": 8,
-      "name": "sim-021",
+      "name": "sim-013",
+      "persona": "copier",
+      "skill": -0.6996870435879687
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-014",
+      "persona": "struggling",
+      "skill": -2.2026564840326217
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-015",
       "persona": "average",
-      "skill": -0.4426053726474973
-    },
-    {
-      "last_module": 8,
-      "name": "sim-022",
-      "persona": "strong",
-      "skill": 2.0985475081759173
-    },
-    {
-      "last_module": 8,
-      "name": "sim-023",
-      "persona": "average",
-      "skill": 0.340772689463659
-    },
-    {
-      "last_module": 8,
-      "name": "sim-024",
-      "persona": "strong",
-      "skill": 0.7973435159673783
-    },
-    {
-      "last_module": 8,
-      "name": "sim-025",
-      "persona": "ai_user",
       "skill": 0.05999291989716678
     },
     {
+      "ide_paster": false,
       "last_module": 8,
-      "name": "sim-026",
-      "persona": "average",
-      "skill": 0.2098757030143133
+      "name": "sim-016",
+      "persona": "strong",
+      "skill": 1.4710373728310524
     },
     {
-      "last_module": 8,
-      "name": "sim-027",
-      "persona": "average",
-      "skill": -0.30849915891722984
-    },
-    {
-      "last_module": 8,
-      "name": "sim-028",
-      "persona": "average",
-      "skill": -0.0289626271689477
-    },
-    {
-      "last_module": 8,
-      "name": "sim-029",
-      "persona": "average",
+      "ide_paster": false,
+      "last_module": 3,
+      "name": "sim-017",
+      "persona": "quitter",
       "skill": -0.24789565328828841
     },
     {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-018",
+      "persona": "average",
+      "skill": 0.09265659031272067
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-019",
+      "persona": "average",
+      "skill": -0.21079051045248315
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-020",
+      "persona": "average",
+      "skill": 0.6268706023189798
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-021",
+      "persona": "average",
+      "skill": 0.1831229237599216
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-022",
+      "persona": "strong",
+      "skill": 1.450864246799112
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-023",
+      "persona": "average",
+      "skill": -0.10543002845921787
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-024",
+      "persona": "strong",
+      "skill": 1.0575187180251913
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-025",
+      "persona": "ai_user",
+      "skill": -0.22880292642540156
+    },
+    {
+      "ide_paster": true,
+      "last_module": 8,
+      "name": "sim-026",
+      "persona": "average",
+      "skill": 0.13512581345759614
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-027",
+      "persona": "average",
+      "skill": -0.016624893722719573
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-028",
+      "persona": "average",
+      "skill": 0.10217485720803338
+    },
+    {
+      "ide_paster": false,
+      "last_module": 8,
+      "name": "sim-029",
+      "persona": "average",
+      "skill": 0.23599800528894843
+    },
+    {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-030",
       "persona": "struggling",
-      "skill": -1.3358381414218479
+      "skill": -1.4009632643238643
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-031",
       "persona": "strong",
-      "skill": 2.374303966088425
+      "skill": 1.458590104712449
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-032",
       "persona": "copier",
-      "skill": -0.9559425002799842
+      "skill": -0.5220012623821227
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-033",
       "persona": "struggling",
-      "skill": -0.7010694009171559
+      "skill": -1.147468453805685
     },
     {
+      "ide_paster": false,
       "last_module": 5,
       "name": "sim-034",
       "persona": "quitter",
-      "skill": 0.22693261538204323
+      "skill": -0.18580443987181636
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-035",
       "persona": "ai_user",
-      "skill": 0.16620337800406737
+      "skill": 0.25474704996639247
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-036",
       "persona": "average",
-      "skill": 0.17967379301586425
+      "skill": -0.6370196455812678
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-037",
       "persona": "struggling",
-      "skill": -0.5960195267399315
+      "skill": -1.9416622229950737
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-038",
       "persona": "strong",
-      "skill": 0.7191713835708279
+      "skill": 1.9649409365178592
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-039",
       "persona": "struggling",
-      "skill": -2.3768236014171285
+      "skill": -1.8185483152018347
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-040",
       "persona": "average",
-      "skill": -0.15702817513754158
+      "skill": -0.10883304668802893
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-041",
       "persona": "struggling",
-      "skill": -1.6173924930247956
+      "skill": -1.819164361945067
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-042",
       "persona": "strong",
-      "skill": 1.7293232220775994
+      "skill": 1.6620742125529167
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-043",
       "persona": "strong",
-      "skill": 1.7277257391605088
+      "skill": 1.7491448077119343
     },
     {
+      "ide_paster": true,
       "last_module": 8,
       "name": "sim-044",
       "persona": "average",
-      "skill": 0.12175053466624952
+      "skill": 0.6516881185009309
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-045",
       "persona": "average",
-      "skill": -0.22117978228680113
+      "skill": -0.3507420709533557
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-046",
       "persona": "average",
-      "skill": 0.7949262434014477
+      "skill": 0.8249871414224287
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-047",
       "persona": "average",
-      "skill": 0.5152743441753073
+      "skill": -0.5986120397053852
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-048",
       "persona": "struggling",
-      "skill": -0.9914275270746685
+      "skill": -2.0600603927721517
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-049",
       "persona": "ai_user",
-      "skill": 0.4543428161755355
+      "skill": 0.47142743960051436
     },
     {
+      "ide_paster": true,
       "last_module": 8,
       "name": "sim-050",
       "persona": "struggling",
-      "skill": -1.0467713179616238
+      "skill": -1.701041350747643
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-051",
       "persona": "struggling",
-      "skill": -0.2511886999129822
+      "skill": -2.0155431779081323
     },
     {
-      "last_module": 5,
+      "ide_paster": false,
+      "last_module": 4,
       "name": "sim-052",
       "persona": "quitter",
-      "skill": -0.11366837171599321
+      "skill": -0.25874120556933966
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-053",
       "persona": "struggling",
-      "skill": -2.0597378012895313
+      "skill": -1.5739730660583766
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-054",
       "persona": "average",
-      "skill": 0.368525179725122
+      "skill": -0.7675735652082961
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-055",
       "persona": "copier",
-      "skill": -1.616357807979109
+      "skill": 0.4373766319243799
     },
     {
-      "last_module": 3,
+      "ide_paster": false,
+      "last_module": 4,
       "name": "sim-056",
       "persona": "quitter",
-      "skill": 0.5211419667345485
+      "skill": -0.574327465273923
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-057",
       "persona": "strong",
-      "skill": 1.5751137412835416
+      "skill": 0.9533110812964427
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-058",
       "persona": "strong",
-      "skill": 1.5978973019055676
+      "skill": 2.087289304896907
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-059",
       "persona": "ai_user",
-      "skill": -0.1634129034973553
+      "skill": 0.3263484915165632
     },
     {
+      "ide_paster": false,
       "last_module": 8,
       "name": "sim-060",
       "persona": "struggling",
-      "skill": -1.1193408729766512
+      "skill": -1.3097844553646345
     }
   ]
 }
