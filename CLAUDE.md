@@ -77,12 +77,14 @@ every line in an interview.
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
+- `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels)
 - `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`, `sim_cohort.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
-- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `notes/`
+- `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md` (Week 5), `notes/`
+- `lab/sim/`: `cohort-s0.jsonl` + `.meta.json` (the simulated class with labels and true skills; committed, byte-identical on regeneration)
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
@@ -375,6 +377,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   real ClipboardEvent paste): typed 11 / pasted 24 / 12 edits as done; reload → zeros +
   `restored_draft: true`; Reset → zeros. `make e2e` 11/11, `make web-e2e` 9/9 (22.8 s),
   `make web-check` OK. Suite 620 passed (64.3 s **on battery, 65%**); `make all` 80 s.
+- **Done (2026-10-06): Week 5 Step 1a** (the simulated class generator; 1f000f5 code, 93e747f
+  data). `src/codetutor/sim/` (5 modules), `scripts/sim_cohort.py generate`, `lab/sim/cohort-s0`
+  (3,046 submissions, 60 students, 144 cheating = 4.7%: 73 copies (28 exact, 25 renamed, 20
+  renamed + reformatted), 71 AI pastes; intended pass strong 86%, average 60%, struggling 37%;
+  3.5 s; rows byte-identical; meta `git_dirty: false`). Disguised solutions 66/66 accepted;
+  renamer works on 659/660 Week 2 answers. 17 tests (5.2 s). docs/integrity.md §1, lab/README,
+  1 interview note. Suite 637 passed (66.8 s **on battery, 52%**); `make all` 83 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -447,10 +456,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   not fix the "token repeat limit" call. Week 4 Step 5: Q1 why `--limit 1` failed before the
   fix; Q2 why README commands are run exactly as written; Q3 why Langfuse was not added.
   Week 5 Step 0: Q1 why typed = inserted − pasted; Q2 why `pasted_chars: 5000` can't punish
-  anyone; Q3 what a reload would show without `expectReplace`.
-  (104 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Step 0 (STOP given 2026-10-06); then **Week 5
-  Step 1** (the simulated class), plan mode first. Najeeb: his text in `docs/notes/week4.md`
+  anyone; Q3 what a reload would show without `expectReplace`. Week 5 Step 1a: Q1 why
+  7B seeds 0-4 are never pasted by simulated AI users; Q2 why honest students get their own
+  variable names; Q3 why the bank's `# bug:` comments are stripped.
+  (107 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Step 1a (STOP given 2026-10-06); then **Step 1b**
+  (already planned and approved: `db/admin.py` `recreate_database(url, must_contain=)`, `make
+  sim-db`, `sim_cohort.py load` via `enqueue_submission(..., created_at=)`, `make sim-grade`
+  with 4 `worker.py --drain` in Docker, summary; test that labels never reach DB rows). Najeeb: his text in `docs/notes/week4.md`
   ("review" when ready); his text in `docs/notes/week4.md` ("review" when
   ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
@@ -911,6 +924,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the client is ours). `since_open_ms` = since page open or the last submit. Monaco ignored
   `trigger('keyboard', 'paste', …)` in the live check; a real `ClipboardEvent('paste')` on
   its `.native-edit-context` worked. Tests went into `test_api.py` (reuse its fixtures).
+
+
+- 2026-10-06: Week 5 Step 1 (Najeeb approved the plan; split 1a generator / 1b database).
+  Choices inside the plan: 7B seeds 0-4 reserved as Step 2's "known AI answers" (never
+  submitted; AI users paste seeds 5-9), honest correct code = solution + 1.5B accepted answers
+  with 70% "own style" renames (honest look-alikes on purpose), copiers copy only earlier honest
+  passing work of others (start time, not submit time: fixed before the first run), student
+  names shuffled (`sim-001`…, never hinting at a persona). Found on the first generated row: the
+  bank's buggy files carried teacher comments (`# bug: …`) into "student" code, an unfair clue
+  for a detector; pools now use `without_comments` for bank files (model answers keep theirs).
+  `generate` validates every editor summary with the API's `EditorStats`. Cohort data committed
+  separately after the code (like Week 2 configs), so the meta says `git_dirty: false`.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
