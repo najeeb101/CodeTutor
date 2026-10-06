@@ -11,16 +11,13 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
-import psycopg
 import pytest
 import yaml
 from alembic import command
-from alembic.config import Config
-from psycopg import sql
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
+from codetutor.db import admin
 from codetutor.db.engine import make_engine
 from codetutor.db.models import EMBEDDING_DIMENSIONS, Base
 from codetutor.evals.records import ModelReply
@@ -139,34 +136,14 @@ def write_problem(tmp_path: Path) -> ProblemWriter:
 
 
 def recreate_database(url: str) -> None:
-    """Drop the database named in `url` (if it exists) and create it again, empty.
-
-    Refuses names without "test", so a wrong URL can never wipe a real database.
-    """
-    name = conninfo_to_dict(url)["dbname"]
-    if "test" not in name:
-        raise RuntimeError(f"refusing to drop database {name!r}: test databases contain 'test'")
-    # DROP/CREATE DATABASE can't run inside a transaction or while connected to that database,
-    # so connect to the server's default "postgres" database with autocommit.
-    admin = make_conninfo(url, dbname="postgres", connect_timeout=3)
+    """Drop and re-create the test database (names must contain "test"; db/admin.py)."""
     try:
-        with psycopg.connect(admin, autocommit=True) as conn:
-            # WITH (FORCE) also closes connections left open by an earlier, crashed run.
-            conn.execute(
-                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
-            )
-            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    except psycopg.OperationalError as exc:
-        info = conninfo_to_dict(url)  # host and port only: the URL may contain a password
-        where = f"{info.get('host')}:{info.get('port', 5432)}"
-        pytest.fail(f"cannot reach Postgres at {where} ({exc}). Run `make db-up`.")
+        admin.recreate_database(url, must_contain="test")
+    except admin.DatabaseUnreachableError as exc:
+        pytest.fail(str(exc))
 
 
-def alembic_config(url: str) -> Config:
-    """The project's alembic.ini, pointed at `url` (env.py reads the "url" attribute)."""
-    config = Config(str(REPO_ROOT / "alembic.ini"))
-    config.attributes["url"] = url
-    return config
+alembic_config = admin.alembic_config  # tests import it from here
 
 
 @pytest.fixture(scope="session")

@@ -4,12 +4,13 @@ Week 5 adds **signals for a human**: which submissions look copied, pasted or AI
 how hard each problem and how skilled each student is. Flags never punish anyone by themselves
 (brief, principle 6): they come with reasons, and a teacher decides.
 
-Status: **Step 0** (editor summary per submit, [api.md](api.md) §1) and **Step 1a** (the
-simulated class, below) are done. Next: Step 1b (load and grade the class in its own
-database), Step 2 (integrity checks), Step 3 (difficulty and skill), Step 4 (wrap-up).
+Status: **Step 0** (editor summary per submit, [api.md](api.md) §1) and **Step 1** (the
+simulated class, generated, loaded and graded, below) are done. Next: Step 2 (integrity
+checks), Step 3 (difficulty and skill), Step 4 (wrap-up).
 
 Code: `src/codetutor/sim/` (`personas.py`, `pools.py`, `transforms.py`, `editor.py`,
-`cohort.py`), `scripts/sim_cohort.py`. Tests: `tests/test_sim.py`.
+`cohort.py`, `load.py`), `scripts/sim_cohort.py`, `src/codetutor/db/admin.py`. Tests:
+`tests/test_sim.py`, `tests/test_sim_db.py`.
 
 ## 1. The simulated class (Step 1)
 
@@ -75,7 +76,34 @@ true b, input hashes, git commit). The rows file is **byte-identical** on every 
 cheating (4.7%: 73 copies, 71 AI pastes); intended pass share strong 86%, average 60%,
 struggling 37%.
 
-### 1.5 What the simulation can and cannot show
+### 1.5 Its own database, graded by the real workers (Step 1b)
+```bash
+make sim          # = the four steps below (~12.5 min), or one at a time:
+make sim-db       # DELETE and re-create codetutor_sim: migrations + problem sync
+make sim-load     # queue the 3,046 submissions at their simulated times
+make sim-grade    # 4 workers (`worker.py --drain`, Docker) share its queue, then exit
+make sim-summary  # grades vs labels
+```
+- **The same door as a real submit:** `load_rows` calls `enqueue_submission` (problem and
+  version checks, code checks) with one extra keyword, `created_at` (the simulated time). Users
+  get their first submission's time as `created_at`. Loading into a database that already
+  has submissions is refused (it would double the class).
+- **Labels stay out:** only user, problem, code, time and editor summary go in. A test dumps
+  every submissions and users row as text and checks that no label field name and no source
+  reference appears. Labels join back by (student name, problem, time), unique by
+  construction (`graded_rows`).
+- **Safety:** every database command refuses a database whose name lacks "sim"; the drop
+  itself goes through `recreate_database(..., must_contain="sim")`.
+- **Measured (2026-10-06, mains power):** 3,046 jobs in 12 min 8 s with 4 workers (776 / 775
+  / 765 / 730 each; 0 retried, 0 failed, 0 lost). Results: accepted 1,816, wrong_answer 952,
+  runtime_error 201, timeout 49, compile_error 28. **The grade matched the label's "intended
+  pass" for 3,046 of 3,046 rows**: every disguised copy and every renamed honest answer
+  behaved like its source. Accepted share: strong 86.2%, AI user 82.9%, quitter 72.5%,
+  copier 67.4%, average 60.2%, struggling 37.4%.
+- `finished_at` is the real grading time (October); `created_at` is simulated (September).
+  Steps 2-3 use `created_at`.
+
+### 1.6 What the simulation can and cannot show
 - The simulator decides how cheaters behave, so Step 2 measures "how well we catch **our**
   cheaters". The hard cases are in on purpose (honest look-alikes, disguised copies, honest
   small pastes, AI answers the detector has never seen), but real cheaters can be smarter.

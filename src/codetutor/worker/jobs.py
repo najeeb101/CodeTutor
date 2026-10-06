@@ -12,6 +12,7 @@ ends (worker/loop.py: claim, grade, save are three separate steps).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select, text, update
@@ -132,6 +133,7 @@ def enqueue_submission(
     *,
     expected_version: int | None = None,
     editor_stats: dict[str, Any] | None = None,
+    created_at: datetime | None = None,
 ) -> int:
     """Save a new submission as a queued job, graded on the problem's current version.
 
@@ -139,7 +141,8 @@ def enqueue_submission(
     is different, nothing is saved (ProblemChangedError), so code is never graded against a
     problem the student didn't see. Returns the submission id. Saving the row IS enqueueing:
     one insert, no second system. `editor_stats`: the web editor's summary, already checked by
-    the API (`EditorStats`); None for scripts.
+    the API (`EditorStats`); None for scripts. `created_at`: only for loading the simulated
+    class (Week 5), whose submissions happened on simulated dates; None = now (the database).
     """
     check_code(code)
     version = current_problem_version(session, problem_id, expected_version)
@@ -150,6 +153,8 @@ def enqueue_submission(
         code=code,
         editor_stats=editor_stats,
     )
+    if created_at is not None:
+        submission.created_at = created_at
     session.add(submission)
     session.flush()  # assigns the id
     return submission.id

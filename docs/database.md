@@ -85,7 +85,10 @@ uv run alembic upgrade head --sql # print the SQL without running it
 ```
 Without `DATABASE_URL`, everything uses the local dev database. The tests use their own
 database, `codetutor_test` (or `TEST_DATABASE_URL`), which they drop and re-create on every
-run. They never read `DATABASE_URL`.
+run. They never read `DATABASE_URL`. The simulated class (Week 5) has its own database too,
+`codetutor_sim` (or `SIM_DATABASE_URL`), built by the same migrations (`make sim-db`). Both
+are dropped only through `db/admin.py` `recreate_database(url, must_contain=...)`, which
+refuses a name without "test" / "sim", so a wrong URL can never wipe the dev database.
 
 ## 4. How to change the schema
 1. Change the classes in `src/codetutor/db/models.py`.

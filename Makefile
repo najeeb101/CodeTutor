@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -48,6 +48,26 @@ web-check:  ## type-check and build the web UI (production build)
 
 web/node_modules:
 	cd web && npm ci
+
+sim-db: db-up  ## DELETE and re-create the simulated class's database codetutor_sim (migrations + problems; Week 5)
+	uv run python scripts/sim_cohort.py reset-db
+
+sim-load:  ## queue the simulated class's submissions (lab/sim/cohort-s0.jsonl) in codetutor_sim
+	uv run python scripts/sim_cohort.py load
+
+# Four workers share the sim database's queue (FOR UPDATE SKIP LOCKED), each until it is
+# empty. The URL comes from settings.py, so it is written in one place only.
+SIM_WORKERS ?= 4
+sim-grade: db-up  ## grade the simulated class in Docker with SIM_WORKERS (4) workers, then exit
+	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url())')"; \
+	pids=""; for i in $$(seq $(SIM_WORKERS)); do \
+		DATABASE_URL="$$url" uv run python scripts/worker.py --drain & pids="$$pids $$!"; \
+	done; status=0; for pid in $$pids; do wait $$pid || status=1; done; exit $$status
+
+sim-summary:  ## compare the simulated class's grades with its labels
+	uv run python scripts/sim_cohort.py summary
+
+sim: sim-db sim-load sim-grade sim-summary  ## all four: a fresh, graded simulated class (~15-20 min)
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py

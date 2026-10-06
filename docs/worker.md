@@ -103,6 +103,9 @@ uv run python scripts/submit.py cs1.loops.fizzbuzz path/to/file.py --wait   # de
 - **More throughput**: start more worker processes. They share the queue safely
   (`SKIP LOCKED`). One process grades one job at a time.
 - Measured: fizzbuzz in Docker takes ~1.0 s per job end to end.
+- Measured with four workers (`make sim-grade`, Week 5, 2026-10-06): the simulated class's
+  3,046 jobs in 12 min 8 s (4.2 jobs/s), split 776 / 775 / 765 / 730, with 0 retried, 0 failed,
+  0 lost, and every job graded exactly once: `SKIP LOCKED` shared the queue as designed.
 
 ## 7. Limitations
 - An idle worker polls once per second (one small indexed query). Postgres `LISTEN/NOTIFY`
