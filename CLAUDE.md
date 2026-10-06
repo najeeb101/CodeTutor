@@ -73,15 +73,16 @@ every line in an interview.
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
-- `src/codetutor/db/`: `engine.py`, `models.py` (7 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/db/`: `engine.py`, `models.py` (8 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
+- `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`)
 - `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
-- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`, `sim_cohort.py`
+- `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`, `sim_cohort.py`, `integrity.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md` (Week 5), `notes/`
 - `lab/sim/`: `cohort-s0.jsonl` / `cohort-s1.jsonl` + `.meta.json` (the simulated classes with labels and true skills; seed 0 = tuning, seed 1 = held out; committed, byte-identical on regeneration)
@@ -116,7 +117,7 @@ every line in an interview.
   127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
   `sim-db` / `sim-load` / `sim-grade` / `sim-summary` / `sim` (Week 5: the simulated class in its own
   database `codetutor_sim`, or `codetutor_sim_s1` with `SIM_SEED=1`; `sim-db` deletes it;
-  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
+  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes; ~4 s each), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
@@ -414,6 +415,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   recall 0.73; seed 1 0.51 / 0.66. Suite 648 passed, **58.4 s on mains** (126 s and 89.6 s
   right after the 23-min grading, 15-min load 8.3; the slowest test alone 0.9-1.9 s);
   `make all` OK.
+- **Done (2026-10-06): Week 5 Step 2b** (integrity checks, 96dff9e; plan approved with D1 =
+  F0.5 grid, D2 = paste habit as context only, D3 = one row per signal). `integrity/`
+  (`normalize`, `signals`, `known_ai`, `store`), migration 0008 (`integrity_flags`),
+  `scripts/integrity.py run --seed N | --dev`, `make integrity` (~3.6 s per class). 38 new
+  tests (3.3 s). Provisional thresholds (0.5 / 5 chars/s / 1.0) reproduce the hand
+  measurements: needs review seed 0 P 0.51 R 0.84 (265 flagged), seed 1 0.64 / 0.86 (223);
+  `same_as_student` alone fires on 2,328 rows (P 0.05). Dev DB: 90 `same_as_student` (e2e
+  users), 0 needing review. **Q14 named**: `make all` failed once with
+  `test_memory_bomb[subprocess-memory_bomb_growing]` (timeout, 7.4 s total, on mains, load
+  0.98); the rerun: 686 passed, **50.6 s on mains**, 33 valid.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -493,11 +504,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   graded twice; Q3 why every sim command refuses a database name without "sim".
   Week 5 Step 2a: Q1 why the first class made paste detection look 100% perfect; Q2 why
   thresholds are chosen on seed 0 but reported on seed 1; Q3 what retyping cheaters are for
-  if no paste rule can catch them.
-  (113 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Step 2a (STOP given 2026-10-06); then **Week 5
-  Step 2b** (detectors as a batch job + `integrity_flags` table; thresholds on seed 0, report
-  on seed 1), plan mode first. Najeeb: his text in `docs/notes/week4.md`
+  if no paste rule can catch them. Week 5 Step 2b: Q1 why only the later of two matching
+  submissions is flagged; Q2 why `same_as_student` alone fires on 2,328 rows; Q3 why the batch
+  job deletes and inserts in one transaction.
+  (116 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Step 2b (STOP given 2026-10-06) and decides Q14
+  (it recurred, now named); then **Week 5 Step 2c** (F0.5 grid on seed 0, frozen thresholds,
+  `INTEGRITY_VERSION = "1"`, report on seed 1 with intervals over students, docs, interview
+  note, the `f_beta` TODO), as approved in the Step 2b plan. Najeeb: his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -996,9 +1010,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   byte-identical, both metas `12510d6`, `git_dirty: false`. The earlier session's grading
   workers stopped when that session ended (593 of 3,145 graded, 4 jobs "running"); the next
   `make sim-grade` re-claimed the 4 after their lease expired, as designed.
+- 2026-10-06: Week 5 Step 2b choices inside the plan. Canonical form also renames helper
+  functions (the sim renamer keeps them; an honest student names them freely); imported names
+  and builtins stay. Among equally close earlier matches the earliest is named (the likeliest
+  original); the same timestamp is not "earlier". `FlagKind` lives in `integrity/signals.py`
+  and `db/models.py` imports it (like `GradeStatus`); migration 0008 writes the kinds out.
+  The script migrates the target database first (the sim databases were at 0007) and catches
+  `OperationalError` (a missing database is not `DatabaseUnreachableError`). Two test mistakes
+  found while writing: 3,600 s prints as "1 h" by the script's own rule, and a word search for
+  "label" hit the docstrings that promise no labels, so the no-labels test checks imports with
+  `ast` instead. The docs' first draft guessed retypers were "2-4× faster"; the simulator's
+  numbers are 60-120 ms per character vs ~120-650 for honest typing (fixed before commit).
 
 ## Open questions
-- Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
+- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
