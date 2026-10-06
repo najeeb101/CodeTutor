@@ -35,6 +35,7 @@ TABLES = {
     "test_results",
     "note_chunks",
     "hints",
+    "integrity_flags",
 }
 
 # A complete result, so a submission may be `done` (see ck_submissions_result_complete).

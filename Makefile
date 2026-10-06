@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim test test-docker validate build all
+.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -71,6 +71,12 @@ sim-summary:  ## compare the simulated class's grades with its labels
 	uv run python scripts/sim_cohort.py summary --seed $(SIM_SEED)
 
 sim: sim-db sim-load sim-grade sim-summary  ## all four: a fresh, graded simulated class (~15-20 min)
+
+# Week 5 Step 2b: the integrity checks as a batch job over both graded simulated classes
+# (`make sim` and `SIM_SEED=1 make sim` first). Replaces each database's integrity_flags.
+integrity: db-up  ## run the integrity checks on both simulated classes (seed 0 and held-out seed 1)
+	uv run python scripts/integrity.py run --seed 0
+	uv run python scripts/integrity.py run --seed 1
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py

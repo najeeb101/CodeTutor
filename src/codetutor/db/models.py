@@ -28,6 +28,7 @@ from sqlalchemy import (
     Index,
     MetaData,
     Text,
+    UniqueConstraint,
     func,
     text,
     true,
@@ -37,6 +38,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from codetutor.db.vector import Vector
 from codetutor.grader.models import GradeStatus, TestStatus
+from codetutor.integrity.signals import FlagKind
 from codetutor.problems.schema import Difficulty
 
 # Every constraint gets a predictable name (e.g. "ck_submissions_reward_in_range"), so a later
@@ -348,3 +350,29 @@ class HintRow(Base):
     latency_ms: Mapped[float | None]
     rating: Mapped[int | None]
     rated_at: Mapped[datetime | None]
+
+
+class IntegrityFlagRow(Base):
+    """One integrity signal that fired on one submission (Week 5 Step 2b, docs/integrity.md §2).
+
+    A signal for a teacher, never a punishment: `reason` is the sentence a teacher reads.
+    Written by the batch job (`scripts/integrity.py`), which replaces every row in one
+    transaction. Students must never see these rows: no API route reads this table.
+    """
+
+    __tablename__ = "integrity_flags"
+    __table_args__ = (
+        UniqueConstraint("submission_id", "kind"),  # one row per signal and submission
+        CheckConstraint(_one_of("kind", FlagKind), name="kind_known"),
+        CheckConstraint("json_typeof(details) = 'object'", name="details_is_object"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    submission_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("submissions.id"))
+    kind: Mapped[str]
+    value: Mapped[float]  # paste share, characters per second, or similarity
+    reason: Mapped[str]
+    # e.g. the matched submission and student; never hidden test data
+    details: Mapped[dict[str, Any]] = mapped_column(JSON)
+    detector_version: Mapped[str]  # signals.INTEGRITY_VERSION
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

@@ -15,9 +15,11 @@ users ──────────────< submissions >─────�
                        job columns,              FULL problem, hidden     active,
                        result columns            tests + solution)        student_view (json)
                             │
-                            └──< test_results
-                                 (submission_id, test_id), position, hidden, revealed,
-                                 status, error, input / expected / actual (json), duration_ms
+                            ├──< test_results
+                            │    (submission_id, test_id), position, hidden, revealed,
+                            │    status, error, input / expected / actual (json), duration_ms
+                            └──< integrity_flags (Week 5)
+                                 submission_id + kind (unique), value, reason, details (json)
 ```
 
 | Table | What it holds | Who reads it |
@@ -29,6 +31,7 @@ users ──────────────< submissions >─────�
 | `test_results` | one row per test of a graded submission (a `TestResult`) | API, Week 5 analytics |
 | `note_chunks` (Week 4) | one row per `##` section of a course note (`course/notes/`): text, `content_hash`, `embed_model`, and `embedding vector(768)` (pgvector). Replaced in place when a note changes; `make notes-sync` fills it | the tutor's search ([tutor.md](tutor.md) §2) |
 | `hints` (Week 4) | one row per hint request. The row is also the **tutor worker's job** (migration 0006, like `submissions`): `job_status`, `claims` (the fencing token), `lease_expires_at`, `started_at`, `finished_at`, `last_error`. When done: the shown `text`, `source` (model / fallback / reference) and the **trace**: the found note sections, every model attempt (incl. blocked ones, which may contain solution code: never return them to a student), settings, time. Also level, question, the student's code, `submission_id`; `rating` / `rated_at` for 👍/👎. Offline runs insert finished rows without a user | the tutor worker; the API (11 safe columns only, [api.md](api.md) §3), the Week 6–7 dataset |
+| `integrity_flags` (Week 5) | one row per integrity signal that fired on a submission (migration 0008): `kind` (paste / fast_typing / same_as_student / same_as_ai), `value`, a `reason` sentence for a teacher, `details` (e.g. the matched submission), `detector_version`. Written by the batch job `scripts/integrity.py`, which replaces every row in one transaction ([integrity.md](integrity.md) §2) | nobody yet: the Week 8 teacher screens. **Never the student API** (a source-scan test) |
 
 `problem_versions` / `problems` is the same split as `dist/problems.jsonl` /
 `problems_student.jsonl`: the internal view for grading, and the student view for everyone else.
@@ -54,6 +57,8 @@ users ──────────────< submissions >─────�
 - **Hints:** the same job statuses; `done` ⇔ `text` is set, a set `text` has `source`,
   `settings`, `retrieved`, `attempts` and `latency_ms`; a rating only on a done hint, always
   with `rated_at`; level 1–3.
+- **Integrity flags:** `kind` is one of the four signals (text + CHECK, the kinds written out in
+  migration 0008), `details` is a JSON object, one row per (submission, kind).
 - **Foreign keys:** `problems (id, version)` and `submissions (problem_id, problem_version)`
   point at `problem_versions`, so a submission is always graded on the exact version the
   student saw.
