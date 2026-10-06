@@ -5,6 +5,7 @@ Runs on the test database (never codetutor_sim), with the committed cohort file'
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -21,9 +22,10 @@ from codetutor.sim.pools import SourceKind
 from codetutor.worker.jobs import claim_next_job
 from codetutor.worker.loop import Outcome, process_job
 
-COHORT = Path(__file__).resolve().parents[1] / "lab" / "sim" / "cohort-s0.jsonl"
+REPO = Path(__file__).resolve().parents[1]
+COHORT = REPO / "lab" / "sim" / "cohort-s0.jsonl"
 SANDBOX = SubprocessSandbox()  # only rows whose code is the bank's own files are graded here
-FIRST_ROWS = 40  # all in module 1 (the first week)
+FIRST_ROWS = 24  # all in module 1 (the first week)
 
 
 @pytest.fixture(scope="module")
@@ -31,9 +33,19 @@ def rows() -> list[CohortRow]:
     return read_rows(COHORT)[:FIRST_ROWS]
 
 
+@pytest.fixture(scope="module")
+def module_1_bank(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A bank root with a copy of the real module-1 folders: syncing 4 problems instead of 33
+    for every test keeps this file fast (Q18). (The loader doesn't follow symlinks.)"""
+    root = tmp_path_factory.mktemp("bank")
+    shutil.copytree(REPO / "problems" / "cs1" / "01_variables", root / "cs1" / "01_variables")
+    return root
+
+
 @pytest.fixture
-def loaded(db_session: Session, rows: list[CohortRow]) -> Session:
-    sync_problems(db_session)  # the real bank: the rows are about real problems
+def loaded(db_session: Session, rows: list[CohortRow], module_1_bank: Path) -> Session:
+    assert {row.problem_id.split(".")[1] for row in rows} == {"variables"}
+    sync_problems(db_session, module_1_bank)  # the real files: the rows are about them
     load_rows(db_session, rows)
     db_session.commit()
     return db_session

@@ -142,11 +142,15 @@ def test_answers_graded_on_another_problem_version_are_left_out(bank: list[Probl
 # --- The cohort ---
 
 
-def test_the_same_seed_gives_the_same_cohort(
-    bank: list[Problem], pools: dict[str, Pools], cohort: Cohort
-) -> None:
-    again = generate(bank, pools, CohortConfig())
-    assert again.model_dump_json() == cohort.model_dump_json()
+def test_the_same_seed_gives_the_same_cohort(bank: list[Problem], pools: dict[str, Pools]) -> None:
+    # A small class (one student per persona) keeps this fast; the code path is the same.
+    small = CohortConfig(
+        personas={persona: spec.model_copy(update={"count": 1})
+                  for persona, spec in CohortConfig().personas.items()}
+    )  # fmt: skip
+    first = generate(bank, pools, small)
+    assert len(first.students) == len(Persona) and first.rows
+    assert generate(bank, pools, small).model_dump_json() == first.model_dump_json()
 
 
 def test_personas_and_names(cohort: Cohort) -> None:
