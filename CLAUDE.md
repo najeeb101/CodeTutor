@@ -51,6 +51,10 @@ every line in an interview.
   trace) → 3 API + UI (hints, 👍/👎) → 4 offline tutor eval (buggy files as students, a model
   fixes, `grade()` scores) → 5 wrap-up. The tutor model never sees `solution.py`; every hint
   passes the guardrail (`tutor/guardrail.py`) or is replaced by a reference hint.
+- Week 5 steps: 0 editor summary per submit → 1 simulated class (own DB `codetutor_sim`, same
+  migrations, personas, seeded, labels kept apart) → 2 integrity checks (AST similarity, known
+  AI answers, paste/speed, banned calls; `integrity_flags`; precision/recall) → 3 difficulty +
+  skill (pass rates + Rasch in pure Python) → 4 wrap-up. Flags/skills screens wait for Week 8.
 - Lab half: eval harness (Wk 2), simulated students + integrity + quality estimates (Wk 5),
   dataset builder + GRPO with TRL on Qwen 0.5–1.5B (Wk 6–7).
 - Sandbox: behind a `Sandbox` protocol so backends swap. `SubprocessSandbox` = subprocess + rlimits
@@ -82,7 +86,7 @@ every line in an interview.
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
-- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `components/HintPanel.tsx` (Week 4), `lib/` incl. `api.ts`, `poll.ts` (shared polling) + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
+- `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `components/HintPanel.tsx` (Week 4), `lib/` incl. `api.ts`, `poll.ts` (shared polling), `editorStats.ts` (Week 5 editor summary) + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
 - `api/`, `tutor/`: READMEs pointing to `src/codetutor/api/` + docs/api.md and `src/codetutor/tutor/` + docs/tutor.md
 - `dist/`: generated output (gitignored)
 
@@ -362,6 +366,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   failed when an older scratch run with another `--limit` existed; scratch runs now start
   fresh (like run_eval.py). `make e2e` 11/11 (14 s, hint 3.2 s), stack stopped cleanly. Suite
   604 passed, 68.9 s **on battery** (status flipped to Discharging at 90%); `make all` 85 s.
+- **Done (2026-10-06): Week 5 Step 0** (editor summary per submit, 99de4ea). Migration 0007
+  (`submissions.editor_stats` json, NULL or an object, CHECK added by hand), `EditorStats`
+  (8 fields, strict ints, bounds, 3 consistency rules, never returned), passed through
+  `create_submission` → `enqueue_submission`; `web/lib/editorStats.ts` (`EditorTracker`),
+  `CodeEditor` (Monaco `onMount` listeners), `Workspace` (summary with each submit, reset after
+  a 202; notice under the editor). 16 new tests. Live in headless Chrome (scratch script,
+  real ClipboardEvent paste): typed 11 / pasted 24 / 12 edits as done; reload → zeros +
+  `restored_draft: true`; Reset → zeros. `make e2e` 11/11, `make web-e2e` 9/9 (22.8 s),
+  `make web-check` OK. Suite 620 passed (64.3 s **on battery, 65%**); `make all` 80 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -433,10 +446,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q2 the honest sentence for tutor-1 +0.04 [-0.02, +0.11]; Q3 why rerunning the script does
   not fix the "token repeat limit" call. Week 4 Step 5: Q1 why `--limit 1` failed before the
   fix; Q2 why README commands are run exactly as written; Q3 why Langfuse was not added.
-  (101 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 4 (STOP given 2026-10-06), then **Week 5 planning**
-  (simulated students, integrity checks, difficulty/skill estimates; start with the Week 5
-  overview + decisions, plan mode). Najeeb: his text in `docs/notes/week4.md` ("review" when
+  Week 5 Step 0: Q1 why typed = inserted − pasted; Q2 why `pasted_chars: 5000` can't punish
+  anyone; Q3 what a reload would show without `expectReplace`.
+  (104 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Step 0 (STOP given 2026-10-06); then **Week 5
+  Step 1** (the simulated class), plan mode first. Najeeb: his text in `docs/notes/week4.md`
+  ("review" when ready); his text in `docs/notes/week4.md` ("review" when
   ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -878,6 +893,25 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   ~90% while plugged in twice today (cable or a battery-care limit): measure suite time only
   while it says Charging.
 
+
+- 2026-10-06: **Week 5 decisions (Najeeb, all four recommendations):** (1) simulated
+  submissions in their **own database** built by the same migrations; (2) the editor sends a
+  **summary per submit** (no keystroke log); (3) simulated code = **reuse + transform** (bank
+  solutions, buggy files, the 660 Week 2 answers, programmatic copies; known labels for
+  precision/recall; no new model calls); (4) **pass rates + Rasch** in pure Python (no numpy).
+  Najeeb's MCQ / true-false practice questions idea: in ideas.md, decide at Week 8 planning
+  (his choice; costs ~1-2 days, new tables + UI; links to Rasch as a second evidence source).
+- 2026-10-06: Week 5 Step 0. Found by reading `@monaco-editor/react` 4.7's source: a new
+  `value` prop is applied with `executeEdits` (not `setValue`), so a restored draft or Reset is
+  a normal edit, not a flush; without handling it, a reload would read as "typed the whole
+  draft in 1 s". `Workspace` calls `tracker.expectReplace(text)` first; the tracker skips the
+  change that leaves exactly that text (or consumes it at mount). typed = inserted − pasted
+  (order of Monaco's events doesn't matter); empty pastes ignored; numbers rounded and clamped
+  to the server's bounds, because a bad summary is a 422 for the whole submit (kept strict:
+  the client is ours). `since_open_ms` = since page open or the last submit. Monaco ignored
+  `trigger('keyboard', 'paste', …)` in the live check; a real `ClipboardEvent('paste')` on
+  its `.native-edit-context` worked. Tests went into `test_api.py` (reuse its fixtures).
+
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
@@ -905,4 +939,6 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   code: only `text` may ever leave the server.
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
+- `editor_stats` comes from the browser and can be faked (or left out by any other client);
+  auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
