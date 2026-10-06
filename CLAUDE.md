@@ -73,11 +73,11 @@ every line in an interview.
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
-- `src/codetutor/db/`: `engine.py`, `models.py` (7 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/db/`: `engine.py`, `models.py` (7 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
-- `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels)
+- `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
 - `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
@@ -114,7 +114,9 @@ every line in an interview.
   grade queued submissions in Docker until Ctrl+C), `tutor` (db-sync + notes-sync, then answer
   queued hint requests with the local 7B until Ctrl+C; needs Ollama) and `api` (db-sync, then the HTTP API on
   127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
-  `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
+  `sim-db` / `sim-load` / `sim-grade` / `sim-summary` / `sim` (Week 5: the simulated class in its own
+  database `codetutor_sim`; `sim-db` deletes it; `sim-grade` runs `SIM_WORKERS`=4 Docker workers;
+  `make sim` ~12.5 min), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
@@ -129,7 +131,8 @@ every line in an interview.
   `127.0.0.1` (a plain port mapping could be reachable from the network).
 - Database: `DATABASE_URL`, else the dev URL in `settings.py` (fixed dev credentials, local only,
   not a secret). Tests use their own DB `codetutor_test` (`TEST_DATABASE_URL`), dropped and
-  re-created every run by the real migrations; they never read `DATABASE_URL`. Schema changes:
+  re-created every run by the real migrations; they never read `DATABASE_URL`. The simulated
+  class uses `codetutor_sim` (`SIM_DATABASE_URL`), same migrations. Schema changes:
   `docs/database.md` §4 (autogenerate with `--rev-id 000N`, then review by hand). Node 24 LTS via nvm in `~/.nvm` (WSL; never the Windows `npm` under `/mnt/c`).
 
 ## 8-week plan
@@ -384,6 +387,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   3.5 s; rows byte-identical; meta `git_dirty: false`). Disguised solutions 66/66 accepted;
   renamer works on 659/660 Week 2 answers. 17 tests (5.2 s). docs/integrity.md §1, lab/README,
   1 interview note. Suite 637 passed (66.8 s **on battery, 52%**); `make all` 83 s.
+- **Done (2026-10-06): Week 5 Step 1b = Step 1 done** (2139525). `db/admin.py` (moved from
+  conftest), `sim_database_url()`, `enqueue_submission(..., created_at=)`, `sim/load.py`,
+  `sim_cohort.py reset-db/load/summary`, `make sim*`. 5 tests (labels never in DB rows). Live
+  on mains: `make sim` 12 min 25 s; 3,046 jobs in 12 min 8 s by 4 workers (776/775/765/730;
+  0 retried/failed/lost); accepted 1,816, wrong 952, runtime 201, timeout 49, compile 28;
+  **grade = intended label for 3,046 of 3,046**. Suite 642 passed, **58.6 s on mains** (Q18);
+  `make all` 72 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -458,12 +468,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Week 5 Step 0: Q1 why typed = inserted − pasted; Q2 why `pasted_chars: 5000` can't punish
   anyone; Q3 what a reload would show without `expectReplace`. Week 5 Step 1a: Q1 why
   7B seeds 0-4 are never pasted by simulated AI users; Q2 why honest students get their own
-  variable names; Q3 why the bank's `# bug:` comments are stripped.
-  (107 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Step 1a (STOP given 2026-10-06); then **Step 1b**
-  (already planned and approved: `db/admin.py` `recreate_database(url, must_contain=)`, `make
-  sim-db`, `sim_cohort.py load` via `enqueue_submission(..., created_at=)`, `make sim-grade`
-  with 4 `worker.py --drain` in Docker, summary; test that labels never reach DB rows). Najeeb: his text in `docs/notes/week4.md`
+  variable names; Q3 why the bank's `# bug:` comments are stripped. Week 5 Step 1b: Q1 why
+  `load` goes through `enqueue_submission`; Q2 what made 4 workers share 3,046 jobs with none
+  graded twice; Q3 why every sim command refuses a database name without "sim".
+  (110 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Step 1 (STOP given 2026-10-06) and decides Q18;
+  then **Week 5 Step 2** (integrity checks), plan mode first. Its open decision: run the
+  checks in the worker after grading, or as a batch job. Najeeb: his text in `docs/notes/week4.md`
   ("review" when ready); his text in `docs/notes/week4.md` ("review" when
   ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
@@ -937,7 +948,23 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `generate` validates every editor summary with the API's `EditorStats`. Cohort data committed
   separately after the code (like Week 2 configs), so the meta says `git_dirty: false`.
 
+
+- 2026-10-06: Week 5 Step 1b (approved with Step 1's plan). `recreate_database` moved to
+  `db/admin.py` with `must_contain` (tests: "test", sim: "sim"); conftest keeps thin wrappers
+  so `test_db_schema.py` is unchanged. The Makefile asks `settings.sim_database_url()` for the
+  URL (one source of truth) and waits for each worker's pid, so any failed worker fails the
+  target. Two test mistakes found while writing `test_sim_db.py`: searching the DB dump for
+  persona names is meaningless ("average" is in "average_of_three"), so the test checks label
+  field names and source references instead; finding a job's row by its code text picked the
+  wrong row when two rows held identical code, so it uses `graded_rows` (by id) instead.
+
 ## Open questions
+- Q18: suite time is back near the limit: 642 tests in **58.6 s on mains** (2026-10-06; 604 tests
+  took 45.3 s that morning). Week 5 added ~13 s (test_sim.py ~5 s: one class regeneration +
+  66 gradings; test_sim_db.py ~5 s; editor-summary tests). Options: (A) mark the heaviest new
+  tests `slow` (like Q11); (B) make them cheaper first (e.g. one session-wide cohort fixture,
+  fewer gradings in the disguise test, a smaller row set in test_sim_db.py), then re-measure;
+  (C) leave it and re-measure after Step 2. Recommendation: B, measured with `--durations`.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
