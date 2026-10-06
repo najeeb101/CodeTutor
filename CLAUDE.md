@@ -84,7 +84,7 @@ every line in an interview.
 - `scripts/`: `validate_problems.py`, `fill_expected.py`, `grade_cli.py`, `build_dataset.py`, `bench_sandbox.py`, `try_model.py`, `check_secrets.py`, `run_eval.py`, `eval_report.py`, `sync_problems.py`, `worker.py`, `submit.py` (dev tool), `e2e_check.py`, `sync_notes.py`, `eval_retrieval.py`, `ask_tutor.py`, `tutor_safety.py`, `tutor_worker.py`, `sim_cohort.py`
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md` (Week 5), `notes/`
-- `lab/sim/`: `cohort-s0.jsonl` + `.meta.json` (the simulated class with labels and true skills; committed, byte-identical on regeneration)
+- `lab/sim/`: `cohort-s0.jsonl` / `cohort-s1.jsonl` + `.meta.json` (the simulated classes with labels and true skills; seed 0 = tuning, seed 1 = held out; committed, byte-identical on regeneration)
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
@@ -115,8 +115,8 @@ every line in an interview.
   queued hint requests with the local 7B until Ctrl+C; needs Ollama) and `api` (db-sync, then the HTTP API on
   127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
   `sim-db` / `sim-load` / `sim-grade` / `sim-summary` / `sim` (Week 5: the simulated class in its own
-  database `codetutor_sim`; `sim-db` deletes it; `sim-grade` runs `SIM_WORKERS`=4 Docker workers;
-  `make sim` ~12.5 min), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
+  database `codetutor_sim`, or `codetutor_sim_s1` with `SIM_SEED=1`; `sim-db` deletes it;
+  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
@@ -402,6 +402,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   9 runs: 50.5-62.2 s (median ~55 s). **1 of those 9 runs had 1 failed test whose name was
   lost** (only the last line was printed); 7 later runs with saved output all passed. Maybe
   Q14; every run now saves its full output.
+- **Done (2026-10-06): Week 5 Step 2a** (a harder simulated class; 12510d6 code, 79efd86 data).
+  Honest IDE pasters (10% of honest students, 80% of their problems), retyping cheaters (30% of
+  cheating rows), the tutor eval's answers as more honest code (543 distinct programs), every
+  pile de-duplicated, label field `entry` (typed / ide_paste / pasted / retyped), seed 1 =
+  held-out class in `codetutor_sim_s1` (`SIM_SEED=1 make sim`). Seed 0: 3,145 rows, 161
+  cheating; seed 1: 3,076 rows, 166 cheating. Both graded by 4 Docker workers (seed 0 resumed
+  after the earlier session's workers stopped at 593: 2,552 jobs incl. 4 expired leases, 0
+  failed/lost, 10 min; seed 1: 12 min 44 s): **grade = label 3,145/3,145 and 3,076/3,076**.
+  The rule "largest paste >= 50% of the code" is now a real trade-off: seed 0 precision 0.40,
+  recall 0.73; seed 1 0.51 / 0.66. Suite 648 passed, **58.4 s on mains** (126 s and 89.6 s
+  right after the 23-min grading, 15-min load 8.3; the slowest test alone 0.9-1.9 s);
+  `make all` OK.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -479,12 +491,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   variable names; Q3 why the bank's `# bug:` comments are stripped. Week 5 Step 1b: Q1 why
   `load` goes through `enqueue_submission`; Q2 what made 4 workers share 3,046 jobs with none
   graded twice; Q3 why every sim command refuses a database name without "sim".
-  (110 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Step 1 (STOP given 2026-10-06) and decides Q18;
-  then **Week 5 Step 2** (integrity checks), plan mode first. Its open decision: run the
-  checks in the worker after grading, or as a batch job. Najeeb: his text in `docs/notes/week4.md`
-  ("review" when ready); his text in `docs/notes/week4.md` ("review" when
-  ready); review the 8 notes in `course/notes/`. Also
+  Week 5 Step 2a: Q1 why the first class made paste detection look 100% perfect; Q2 why
+  thresholds are chosen on seed 0 but reported on seed 1; Q3 what retyping cheaters are for
+  if no paste rule can catch them.
+  (113 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Step 2a (STOP given 2026-10-06); then **Week 5
+  Step 2b** (detectors as a batch job + `integrity_flags` table; thresholds on seed 0, report
+  on seed 1), plan mode first. Najeeb: his text in `docs/notes/week4.md`
+  ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -965,6 +979,23 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   persona names is meaningless ("average" is in "average_of_three"), so the test checks label
   field names and source references instead; finding a job's row by its code text picked the
   wrong row when two rows held identical code, so it uses `graded_rows` (by id) instead.
+- 2026-10-06: Week 5 Step 2 planning (Najeeb, all recommendations). Measured on the first
+  class: every cheating row had one big paste and no honest row did, so a paste detector would
+  score 100%, a result made by the simulator. So: (1) **make the class harder first** (Step 2a:
+  honest IDE pasters, retyping cheaters, more distinct honest code); (2) the checks run as a
+  **batch job**, not in the worker; (3) thresholds are **chosen on seed 0 and reported on a
+  held-out seed 1**; (4) banned-call checks wait (ideas.md). Step 2 is split into 2a (class)
+  and 2b (detectors + `integrity_flags`).
+- 2026-10-06: Week 5 Step 2a. Seed 1 lives in its own database `codetutor_sim_s1`
+  (`sim_database_url(seed)`; seed 0 keeps `codetutor_sim`). Only tutor-eval answers graded on
+  the current problem versions are used. Even with them, 2,606 of 2,805 honest typed rows have
+  a "canonical twin" (same code once names are ignored): on tiny problems honest students
+  converge, so Step 2b must combine evidence. The cohort meta's `git_dirty` counts modified
+  tracked files, so regenerated data over an older committed file always reads dirty: the
+  tracked files were reset to HEAD, seed 1 (untracked) generated before seed 0, rows
+  byte-identical, both metas `12510d6`, `git_dirty: false`. The earlier session's grading
+  workers stopped when that session ended (593 of 3,145 graded, 4 jobs "running"); the next
+  `make sim-grade` re-claimed the 4 after their lease expired, as designed.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
