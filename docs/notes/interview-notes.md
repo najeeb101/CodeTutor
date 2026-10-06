@@ -479,3 +479,21 @@ to the same rules, because a bad summary would refuse the whole submit.
 *How I'd say it:* "Client telemetry is cheap and useful, but it's attacker-controlled input.
 I validate it strictly, never let it cost the student their submission, never act on it
 alone, and test that it measures what I think it measures."
+
+## Synthetic data with ground truth: measure the detector, and say what it can't show (Week 5, Step 1)
+To measure a cheating detector you need labelled cheaters, and real labelled cheating data is
+rare and sensitive. So the project simulates a class of 60 students with known personas
+(honest at three skill levels, quitters, copiers, AI users), true skills and true problem
+difficulties, using code that already exists: the bank's solutions and buggy files and 660
+graded model answers, plus disguises (variables renamed at the parser's exact positions;
+reformatted with `ast.unparse`). Every row carries a label, kept out of the database the
+detectors read. Three design rules make it worth something: (1) **hard cases on purpose**:
+honest students get their own variable names, so honest code on tiny problems looks alike,
+like in a real class; (2) **no leakage**: the AI answers pasted by simulated students are
+different samples from the "known AI answers" the detector may use, and teacher comments like
+`# bug: ...` are stripped from the bank's files; (3) **reproducible**: one seeded random
+source, no clock, so the 3,046-row file is byte-identical every run. And one honest limit:
+the simulator decides how cheaters behave, so a high recall means "we catch *our* cheaters".
+*How I'd say it:* "Synthetic data gives me ground truth to measure precision and recall, as
+long as I build in the hard cases, prevent leakage between the detector's reference data and
+the test data, and report it as an upper bound on real-world performance."

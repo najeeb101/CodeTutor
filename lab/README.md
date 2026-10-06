@@ -24,3 +24,12 @@ How it works: [docs/evals.md](../docs/evals.md). The code is in `src/codetutor/e
 
 Run: `uv run python scripts/tutor_eval.py` (resumable) or `--report-only`. How it works:
 [docs/tutor.md](../docs/tutor.md) §5. The code is in `src/codetutor/tutor/`.
+
+## sim/ (Week 5)
+- `cohort-s<seed>.jsonl`: the simulated class, one planned submission per line (code, time,
+  editor summary, and the **label**: persona, where the code came from, cheating or not).
+- `cohort-s<seed>.meta.json`: the config, every student's true skill and persona, every
+  problem's true difficulty, input hashes, git commit.
+
+Run: `uv run python scripts/sim_cohort.py generate` (byte-identical rows every time). How it
+works: [docs/integrity.md](../docs/integrity.md) §1. The code is in `src/codetutor/sim/`.
