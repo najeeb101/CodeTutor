@@ -78,7 +78,7 @@ every line in an interview.
 - `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
-- `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`)
+- `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`), `evaluate.py` (Step 2c: labels join, `f_beta`, grid `search` via `FastFlags`, bootstrap over students), `report.py` (`render_report`)
 - `course/notes/`: 8 course notes (one per module, `##` sections = search chunks), the tutor's RAG source
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack over HTTP (`run_checks`); used by `scripts/e2e_check.py` and `tests/test_e2e.py`
 - `compose.yaml`: local dev services (Postgres 17 + pgvector on 127.0.0.1:5432)
@@ -86,6 +86,7 @@ every line in an interview.
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md` (Week 5), `notes/`
 - `lab/sim/`: `cohort-s0.jsonl` / `cohort-s1.jsonl` + `.meta.json` (the simulated classes with labels and true skills; seed 0 = tuning, seed 1 = held out; committed, byte-identical on regeneration)
+- `lab/integrity/reports/integrity.md`: generated held-out integrity report (`scripts/integrity.py report`, byte-identical)
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
   `reports/` (generated `week2.md`), `scratch/` (gitignored)
@@ -117,7 +118,7 @@ every line in an interview.
   127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
   `sim-db` / `sim-load` / `sim-grade` / `sim-summary` / `sim` (Week 5: the simulated class in its own
   database `codetutor_sim`, or `codetutor_sim_s1` with `SIM_SEED=1`; `sim-db` deletes it;
-  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes; ~4 s each), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
+  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes, ~4 s each, then the held-out report), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
@@ -425,6 +426,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   users), 0 needing review. **Q14 named**: `make all` failed once with
   `test_memory_bomb[subprocess-memory_bomb_growing]` (timeout, 7.4 s total, on mains, load
   0.98); the rerun: 686 passed, **50.6 s on mains**, 33 valid.
+- **Done (2026-10-06): Week 5 Step 2c** (69129a4; plan approved, Najeeb chose that Claude
+  writes `f_beta`, so no second open TODO). `detect` = `entry_flags` + `content_flags`;
+  `integrity/evaluate.py` (60-setting grid on seed 0, F0.5, ties → fewer flags then higher
+  thresholds; `FastFlags` compares code once: 172 s → 3.3 s, checked against `detect` at all
+  60 points and by a deliberate break), `integrity/report.py`, `integrity.py tune|report`,
+  `make integrity` writes `lab/integrity/reports/integrity.md` (byte-identical). **Frozen:
+  paste 0.9 / 5 chars/s / similarity 1.0, `INTEGRITY_VERSION = "1"`** (paste 0.5/0.7/0.9
+  tied; top 10 within 0.005 F0.5). Held-out seed 1: needs review **P 0.64 [0.32, 0.99],
+  R 0.86 [0.74, 0.97]** (intervals over students), 8/8 cheating students flagged, 5/52 honest
+  students with a false flag, 76 of 79 false flags = honest IDE pastes; copies caught 79/80,
+  AI pastes 63/86. 14 new tests (0.8 s). Suite 700 passed, **62.3-77.4 s on mains tonight**
+  (Windows-side load: Docker Desktop, Opera, Epic overlay; WSL 97% idle; 59.6 s with 686
+  tests the same evening); one run had 1 e2e failure (Q19), 6 reruns of test_e2e.py green.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -506,12 +520,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   thresholds are chosen on seed 0 but reported on seed 1; Q3 what retyping cheaters are for
   if no paste rule can catch them. Week 5 Step 2b: Q1 why only the later of two matching
   submissions is flagged; Q2 why `same_as_student` alone fires on 2,328 rows; Q3 why the batch
-  job deletes and inserts in one transaction.
-  (116 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Step 2b (STOP given 2026-10-06) and decides Q14
-  (it recurred, now named); then **Week 5 Step 2c** (F0.5 grid on seed 0, frozen thresholds,
-  `INTEGRITY_VERSION = "1"`, report on seed 1 with intervals over students, docs, interview
-  note, the `f_beta` TODO), as approved in the Step 2b plan. Najeeb: his text in `docs/notes/week4.md`
+  job deletes and inserts in one transaction. Week 5 Step 2c: Q1 why the intervals resample
+  students, not submissions; Q2 why paste 0.5, 0.7 and 0.9 flag the same rows on seed 0; Q3
+  what goes wrong if you change a threshold after reading the seed-1 report.
+  (119 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Steps 2b and 2c (STOP given 2026-10-06), decides
+  Q14, Q19 and the suite-time options (Q20); then **Week 5 Step 3** (difficulty + skill: pass
+  rates + Rasch in pure Python, checked against the sim's true θ and b; plan mode first). Najeeb: his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1022,7 +1037,24 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `ast` instead. The docs' first draft guessed retypers were "2-4× faster"; the simulator's
   numbers are 60-120 ms per character vs ~120-650 for honest typing (fixed before commit).
 
+- 2026-10-06: Week 5 Step 2c (plan approved; `f_beta` written by Claude at Najeeb's choice,
+  keeping one open TODO). `detect` split into public `entry_flags` + `content_flags` (no
+  behaviour change); the grid reuses them through `FastFlags` (content compared once at
+  similarity 0.8, then filtered by value: exact because a content flag's value is its best
+  score; only `details["students_matching"]` would differ). Tie rule as approved ("stricter"
+  = fewer flagged, then higher paste, speed, similarity), so paste **0.9** won a 3-way tie that
+  seed 0 cannot separate (nearly every paste is a whole program); on seed 1 (looked at after
+  freezing) 0.9 and 0.7 flag 221, 0.5 flags 223. The report re-runs the search and refuses if
+  the defaults are not the winner, so the frozen thresholds can't drift. The report reads the
+  graded sim databases (the detectors' real input) + the committed cohort files (labels),
+  never giving the detectors label-derived data. Intervals: 2,000 resamples of the students
+  (seed 0), counting resamples without a value (none here). Found while writing: the limits
+  text hard-coded "8 of 60" cheaters, now computed; the first tie test checked nothing about
+  "fewer flags wins" and was rewritten before the commit.
+
 ## Open questions
+- Q20: suite time. 700 tests took 62.3, 70.2 and 77.4 s on mains on 2026-10-06 evening (limit 60 s); the 14 Step 2c tests take 0.8 s, the rest is machine load from Windows (Docker Desktop, Opera, Epic Games overlay; WSL itself 97% idle). Options: (A) re-measure with those apps closed before deciding; (B) mark more slow tests `slow` (the grader timeout tests and the migration round trip are ~2-2.5 s each); (C) raise the limit to 90 s. Recommendation: A first.
+- Q19: `test_without_a_tutor_the_hint_check_fails_and_says_why` failed once (2026-10-06, under load): the "my submissions" check, which expects the newest submission first. The list is ordered by `created_at desc, id desc`, and `created_at` is Postgres `now()` in the container, so a backward clock step (WSL/Docker VM time sync) between the two submits would swap them; not proven (the second assert hid the check's detail), 6 reruns green. Options: (A) order "my submissions" by `id desc` (ids follow the real submit order; small API change + test) and print `_report(checks)` in that assert; (B) only improve the assert message and wait for a repeat. Recommendation: B now, A if it repeats.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
@@ -1050,7 +1082,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
 - The integrity checks are measured only on simulated classes whose cheaters, typing speeds
-  and honest code pool the simulator chose; thresholds are provisional until Step 2c. Each
+  and honest code pool the simulator chose; thresholds frozen on seed 0 (version 1), held-out
+  seed 1 precision 0.64 [0.32, 0.99] (8 cheating students: wide intervals). Each
   signal alone has honest explanations (`same_as_student` precision 0.05); exact structure
   matches miss a copy that changes the logic a little (similarity < 1.0). Flags are for a
   teacher, never a punishment, and no route shows them yet (Week 8).
