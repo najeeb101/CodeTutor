@@ -353,6 +353,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `lab/tutor/reports/tutor_eval.md` (byte-identical on rebuild), docs/tutor.md §5, 1 interview
   note. Report's limits text now uses the real situation count (was "50"). Suite 603 passed,
   **45.3 s on mains** (60.5 s on battery the same morning); `make all` 58 s.
+- **Done (2026-10-06): Week 4 Step 5 = Week 4 done** (wrap-up, 60950af; D1 = A no Langfuse,
+  D2 = A paired table). README (Weeks 1-4, "The AI tutor" section with measured results and 4
+  commands run as written: ask_tutor 15.7 s incl. model load, `--report-only`, `--limit 1`
+  84 s, eval_retrieval byte-identical), tutor/README.md, lab/README.md, ideas.md (Langfuse,
+  more eval data, tutor prompt v2), `docs/notes/week4.md` skeleton. Report: "Tutor vs teacher"
+  table (`paired_difference`, +1 test). Found by running the README: `tutor_eval.py --limit`
+  failed when an older scratch run with another `--limit` existed; scratch runs now start
+  fresh (like run_eval.py). `make e2e` 11/11 (14 s, hint 3.2 s), stack stopped cleanly. Suite
+  604 passed, 68.9 s **on battery** (status flipped to Discharging at 90%); `make all` 85 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -422,11 +431,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   shown submission's; Q2 why test_e2e.py uses a fake model; Q3 what a reload does while the
   tutor is thinking. Week 4 Step 4: Q1 why the help is a paired difference per situation;
   Q2 the honest sentence for tutor-1 +0.04 [-0.02, +0.11]; Q3 why rerunning the script does
-  not fix the "token repeat limit" call.
-  (98 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Step 4 (STOP given 2026-10-06); then Week 4 Step 5
-  (wrap-up: README, `docs/notes/week4.md` skeleton; optional Langfuse decision). Najeeb:
-  review the 8 notes in `course/notes/`. Also
+  not fix the "token repeat limit" call. Week 4 Step 5: Q1 why `--limit 1` failed before the
+  fix; Q2 why README commands are run exactly as written; Q3 why Langfuse was not added.
+  (101 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 4 (STOP given 2026-10-06), then **Week 5 planning**
+  (simulated students, integrity checks, difficulty/skill estimates; start with the Week 5
+  overview + decisions, plan mode). Najeeb: his text in `docs/notes/week4.md` ("review" when
+  ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -855,6 +866,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   functions and are not in the generated report (a choice for Najeeb whether to add them).
   The reverse_words tutor-2 hint ("use `sentence.split()` without arguments, then reverse and
   join") is allowed by design: an expression, and it repeats the teacher's hint 2 the model sees.
+
+- 2026-10-06: Week 4 Step 5 (Najeeb approved the plan: D1 = A, D2 = A). **Langfuse not added**
+  (deviation from the brief, written in README, docs/tutor.md and ideas.md): the `hints` table
+  is the trace; Langfuse would add a package and send student code off the machine. The
+  report's new "Tutor vs teacher" table uses one helper `paired_difference` for both paired
+  comparisons (the old table came out byte-identical). docs/tutor.md §5.1 overclaim fixed:
+  "tutor-1 does not give away too much" → "no sign … the interval [−0.18, +0.02] just reaches
+  0". Scratch tutor-eval runs start fresh (`--limit`, only the scratch folder's two files are
+  deleted; checked: official results sha256 unchanged). The laptop flips to "Discharging" at
+  ~90% while plugged in twice today (cable or a battery-care limit): measure suite time only
+  while it says Charging.
 
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
