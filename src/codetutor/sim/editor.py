@@ -76,3 +76,34 @@ def pasted_stats(rng: random.Random, code: str) -> dict[str, Any]:
         pastes=[max(1, len(code))],
         edits=typed + 1,
     )
+
+
+def ide_paste_stats(rng: random.Random, code: str) -> dict[str, Any]:
+    """An honest student who wrote `code` in their own editor and pastes it in (Step 2a).
+
+    It looks like `pasted_stats` on purpose: a paste detector can't tell them apart, only
+    other evidence can. They sometimes touch it up here, and take a bit longer.
+    """
+    typed = rng.randint(0, 40)
+    active_ms = rng.uniform(10, 120) * 1000
+    return _stats(
+        since_open_ms=active_ms + rng.uniform(5, 120) * 1000,
+        active_ms=active_ms,
+        typed=typed,
+        pastes=[max(1, len(code))],
+        edits=typed + 1,
+    )
+
+
+def retyped_stats(rng: random.Random, code: str) -> dict[str, Any]:
+    """A cheater typing a copied program in by hand (Step 2a): no paste at all, but fast and
+    with almost no thinking time, because the answer is already in front of them."""
+    typed = round(len(code) * rng.uniform(1.0, 1.1))
+    active_ms = typed * rng.uniform(60, 120) + rng.uniform(5, 30) * 1000
+    return _stats(
+        since_open_ms=active_ms + rng.uniform(5, 60) * 1000,
+        active_ms=active_ms,
+        typed=typed,
+        pastes=[],
+        edits=round(typed / rng.uniform(1.0, 1.2)),
+    )

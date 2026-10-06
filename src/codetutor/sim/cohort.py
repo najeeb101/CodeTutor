@@ -29,8 +29,8 @@ from pydantic import BaseModel, ConfigDict
 
 from codetutor.api.schemas import EditorStats
 from codetutor.problems import Problem
-from codetutor.sim.editor import honest_stats, pasted_stats
-from codetutor.sim.personas import CohortConfig, Persona
+from codetutor.sim.editor import honest_stats, ide_paste_stats, pasted_stats, retyped_stats
+from codetutor.sim.personas import HONEST_PERSONAS, CohortConfig, Persona
 from codetutor.sim.pools import Pools, Source, SourceKind
 from codetutor.sim.transforms import reformat, rename_identifiers
 
@@ -46,6 +46,15 @@ class Transform(StrEnum):
     RENAMED_REFORMATTED = "renamed_reformatted"  # renamed + printed back (no comments)
 
 
+class Entry(StrEnum):
+    """How the code got into the editor (Step 2a): what a paste detector can and can't see."""
+
+    TYPED = "typed"  # honest: written here
+    IDE_PASTE = "ide_paste"  # honest: written in the student's own editor, pasted in
+    PASTED = "pasted"  # cheating: someone else's code, pasted
+    RETYPED = "retyped"  # cheating: someone else's code, typed in by hand
+
+
 class Label(BaseModel):
     """The ground truth of one row. Never stored in the database."""
 
@@ -57,6 +66,7 @@ class Label(BaseModel):
     transform: Transform
     intended_pass: bool  # the source code passed when it was graded before
     cheating: bool  # a copy or a pasted AI answer: what Step 2 should flag
+    entry: Entry
 
 
 class CohortRow(BaseModel):
@@ -84,6 +94,7 @@ class StudentTruth(BaseModel):
     persona: Persona
     skill: float  # true θ
     last_module: int  # 8, except for quitters
+    ide_paster: bool  # honest, but usually writes elsewhere and pastes (Step 2a)
 
 
 class Cohort(BaseModel):
@@ -151,6 +162,8 @@ class _Generator:
                     persona=persona,
                     skill=self.rng.gauss(spec.skill_mean, self.config.skill_sd),
                     last_module=self.rng.randint(low, high) if persona == Persona.QUITTER else 8,
+                    ide_paster=persona in HONEST_PERSONAS
+                    and self.rng.random() < self.config.ide_paster_share,
                 )
             )
         return students
@@ -172,6 +185,7 @@ class _Generator:
         stats: dict[str, Any],
         source: Source,
         transform: Transform,
+        entry: Entry,
     ) -> CohortRow:
         cheating = source.kind in (SourceKind.COPY, SourceKind.AI)
         row = CohortRow(
@@ -190,6 +204,7 @@ class _Generator:
                 transform=transform,
                 intended_pass=source.passed,
                 cheating=cheating,
+                entry=entry,
             ),
         )
         self.rows.append(row)
@@ -201,19 +216,32 @@ class _Generator:
         config, rng = self.config, self.rng
         spec = config.personas[student.persona]
         pools = self.pools[problem.id]
+        # An IDE paster writes this problem elsewhere and pastes every attempt in.
+        ide = student.ide_paster and rng.random() < config.ide_paste_problem_share
+        entry = Entry.IDE_PASTE if ide else Entry.TYPED
         for attempt in range(1, spec.max_attempts + 1):
             chance = _sigmoid(student.skill - b + config.learning_per_attempt * (attempt - 1))
             solved = rng.random() < chance
             source = rng.choice(pools.correct if solved else pools.wrong)
             wanted = Transform.RENAMED if rng.random() < config.own_style_share else Transform.NONE
             code, transform = _restyle(source.code, problem, wanted, rng)
-            stats = honest_stats(
-                rng, code, problem.starter_code, attempt, student.skill, config.honest_paste_share
-            )
+            if ide:
+                stats = ide_paste_stats(rng, code)
+            else:
+                stats = honest_stats(
+                    rng, code, problem.starter_code, attempt, student.skill,
+                    config.honest_paste_share,
+                )  # fmt: skip
             at += timedelta(milliseconds=stats["since_open_ms"])
-            self.add(student, problem, attempt, at, code, stats, source, transform)
+            self.add(student, problem, attempt, at, code, stats, source, transform, entry)
             if source.passed:
                 return
+
+    def cheat_stats(self, code: str) -> tuple[dict[str, Any], Entry]:
+        """A cheater's editor summary: usually one big paste, sometimes typed in by hand."""
+        if self.rng.random() < self.config.retype_share:
+            return retyped_stats(self.rng, code), Entry.RETYPED
+        return pasted_stats(self.rng, code), Entry.PASTED
 
     def paste_ai(self, student: StudentTruth, problem: Problem, at: datetime) -> None:
         rng = self.rng
@@ -221,9 +249,9 @@ class _Generator:
             source = rng.choice(self.pools[problem.id].ai)
             wanted = Transform.RENAMED if rng.random() < 0.3 else Transform.NONE
             code, transform = _restyle(source.code, problem, wanted, rng)
-            stats = pasted_stats(rng, code)
+            stats, entry = self.cheat_stats(code)
             at += timedelta(milliseconds=stats["since_open_ms"])
-            self.add(student, problem, attempt, at, code, stats, source, transform)
+            self.add(student, problem, attempt, at, code, stats, source, transform, entry)
             if source.passed:
                 return
 
@@ -247,10 +275,10 @@ class _Generator:
         original = rng.choice(sorted(candidates, key=lambda row: row.key))
         wanted = rng.choice(list(Transform))
         code, transform = _restyle(original.code, problem, wanted, rng)
-        stats = pasted_stats(rng, code)
+        stats, entry = self.cheat_stats(code)
         done_at = at + timedelta(milliseconds=stats["since_open_ms"])
         source = Source(kind=SourceKind.COPY, ref=original.key, code=original.code, passed=True)
-        self.add(student, problem, 1, done_at, code, stats, source, transform)
+        self.add(student, problem, 1, done_at, code, stats, source, transform, entry)
 
 
 def generate(problems: Sequence[Problem], pools: dict[str, Pools], config: CohortConfig) -> Cohort:

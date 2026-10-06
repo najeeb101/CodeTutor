@@ -1,4 +1,4 @@
-"""The simulated class (Week 5 Step 1): transforms, pools, and the generated cohort."""
+"""The simulated class (Week 5 Steps 1 and 2a): transforms, pools, and the generated cohort."""
 
 from __future__ import annotations
 
@@ -11,19 +11,24 @@ from pathlib import Path
 import pytest
 
 from codetutor.api.schemas import EditorStats
-from codetutor.evals.records import EvalRecord, ModelReply, read_records
+from codetutor.evals.records import EvalRecord, ModelReply
 from codetutor.grader import SubprocessSandbox, grade_many
 from codetutor.grader.models import GradeResult, GradeStatus
 from codetutor.problems import Problem
 from codetutor.problems.loader import load_all
-from codetutor.sim.cohort import Cohort, CohortRow, generate, meta_path_for, read_rows, write_cohort
-from codetutor.sim.personas import CohortConfig, Persona
-from codetutor.sim.pools import Pools, SourceKind, build_pools
+from codetutor.sim.cohort import (
+    Cohort,
+    CohortRow,
+    Entry,
+    generate,
+    meta_path_for,
+    read_rows,
+    write_cohort,
+)
+from codetutor.sim.personas import HONEST_PERSONAS, CohortConfig, Persona
+from codetutor.sim.pools import Pools, SourceKind, build_pools, default_pools, tutor_eval_sources
 from codetutor.sim.transforms import reformat, renamable_names, rename_identifiers
 
-RESULTS = Path(__file__).resolve().parents[1] / "lab" / "evals" / "results"
-HONEST = RESULTS / "qwen2.5-coder-1.5b-fp16-t0.8-n10.jsonl"
-AI = RESULTS / "qwen2.5-coder-7b-q4-t0.8-n10.jsonl"
 SANDBOX = SubprocessSandbox()  # the bank's own code, renamed: trusted
 
 
@@ -34,7 +39,7 @@ def bank() -> list[Problem]:
 
 @pytest.fixture(scope="module")
 def pools(bank: list[Problem]) -> dict[str, Pools]:
-    return build_pools(bank, read_records(HONEST), read_records(AI), CohortConfig())
+    return default_pools(bank, CohortConfig())  # the same inputs as the committed classes
 
 
 @pytest.fixture(scope="module")
@@ -224,3 +229,59 @@ def test_the_cohort_file_round_trips(cohort: Cohort, tmp_path: Path) -> None:
     assert read_rows(path) == cohort.rows
     meta = meta_path_for(path).read_text(encoding="utf-8")
     assert '"students"' in meta and '"difficulty"' in meta and '"git_commit": "abc"' in meta
+
+
+# --- Step 2a: the harder cases ---
+
+
+def test_tutor_eval_answers_join_the_pools_unless_their_version_changed(
+    bank: list[Problem], pools: dict[str, Pools]
+) -> None:
+    refs = [s.ref for p in pools.values() for s in (*p.correct, *p.wrong)]
+    assert sum(ref.startswith("tutor-eval:") for ref in refs) > 300
+
+    problem = bank[0]
+    record = {"kind": "answer", "situation": f"{problem.id}/x", "condition": "none",
+              "sample_index": 0, "status": "accepted", "code": "def f(): pass\n"}  # fmt: skip
+    assert tutor_eval_sources([record], {problem.id: problem.version}, bank)[problem.id]
+    stale = {problem.id: problem.version + 1}
+    assert tutor_eval_sources([record], stale, bank)[problem.id] == []
+
+
+def test_every_pile_holds_each_program_once(pools: dict[str, Pools]) -> None:
+    for problem_pools in pools.values():
+        for pile in (problem_pools.correct, problem_pools.wrong):
+            codes = [source.code for source in pile]
+            assert len(codes) == len(set(codes))
+
+
+def test_entry_matches_honesty(cohort: Cohort) -> None:
+    honest_entries = {Entry.TYPED, Entry.IDE_PASTE}
+    for row in cohort.rows:
+        assert (row.label.entry in honest_entries) == (not row.label.cheating)
+
+
+def test_ide_pasters_are_honest_and_paste_whole_programs(cohort: Cohort) -> None:
+    pasters = {s.name for s in cohort.students if s.ide_paster}
+    assert pasters
+    assert all(s.persona in HONEST_PERSONAS for s in cohort.students if s.ide_paster)
+    rows = [row for row in cohort.rows if row.label.entry == Entry.IDE_PASTE]
+    assert rows and all(row.student in pasters for row in rows)
+    for row in rows:
+        assert row.editor_stats["largest_paste_chars"] == len(row.code)
+
+
+def test_retyping_cheaters_never_paste(cohort: Cohort) -> None:
+    rows = [row for row in cohort.rows if row.label.entry == Entry.RETYPED]
+    assert len(rows) > 10
+    for row in rows:
+        assert row.label.cheating and row.editor_stats["paste_count"] == 0
+        assert row.editor_stats["typed_chars"] >= len(row.code)
+
+
+def test_another_seed_gives_another_class(bank: list[Problem], pools: dict[str, Pools]) -> None:
+    small = {persona: spec.model_copy(update={"count": 1})
+             for persona, spec in CohortConfig().personas.items()}  # fmt: skip
+    first = generate(bank, pools, CohortConfig(personas=small))
+    other = generate(bank, pools, CohortConfig(personas=small, seed=1))
+    assert first.rows != other.rows

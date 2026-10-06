@@ -57,6 +57,11 @@ class CohortConfig(BaseModel):
     quitter_last_module: tuple[int, int] = (3, 5)  # a quitter's last module, inclusive range
     own_style_share: float = 0.7  # honest code that gets the student's own variable names
     honest_paste_share: float = 0.15  # honest submits with a small paste of their own code
+    # Step 2a: the cases that make paste detection a real trade-off.
+    # Honest students who write in their own editor and paste whole programs (a trait):
+    ide_paster_share: float = 0.1  # of the honest personas' students
+    ide_paste_problem_share: float = 0.8  # of an IDE paster's problems
+    retype_share: float = 0.3  # of cheating submissions typed in by hand instead of pasted
     # Week 2's 7B answers: seeds 0-4 are Step 2's "known AI answers" (never submitted here),
     # seeds 5-9 are what simulated AI users paste. Keeps the AI detector from seeing its own
     # reference text in the test data.
@@ -68,3 +73,6 @@ class CohortConfig(BaseModel):
     def students(self) -> int:
         """How many students the class has."""
         return sum(spec.count for spec in self.personas.values())
+
+
+HONEST_PERSONAS = frozenset({Persona.STRONG, Persona.AVERAGE, Persona.STRUGGLING, Persona.QUITTER})

@@ -41,11 +41,23 @@ correlation with the true skill) instead of guessing.
 
 Names are `sim-001` … `sim-060` in a shuffled order: a name never tells the persona.
 
+**The hard cases (Step 2a).** Before building detectors we measured the first class: *every*
+cheating row had one big paste and *no* honest row did, so a paste detector would have scored
+100%, a number made by the simulator, not earned by the detector. Two real-world cases were
+missing, and are now in:
+- **Honest IDE pasters:** ~10% of honest students (a trait) write most problems in their own
+  editor and paste the whole program in, sometimes touching it up. Honest, but it looks like a
+  paste.
+- **Retyping cheaters:** 30% of cheating submissions are typed in by hand: no paste at all,
+  but fast (60-120 ms per character) with little thinking time.
+Every label says how the code got in (`entry`: `typed`, `ide_paste`, `pasted`, `retyped`),
+so a detector's hits and misses can be split by case.
+
 ### 1.2 Where the code comes from (no model is called)
 | Pool | Contents |
 |---|---|
-| correct | `solution.py` + the 1.5B's accepted Week 2 answers |
-| wrong | the bank's buggy files + the 1.5B's other Week 2 answers |
+| correct | `solution.py` + the 1.5B's accepted Week 2 answers + the accepted Week 4 tutor-eval answers (the 1.5B fixing a buggy file; 543 distinct programs) |
+| wrong | the bank's buggy files + the 1.5B's other Week 2 and tutor-eval answers |
 | ai (pasted by AI users) | the 7B's Week 2 answers with seeds 5–9 |
 | reference (Step 2 only) | the 7B's answers with seeds 0–4; **never submitted** in the simulation, so the AI detector is never tested on the exact text it knows |
 
@@ -54,7 +66,14 @@ teacher notes like `# bug: this is the Fahrenheit-to-Celsius formula`, which no 
 writes and which would give a detector a clue no real class has. Model answers keep their
 comments (models really write them). 70% of honest code gets the student's **own variable
 names** (`sim/transforms.py`), so honest code on tiny problems is similar *by nature*, as in
-real classes: the copy detector must cope with honest look-alikes.
+real classes: the copy detector must cope with honest look-alikes. Each pile keeps every
+distinct program once, so a program a model wrote ten times isn't ten times as likely.
+
+Why the tutor-eval answers were added (Step 2a): with only the Week 2 answers, 2,895 of
+2,902 honest rows had a "canonical twin" (another student's code that is the same once names
+are ignored); with them, 2,606 of 2,805 honest typed rows do. Still most: on tiny problems
+honest students converge, so similarity alone can't prove copying, and Step 2b must combine
+evidence. Only answers graded on the bank's current problem versions are used.
 
 ### 1.3 The disguises (`sim/transforms.py`)
 - **Rename:** every variable and parameter the code defines gets a fresh student-like name,

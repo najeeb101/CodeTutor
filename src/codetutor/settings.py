@@ -37,9 +37,15 @@ def database_url_for_tests() -> str:
     return os.environ.get(TEST_DATABASE_URL_ENV) or DEV_TEST_DATABASE_URL
 
 
-def sim_database_url() -> str:
+def sim_database_url(seed: int = 0) -> str:
     """The simulated class's database: $SIM_DATABASE_URL if set, else a local one.
 
-    Like the tests, it never falls back to $DATABASE_URL: `make sim-db` deletes everything in it.
+    Seed 0 uses the name as it is; another seed gets "_s<seed>" (codetutor_sim_s1), so the
+    held-out class lives next to the first. Like the tests, it never falls back to
+    $DATABASE_URL: `make sim-db` deletes everything in it.
     """
-    return os.environ.get(SIM_DATABASE_URL_ENV) or DEV_SIM_DATABASE_URL
+    url = os.environ.get(SIM_DATABASE_URL_ENV) or DEV_SIM_DATABASE_URL
+    if seed == 0:
+        return url
+    base, _, query = url.partition("?")
+    return f"{base}_s{seed}" + (f"?{query}" if query else "")

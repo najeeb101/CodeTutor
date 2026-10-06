@@ -49,23 +49,26 @@ web-check:  ## type-check and build the web UI (production build)
 web/node_modules:
 	cd web && npm ci
 
-sim-db: db-up  ## DELETE and re-create the simulated class's database codetutor_sim (migrations + problems; Week 5)
-	uv run python scripts/sim_cohort.py reset-db
+# Which simulated class: 0 = codetutor_sim (thresholds are chosen on it), 1 = codetutor_sim_s1
+# (the held-out class the integrity report is measured on). `SIM_SEED=1 make sim`.
+SIM_SEED ?= 0
+sim-db: db-up  ## DELETE and re-create the simulated class's database (SIM_SEED=0: codetutor_sim; Week 5)
+	uv run python scripts/sim_cohort.py reset-db --seed $(SIM_SEED)
 
-sim-load:  ## queue the simulated class's submissions (lab/sim/cohort-s0.jsonl) in codetutor_sim
-	uv run python scripts/sim_cohort.py load
+sim-load:  ## queue the simulated class's submissions (lab/sim/cohort-s$(SIM_SEED).jsonl) in its database
+	uv run python scripts/sim_cohort.py load --seed $(SIM_SEED)
 
 # Four workers share the sim database's queue (FOR UPDATE SKIP LOCKED), each until it is
 # empty. The URL comes from settings.py, so it is written in one place only.
 SIM_WORKERS ?= 4
 sim-grade: db-up  ## grade the simulated class in Docker with SIM_WORKERS (4) workers, then exit
-	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url())')"; \
+	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url($(SIM_SEED)))')"; \
 	pids=""; for i in $$(seq $(SIM_WORKERS)); do \
 		DATABASE_URL="$$url" uv run python scripts/worker.py --drain & pids="$$pids $$!"; \
 	done; status=0; for pid in $$pids; do wait $$pid || status=1; done; exit $$status
 
 sim-summary:  ## compare the simulated class's grades with its labels
-	uv run python scripts/sim_cohort.py summary
+	uv run python scripts/sim_cohort.py summary --seed $(SIM_SEED)
 
 sim: sim-db sim-load sim-grade sim-summary  ## all four: a fresh, graded simulated class (~15-20 min)
 

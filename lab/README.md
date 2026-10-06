@@ -31,5 +31,8 @@ Run: `uv run python scripts/tutor_eval.py` (resumable) or `--report-only`. How i
 - `cohort-s<seed>.meta.json`: the config, every student's true skill and persona, every
   problem's true difficulty, input hashes, git commit.
 
-Run: `uv run python scripts/sim_cohort.py generate` (byte-identical rows every time). How it
-works: [docs/integrity.md](../docs/integrity.md) §1. The code is in `src/codetutor/sim/`.
+Two classes: **seed 0** (detector thresholds are chosen on it) and **seed 1** (held out: the
+integrity report is measured on it). Run: `uv run python scripts/sim_cohort.py generate --seed N`
+(byte-identical rows every time); `make sim` / `SIM_SEED=1 make sim` load and grade a class in
+its own database. How it works: [docs/integrity.md](../docs/integrity.md) §1. The code is in
+`src/codetutor/sim/`.

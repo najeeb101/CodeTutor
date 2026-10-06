@@ -33,7 +33,6 @@ from codetutor.db.admin import (
 )
 from codetutor.db.engine import make_engine
 from codetutor.db.sync import sync_problems
-from codetutor.evals.records import read_records
 from codetutor.evals.run import git_state
 from codetutor.problems.loader import load_all
 from codetutor.settings import sim_database_url
@@ -41,12 +40,9 @@ from codetutor.sim.cohort import Cohort, generate, read_rows, write_cohort
 from codetutor.sim.load import SimDatabaseNotEmptyError, graded_rows, load_rows
 from codetutor.sim.load import summary as load_summary
 from codetutor.sim.personas import CohortConfig
-from codetutor.sim.pools import build_pools
+from codetutor.sim.pools import INPUT_FILES, default_pools
 
 REPO = Path(__file__).resolve().parents[1]
-RESULTS = REPO / "lab" / "evals" / "results"
-HONEST_ANSWERS = RESULTS / "qwen2.5-coder-1.5b-fp16-t0.8-n10.jsonl"  # the "students' own" code
-AI_ANSWERS = RESULTS / "qwen2.5-coder-7b-q4-t0.8-n10.jsonl"  # what AI users paste
 OUT_DIR = REPO / "lab" / "sim"
 
 
@@ -66,6 +62,10 @@ def summary(cohort: Cohort) -> str:
     lines.append("  sources: " + ", ".join(f"{k} {v}" for k, v in sorted(sources.items())))
     copies = Counter(row.label.transform.value for row in rows if row.label.source_kind == "copy")
     lines.append("  copies: " + ", ".join(f"{k} {v}" for k, v in sorted(copies.items())))
+    entries = Counter(row.label.entry.value for row in rows)
+    lines.append("  entry: " + ", ".join(f"{k} {v}" for k, v in sorted(entries.items())))
+    pasters = sum(student.ide_paster for student in cohort.students)
+    lines.append(f"  IDE pasters (honest): {pasters} students")
     cheating = sum(row.label.cheating for row in rows)
     lines.append(f"  cheating rows: {cheating} ({cheating / len(rows):.1%})")
     return "\n".join(lines)
@@ -85,22 +85,18 @@ def main() -> int:
         command.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     if args.command != "generate":
-        return _database_command(args.command, OUT_DIR / f"cohort-s{args.seed}.jsonl")
+        cohort_path = OUT_DIR / f"cohort-s{args.seed}.jsonl"
+        return _database_command(args.command, cohort_path, sim_database_url(args.seed))
 
     config = CohortConfig(seed=args.seed)
     problems = load_all()
-    pools = build_pools(
-        problems, read_records(HONEST_ANSWERS), read_records(AI_ANSWERS), config=config
-    )
+    pools = default_pools(problems, config)
     cohort = generate(problems, pools, config)
     commit, dirty = git_state()
     meta = {
         "git_commit": commit,
         "git_dirty": dirty,
-        "inputs": {
-            path.relative_to(REPO).as_posix(): _sha256(path)
-            for path in (HONEST_ANSWERS, AI_ANSWERS)
-        },
+        "inputs": {path.relative_to(REPO).as_posix(): _sha256(path) for path in INPUT_FILES},
         "problem_versions": {problem.id: problem.version for problem in problems},
     }
     out = OUT_DIR / f"cohort-s{args.seed}.jsonl"
@@ -110,8 +106,7 @@ def main() -> int:
     return 0
 
 
-def _database_command(command: str, cohort_path: Path) -> int:
-    url = sim_database_url()
+def _database_command(command: str, cohort_path: Path, url: str) -> int:
     if "sim" not in database_name(url):
         print(f"refusing: {database_name(url)!r} is not a sim database", file=sys.stderr)
         return 1
