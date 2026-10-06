@@ -1049,6 +1049,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   code: only `text` may ever leave the server.
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
+- The integrity checks are measured only on simulated classes whose cheaters, typing speeds
+  and honest code pool the simulator chose; thresholds are provisional until Step 2c. Each
+  signal alone has honest explanations (`same_as_student` precision 0.05); exact structure
+  matches miss a copy that changes the logic a little (similarity < 1.0). Flags are for a
+  teacher, never a punishment, and no route shows them yet (Week 8).
 - `editor_stats` comes from the browser and can be faked (or left out by any other client);
   auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
