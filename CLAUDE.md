@@ -335,7 +335,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Suite: 590 passed, 2 skipped, 1 xfailed, **70.4 and 83.9 s on battery** (status 1, 87%,
   Epic Games launcher running); the same suite minus 1 test was 42.3 s on mains an hour before.
   Re-measure on mains. `make web-check` OK.
-- **In progress (2026-10-05): Week 4 Step 4** (offline tutor eval; plan approved, D1-D6).
+- **Done (2026-10-06): Week 4 Step 4** (offline tutor eval; plan approved, D1-D6).
   `tutor/tutor_eval.py` (hidden-only situations, 6 conditions, pinned student prompt v1,
   phase 1 tutor hints, phase 2 seeded student answers graded in Docker, resumable, meta check),
   `tutor/tutor_eval_report.py` (fix rate per situation then mean, bootstrap 95%, paired help
@@ -343,6 +343,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   student, n = 5): 54 situations in 33 problems, 270 answers, 0 failed calls, fix rate **0.58
   [0.49, 0.67]** (never 8, always 11 situations), 26 min (5.7 s per answer). Committed
   (ddbb025) with its results. Suite 603 passed (60.0 s on battery, 18%); `make all` 77 s.
+  **Full run 2026-10-06** (6fcba3f): 108 tutor hints (L1 52 model + 2 fallback, L2 54 model;
+  16 of 54 L2 hints say "the student"), 1,349 new answers in 63 min (~2.4 s each on mains),
+  1 failed call (HTTP 500 "token repeat limit reached", not graded). Fix rate: none 0.58,
+  teacher-1 0.66 (+0.09 [+0.03, +0.15]), tutor-1 0.62 (+0.04 [-0.02, +0.11]), teacher-2 0.63
+  (+0.05), tutor-2 0.63 (+0.06 [-0.03, +0.15]), teacher-3 0.70 (+0.12 [+0.04, +0.21]); paired
+  tutor-1 vs teacher-1 -0.04 [-0.10, +0.02]. Hints also hurt (9-17 situations worse per
+  condition; group_anagrams 0.80 → 0.00 with a wrong tutor-2 diagnosis). Report
+  `lab/tutor/reports/tutor_eval.md` (byte-identical on rebuild), docs/tutor.md §5, 1 interview
+  note. Report's limits text now uses the real situation count (was "50"). Suite 603 passed,
+  **45.3 s on mains** (60.5 s on battery the same morning); `make all` 58 s.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -410,13 +420,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   tutor worker stops.
   Week 4 Step 3b: Q1 why the panel sends `submission_id` only when the editor code equals the
   shown submission's; Q2 why test_e2e.py uses a fake model; Q3 what a reload does while the
-  tutor is thinking.
-  (95 in total; answer key in Claude's memory.)
-- **Next action (2026-10-06 morning, on mains power):** Week 4 Step 4, the full run (Najeeb
-  chose option A: all 5 remaining conditions, n = 5, ~2.2 h, resumable with Ctrl+C):
-  `uv run python scripts/tutor_eval.py` (needs Ollama, Docker, `make db-up`; it makes the 108
-  tutor hints first, then 1,350 answers; the 270 pilot answers are reused). Don't use the GPU
-  or run the suite meanwhile. Then: report, docs/tutor.md §5, interview note, STOP. Najeeb: review the 8 notes in `course/notes/`. Also
+  tutor is thinking. Week 4 Step 4: Q1 why the help is a paired difference per situation;
+  Q2 the honest sentence for tutor-1 +0.04 [-0.02, +0.11]; Q3 why rerunning the script does
+  not fix the "token repeat limit" call.
+  (98 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Step 4 (STOP given 2026-10-06); then Week 4 Step 5
+  (wrap-up: README, `docs/notes/week4.md` skeleton; optional Langfuse decision). Najeeb:
+  review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
   `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
@@ -836,6 +846,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   ~2.2 h, not ~1 h. Options given (A all, B drop teacher-1/2, C n = 3); Najeeb chose A, to run
   on 2026-10-06 morning. Not started on 18% battery.
 
+- 2026-10-06: Week 4 Step 4 full run (Najeeb: "go"; he plugged in the laptop first; it ran
+  ~10 min on battery when the cable came loose). Measured 2.4 s per answer on mains vs 5.7 s in
+  the battery pilot, so 63 min instead of the estimated 2.2 h. The one failed call (Ollama 500
+  "token repeat limit reached" after 5 tries) stays ungraded per the Week 2 rule; with the fixed
+  seed a rerun repeats it; counting it as "not fixed" would move teacher-2 by 0.004. The paired
+  tutor-vs-teacher numbers in docs/tutor.md §5.1 were computed once with the report's own
+  functions and are not in the generated report (a choice for Najeeb whether to add them).
+  The reverse_words tutor-2 hint ("use `sentence.split()` without arguments, then reverse and
+  join") is allowed by design: an expression, and it repeats the teacher's hint 2 the model sees.
+
 ## Open questions
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
@@ -857,8 +877,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The hidden tests are in the database (`problem_versions`); only a source-scan test keeps the API away from that table until a separate DB role exists (ideas.md). Two syncs at once are not guarded.
 - The retrieval eval is small and optimistic: 40 questions (one = 2.5 points), and the same author (Claude) wrote the notes and the questions. `embed_model` stores the embedder's name, not the model digest, so a re-pulled model doesn't trigger re-embedding (docs/tutor.md §2.5).
 - The tutor's first hint after a model load can take ~110 s (measured 109 s after a reboot);
-  warm hints take ~1–5 s. Hint quality (does it help? does it follow "talk as you"?) is not
-  measured yet (Step 4). The `hints` table keeps blocked attempts, which may contain solution
+  warm hints take ~1–5 s. Hint help is measured only with a 1.5B model as the student, on
+  hidden-only bugs: tutor +0.04 / +0.06 vs no hint, intervals include 0 (docs/tutor.md §5);
+  16 of 54 level-2 hints say "the student" instead of "you". The `hints` table keeps blocked attempts, which may contain solution
   code: only `text` may ever leave the server.
 - A bare `uv run pytest` does not check the real problem bank (marker `slow`); `make all` does,
   through `make validate`. The browser check (`make web-e2e`) is hand-written and opt-in; `web/lib/types.ts` is written by hand and can drift from the pydantic models; no "solved" marks in the problem list.
