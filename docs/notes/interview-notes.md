@@ -497,3 +497,17 @@ the simulator decides how cheaters behave, so a high recall means "we catch *our
 *How I'd say it:* "Synthetic data gives me ground truth to measure precision and recall, as
 long as I build in the hard cases, prevent leakage between the detector's reference data and
 the test data, and report it as an upper bound on real-world performance."
+
+## A perfect score is a bug report: check your test data before your model (Week 5, Step 2a)
+Before writing any detector, we measured the simulated class: every cheating submission had one
+big paste and no honest one did, so a one-line paste rule would have scored 100% precision and
+recall. That number would have been made by the simulator, not earned by the detector. We added
+the cases real classes have (honest students who write in their own editor and paste, cheaters
+who retype a copied answer by hand), and the same rule fell to a real trade-off: precision 0.40,
+recall 0.73. Then we split the data: thresholds are chosen on class seed 0 and reported on a
+held-out class seed 1, where the same rule gives 0.51 / 0.66. The numbers move between two
+classes made by the same generator, which shows how much a number tuned on its own test data
+can flatter.
+*How I'd say it:* "When an eval looks perfect, I first check whether the test data makes the
+task trivial. I put the hard negatives in on purpose, tune on one split and report on a held-out
+one, and expect the held-out number to differ."
