@@ -511,3 +511,18 @@ can flatter.
 *How I'd say it:* "When an eval looks perfect, I first check whether the test data makes the
 task trivial. I put the hard negatives in on purpose, tune on one split and report on a held-out
 one, and expect the held-out number to differ."
+
+## Resample the unit that is independent, and read a flat grid (Week 5, Step 2c)
+We chose the integrity thresholds on one simulated class (60 settings, scored by F0.5, which
+weighs precision more than recall) and measured them once on a held-out class. For the 95%
+intervals we resample **students**, not submissions. One copier makes many similar flagged
+rows, so the rows are not independent. Resampling rows would pretend we had 3,076 independent
+observations and give an interval that is far too narrow. Resampling the 60 students gives
+precision 0.64 [0.32, 0.99]. The interval is wide because 76 of the 79 false flags come from a
+handful of honest students who paste whole programs from their own editor. The grid taught a
+second lesson: the top 10 settings were within 0.005 F0.5 of each other. When tuning barely
+moves the metric, the threshold is not the bottleneck; the evidence is. The next gain comes from
+a new signal, not a finer grid.
+*How I'd say it:* "I bootstrap over the unit that is actually independent (students, users,
+documents), not over rows, or the interval lies. And when a hyperparameter grid is flat at the
+top, I stop tuning and look at the errors: here they were all one kind of honest behaviour."

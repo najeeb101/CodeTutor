@@ -73,10 +73,12 @@ sim-summary:  ## compare the simulated class's grades with its labels
 sim: sim-db sim-load sim-grade sim-summary  ## all four: a fresh, graded simulated class (~15-20 min)
 
 # Week 5 Step 2b: the integrity checks as a batch job over both graded simulated classes
-# (`make sim` and `SIM_SEED=1 make sim` first). Replaces each database's integrity_flags.
-integrity: db-up  ## run the integrity checks on both simulated classes (seed 0 and held-out seed 1)
+# (`make sim` and `SIM_SEED=1 make sim` first). Replaces each database's integrity_flags, then
+# (Step 2c) writes lab/integrity/reports/integrity.md: thresholds chosen on seed 0, measured on 1.
+integrity: db-up  ## run the integrity checks on both simulated classes + write the held-out report
 	uv run python scripts/integrity.py run --seed 0
 	uv run python scripts/integrity.py run --seed 1
+	uv run python scripts/integrity.py report
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py

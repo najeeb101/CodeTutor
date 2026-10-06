@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict
 from codetutor.integrity.normalize import canonical, fingerprints, similarity
 
 # Bumped when a signal or a default threshold changes, so stored flags say what made them.
-INTEGRITY_VERSION = "0"  # provisional thresholds; Step 2c tunes them on seed 0
+INTEGRITY_VERSION = "1"  # thresholds chosen on seed 0 (2026-10-06, Step 2c)
 
 
 class FlagKind(StrEnum):
@@ -44,11 +44,16 @@ CONTENT_KINDS = frozenset({FlagKind.SAME_AS_STUDENT, FlagKind.SAME_AS_AI})
 
 
 class IntegrityConfig(BaseModel):
-    """Every threshold, in one place. Provisional values from the Step 2a measurements."""
+    """Every threshold, in one place.
+
+    The defaults were chosen on seed 0 on 2026-10-06 (best F0.5 of "needs review" over the grid
+    in `integrity/evaluate.py`; paste 0.5, 0.7 and 0.9 tied, the tie rule takes the strictest)
+    and are frozen as INTEGRITY_VERSION "1": changing one means a new version and a new report.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    paste_share: float = 0.5  # largest paste / code length
+    paste_share: float = 0.9  # largest paste / code length
     chars_per_s: float = 5.0  # typed characters per active second
     typed_share: float = 0.8  # fast typing counts only if most of the code was typed
     similarity: float = 1.0  # token 4-gram Jaccard of the canonical code
@@ -98,11 +103,13 @@ def detect(
     flags in the same order.
     """
     config = config or IntegrityConfig()
-    prints = {s.id: _prints(s.code, s.function_name) for s in submissions}  # computed once
-    flags = _entry_flags(submissions, config)
-    flags += _same_as_student_flags(submissions, prints, config)
-    flags += _same_as_ai_flags(submissions, prints, known_ai, config)
-    return sorted(flags, key=lambda f: (f.submission_id, list(FlagKind).index(f.kind)))
+    flags = entry_flags(submissions, config) + content_flags(submissions, known_ai, config)
+    return sorted(flags, key=flag_order)
+
+
+def flag_order(flag: Flag) -> tuple[int, int]:
+    """The order `detect` returns flags in: by submission id, then in `FlagKind` order."""
+    return flag.submission_id, list(FlagKind).index(flag.kind)
 
 
 def needs_review(kinds: Iterable[FlagKind]) -> bool:
@@ -130,7 +137,8 @@ def typing_speed(submission: SubmissionInfo) -> float | None:
     return stats["typed_chars"] / (stats["active_ms"] / 1000)
 
 
-def _entry_flags(submissions: Sequence[SubmissionInfo], config: IntegrityConfig) -> list[Flag]:
+def entry_flags(submissions: Sequence[SubmissionInfo], config: IntegrityConfig) -> list[Flag]:
+    """The `paste` and `fast_typing` flags (the "how the code got in" half of `detect`)."""
     habits = _paste_habits(submissions, config)
     flags = []
     for submission in submissions:
@@ -199,6 +207,23 @@ def _paste_habits(
 
 
 # --- content: the same structure as someone else's code ---
+
+
+def content_flags(
+    submissions: Sequence[SubmissionInfo],
+    known_ai: Mapping[str, Sequence[KnownAnswer]],
+    config: IntegrityConfig,
+) -> list[Flag]:
+    """The `same_as_student` and `same_as_ai` flags (the "what the code is" half of `detect`).
+
+    A content flag's `value` is its best similarity, and it fires when that reaches
+    `config.similarity`. So the flags for a higher threshold are exactly the flags whose value
+    reaches it (only `details["students_matching"]` would count fewer students); the
+    threshold search uses this to compare once instead of once per threshold.
+    """
+    prints = {s.id: _prints(s.code, s.function_name) for s in submissions}  # computed once
+    flags = _same_as_student_flags(submissions, prints, config)
+    return flags + _same_as_ai_flags(submissions, prints, known_ai, config)
 
 
 def _same_as_student_flags(
