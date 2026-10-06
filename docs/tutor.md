@@ -5,14 +5,15 @@ problem, their code and their visible results, finds relevant course notes, and 
 a hint. A **guardrail** checks the hint before the student sees it. Every hint is saved as a row
 in Postgres (the trace), and students rate hints 👍/👎.
 
-Status: **Steps 0-3 of 6 are done** (the guardrail, course notes + search, the pipeline, the
-tutor worker + API + UI). Next: the offline tutor eval (Step 4), wrap-up (Step 5).
+Status: **Steps 0-4 of 6 are done** (the guardrail, course notes + search, the pipeline, the
+tutor worker + API + UI, the offline tutor eval). Next: wrap-up (Step 5).
 
 Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`,
-`context.py`, `prompt.py`, `service.py`, `safety.py`, `jobs.py`, `loop.py`). Tests:
+`context.py`, `prompt.py`, `service.py`, `safety.py`, `jobs.py`, `loop.py`,
+`tutor_eval.py`, `tutor_eval_report.py`). Tests:
 `tests/test_guardrail.py` (labelled hints in `tests/hints/guardrail_cases.yaml`),
 `tests/test_notes.py`, `tests/test_rag.py`, `tests/test_tutor.py`, `tests/test_tutor_safety.py`,
-`tests/test_tutor_jobs.py`, `tests/test_api_hints.py`.
+`tests/test_tutor_jobs.py`, `tests/test_api_hints.py`, `tests/test_tutor_eval.py`.
 
 Decisions for the whole week (2026-10-02):
 - **Our own model client** (`evals/clients.py`), not LiteLLM.
@@ -295,7 +296,99 @@ reload; gone after logout).
   student who asks again about the same code gets a different prompt (the earlier hint is in
   it), so usually a different hint.
 - The level 2 hint for fizzbuzz says "The student's code…" although the prompt says "talk as
-  you", and it nearly states the fix. Hint quality is measured in Step 4, not here.
+  you", and it nearly states the fix. Step 4 measured it: 16 of 54 level-2 hints do this (§5.1).
 - One tutor worker answers one hint at a time (one GPU). With many students the queue grows;
   `Retry-After` and the 1-waiting limit keep it fair, not fast.
 - The model's name is stored per hint, but not the Ollama model digest (same as the notes).
+
+## 5. The offline tutor eval (Step 4)
+
+**The question.** Does a hint help a student fix a bug? A real student is not available, so a
+small model plays the student, and `grade()` decides whether the fix worked (the same grader
+as everywhere else).
+
+**Situations.** A situation is one buggy file whose bug is **hidden-only**: every visible test
+passes, a hidden test fails. That is the moment a real student asks for a hint ("my code looks
+right, why is it wrong?"). The bank has **54** such buggy files in 33 problems (the plan
+guessed ~50).
+
+**Conditions** (6): `none` (no hint), `teacher-1`, `teacher-2`, `teacher-3` (the bank's
+reference hints; hint 3 is the bottom-out hint, §1.4), `tutor-1`, `tutor-2` (the 7B tutor's
+hint, made by `give_hint` exactly as in the app: notes search, guardrail, retry, fallback).
+
+**The student** is `qwen2.5-coder:1.5b-instruct-fp16` (temperature 0.8, seed i for answer i,
+max_tokens 1024, 5 answers per situation and condition). Its prompt is the Week 2 problem
+prompt + the buggy code + what the grader showed (`describe_result`: hidden failures as counts
+only) + the hint + one task line. The prompt text is pinned by a sha256 in a test.
+
+**Metrics** (`tutor_eval_report.py`). Fix rate = accepted answers / answers, first per
+situation, then the mean (every situation counts the same). **Help** = a condition's fix rate
+minus the no-hint fix rate *in the same situation* (a paired difference), with a 95% bootstrap
+interval over situations (2000 resamples, seed 0).
+
+**Running it.** `uv run python scripts/tutor_eval.py` (Ollama + Docker + `make db-up`). It
+makes the tutor hints first, then the answers; every record is appended to
+`lab/tutor/results/tutor-eval-<student>.jsonl` as soon as it exists, so Ctrl+C and a rerun
+continue where it stopped. The `.meta.json` file holds the settings and the problem versions; a
+rerun with other settings stops with an error. `--report-only` rebuilds
+`lab/tutor/reports/tutor_eval.md` (byte-identical for the same records). `--limit N` is a
+scratch run (gitignored folder).
+
+### 5.1 Measured (2026-10-05 pilot + 2026-10-06 full run)
+
+The no-hint pilot (270 answers) ran on 2026-10-05 on battery (5.7 s per answer). The other
+1,350 answers ran on 2026-10-06 in 63 minutes (mostly on mains, ~2.4 s per answer, Docker
+grading). 1,619 answers were graded; **1 call failed** (below).
+
+| Condition | Fix rate [95%] | Help vs `none` [95%] | Situations better / worse / same |
+|---|---|---|---|
+| `none` | 0.58 [0.49, 0.67] | – | – |
+| `teacher-1` | 0.66 [0.57, 0.75] | +0.09 [+0.03, +0.15] | 24 / 12 / 18 |
+| `tutor-1` | 0.62 [0.54, 0.71] | +0.04 [−0.02, +0.11] | 19 / 13 / 22 |
+| `teacher-2` | 0.63 [0.54, 0.72] | +0.05 [−0.03, +0.13] | 20 / 15 / 19 |
+| `tutor-2` | 0.63 [0.54, 0.72] | +0.06 [−0.03, +0.15] | 24 / 17 / 13 |
+| `teacher-3` | 0.70 [0.61, 0.79] | +0.12 [+0.04, +0.21] | 24 / 9 / 21 |
+
+Tutor vs teacher at the same level, paired (computed once for this section, not in the report):
+`tutor-1 − teacher-1` = −0.04 [−0.10, +0.02] (11 better / 17 worse); `tutor-2 − teacher-2` =
++0.01 [−0.09, +0.10]; `tutor-1 − teacher-3` = −0.08 [−0.18, +0.02].
+
+**The tutor's hints** (108): level 1: 52 from the model, 2 fallbacks (both tries blocked);
+level 2: 54 from the model (4 needed the retry). Median 19 / 41 words, ~1.2 / 1.4 s each.
+**16 of 54 level-2 hints talk about "the student"** instead of "you" (2 of 52 at level 1),
+although the prompt says "talk as you".
+
+What the numbers say, and what they don't:
+- Only `teacher-1` and `teacher-3` help with an interval above 0. The tutor's hints help a
+  little on average (+0.04, +0.06), but the intervals include 0: **with 54 situations and 5
+  answers each, we can't tell them from "no help".**
+- `tutor-1` does **not** give away too much: it is below `teacher-3` (the bottom-out hint).
+  It is a little below `teacher-1` (−0.04), also not significant.
+- More detail is not always more help: `teacher-2` (0.63) is below `teacher-1` (0.66).
+- **Hints also hurt.** In every condition 9-17 situations got worse. A clear example:
+  `group_anagrams/ignores_letter_counts` (the bug: `set(word)` drops repeated letters) fell
+  0.80 → 0.00 with `tutor-2`. The teacher's hint 1 lists three things to check, one of them
+  "repeated words"; the tutor picked that one and told the student to fix repeated words. A
+  wrong diagnosis sends the student the wrong way.
+- One level-2 tutor hint is close to a recipe (`reverse_words`: "use `sentence.split()` without
+  any arguments, then reverse the list and join"). The guardrail allows it on purpose (an
+  expression, no solution line), and it only repeats the teacher's own hint 2, which the model
+  sees at level 2.
+
+**The failed call.** `factorial/zero_returns_zero`, `teacher-2`, answer #1: Ollama answered
+HTTP 500 "token repeat limit reached" (the student model repeated itself) 5 times, so it was
+never graded (the Week 2 rule: a failed call is not an answer). With a fixed seed a rerun
+gives the same loop, so that situation has 4 answers in `teacher-2`. Counting it as "not
+fixed" would move `teacher-2` by 0.2 / 54 ≈ 0.004.
+
+### 5.2 Limits
+- The student is a 1.5B model, not a person. A model can fix code by rewriting the whole
+  function, without reading the hint; a hint that helps a model may not teach a human.
+- One student model, one tutor model, one prompt version each. Seeds make the run repeatable,
+  not representative: other seeds give other answers.
+- 54 situations × 5 answers: one situation moves a fix rate by 1.9 points, and differences of
+  ~0.05 are inside the noise. More answers per situation (n = 10) would narrow the intervals
+  by about √2 at twice the time.
+- The bank's hints, the buggy files, the course notes and this eval were all written by the
+  same author (Claude). Hidden-only bugs are only one kind of situation; hints for code that
+  fails visible tests are not measured here.

@@ -444,3 +444,21 @@ used `none_as_null=True`.
 *How I'd say it:* "I keep the trust boundary where it is: the public-facing service never
 gets the secret data. Slow or secret work goes to a worker behind a queue, and the API
 returns 202 plus a URL to poll."
+
+## Evaluate a tutor with a simulated student and a paired comparison (Week 4, Step 4)
+"Does the hint help?" needs a number. Without real students, a small model (1.5B) plays the
+student and the grader judges its fix: 54 hidden-only bugs (visible tests pass, a hidden one
+fails), 6 conditions (no hint, the teacher's hints 1-3, the AI tutor's hints 1-2), 5 seeded
+answers each, 1,620 answers graded in Docker. The key choice is a **paired** comparison: for
+each situation, the condition's fix rate minus the no-hint fix rate *in the same situation*,
+then a bootstrap interval over situations. Pairing removes the big difference between easy and
+hard bugs, which would hide a small effect. Result: no hint 0.58; the teacher's first hint
++0.09 [+0.03, +0.15]; the bottom-out hint +0.12; the AI tutor +0.04 [−0.02, +0.11] at level 1
+and +0.06 [−0.03, +0.15] at level 2, so its effect can't be told apart from zero yet. Hints
+also *hurt*: in each condition 9-17 situations got worse, e.g. a tutor hint that diagnosed the
+wrong bug took one situation from 0.80 to 0.00. The run is resumable (append-only JSONL +
+a meta file that refuses changed settings) and the report is byte-identical for the same data.
+*How I'd say it:* "I measured the tutor against a no-hint baseline and against the teacher,
+paired by situation, with intervals. The honest result is 'a small positive effect we can't
+yet separate from noise', plus concrete failure cases, and I know what would sharpen it: more
+answers per situation, a second student model, and real student ratings."

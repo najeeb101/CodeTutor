@@ -34,8 +34,8 @@ LIMITS = """\
 Limits. The student is a small language model, not a person: a hint that helps a model fix code
 may not teach a human, and a model may fix the code by rewriting the whole function without
 using the hint. One student model and one tutor model. Each situation is one buggy file; with
-50 situations, one situation moves a rate by 2 points. The teacher's hints, the buggy files and
-the course notes were all written by the same author (Claude)."""
+{situations} situations, one situation moves a rate by {points:.1f} points. The teacher's hints, the
+buggy files and the course notes were all written by the same author (Claude)."""
 
 
 @dataclass(frozen=True)
@@ -224,5 +224,7 @@ def render_report(records: Sequence[dict[str, Any]], results: Path) -> str:
     ]
     for condition in ("tutor-1", "tutor-2"):
         lines += _reading_list(records, condition)
-    lines += [LIMITS, ""]
+    situations = max((stat.situations for stat in stats), default=0)
+    if situations:
+        lines += [LIMITS.format(situations=situations, points=100 / situations), ""]
     return "\n".join(lines)

@@ -16,13 +16,49 @@ the teacher's text of the same level.
 | Condition | Situations | Answers | Fix rate [95%] | Mean reward | Help vs none [95%] | Better / worse / same |
 |---|---|---|---|---|---|---|
 | `none` | 54 | 270 | 0.58 [0.49, 0.67] | 0.89 | – | – |
+| `teacher-1` | 54 | 270 | 0.66 [0.57, 0.75] | 0.90 | +0.09 [+0.03, +0.15] | 24 / 12 / 18 |
+| `tutor-1` | 54 | 270 | 0.62 [0.54, 0.71] | 0.90 | +0.04 [-0.02, +0.11] | 19 / 13 / 22 |
+| `teacher-2` | 54 | 269 | 0.63 [0.54, 0.72] | 0.91 | +0.05 [-0.03, +0.13] | 20 / 15 / 19 |
+| `tutor-2` | 54 | 270 | 0.63 [0.54, 0.72] | 0.91 | +0.06 [-0.03, +0.15] | 24 / 17 / 13 |
+| `teacher-3` | 54 | 270 | 0.70 [0.61, 0.79] | 0.92 | +0.12 [+0.04, +0.21] | 24 / 9 / 21 |
 
 ## The tutor's hints
 
-No tutor hints in these results yet.
+| Level | Hints | The tutor's own | Teacher's hint (fallback) | Words (median) |
+|---|---|---|---|---|
+| 1 | 54 | 52 | 2 | 19 |
+| 2 | 54 | 54 | 0 | 41 |
+
+### Where `tutor-1` helped most and hurt most
+
+**Helped most:**
+
+- `cs1.functions.primes_up_to/no_small_n_guard`: 0.00 → 1.00 (+1.00). Hint: “What happens when `n` is less than 2? Does the function handle this correctly?”
+- `cs1.recursion.fibonacci/zero_returns_one`: 0.00 → 0.60 (+0.60). Hint: “What happens when you call `fibonacci(0)` in your current code? Does it return the correct value?”
+- `cs1.variables.celsius_to_fahrenheit/integer_division`: 0.60 → 1.00 (+0.40). Hint: “What is the difference between `//` and `/` in Python, and how does it affect the result of your formula?”
+
+**Hurt most:**
+
+- `cs1.conditions.triangle_type/flat_triangle_is_valid`: 1.00 → 0.60 (-0.40). Hint: “Think about the order of your conditions. Which one should come first?”
+- `cs1.recursion.binary_search/high_is_len`: 1.00 → 0.60 (-0.40). Hint: “What happens when `low` equals `high`?”
+- `cs1.conditions.letter_grade/no_invalid_check`: 0.60 → 0.20 (-0.40). Hint: “What grade should exactly 90 and exactly 80 get?”
+
+### Where `tutor-2` helped most and hurt most
+
+**Helped most:**
+
+- `cs1.functions.primes_up_to/no_small_n_guard`: 0.00 → 1.00 (+1.00). Hint: “The function seems to be mostly correct, but it doesn't handle the edge case where `n` is less than 2. What should the function return in these cases?”
+- `cs1.functions.running_total/empty_crashes`: 0.20 → 1.00 (+0.80). Hint: “The function seems to be on the right track, but it might be missing something important. What happens if you run your function with an empty list? Does it return an empty list as expected?”
+- `cs1.strings.reverse_words/split_on_single_space`: 0.40 → 1.00 (+0.60). Hint: “It looks like your code is splitting the sentence into words correctly, but it's not handling extra spaces or spaces at the start/end properly. Try splitting the sentence using `sentence.split()` without any arguments. This will handle multiple spaces and leading/trailing spaces automatically. Then, reverse the list of words and join them back together with a single space.”
+
+**Hurt most:**
+
+- `cs1.dicts.group_anagrams/ignores_letter_counts`: 0.80 → 0.00 (-0.80). Hint: “The code is mostly correct, but it's not handling repeated words properly. When you encounter a word that's already in a group, you should add it to that group instead of creating a new one.”
+- `cs1.recursion.valid_parentheses/pops_empty_stack`: 0.80 → 0.20 (-0.60). Hint: “The stack is empty when you try to pop an item. What should the code do in this case?”
+- `cs1.conditions.triangle_type/flat_triangle_is_valid`: 1.00 → 0.40 (-0.60). Hint: “The student's code is mostly correct, but there's a small issue. The order of the conditions matters. The student checks if the sides are equal before checking if the sides can form a valid triangle. This can lead to incorrect results. Remember, you should first check if the sides can form a valid triangle. If they can't, you don't need to check if they are equal or not.”
 
 Limits. The student is a small language model, not a person: a hint that helps a model fix code
 may not teach a human, and a model may fix the code by rewriting the whole function without
 using the hint. One student model and one tutor model. Each situation is one buggy file; with
-50 situations, one situation moves a rate by 2 points. The teacher's hints, the buggy files and
-the course notes were all written by the same author (Claude).
+54 situations, one situation moves a rate by 1.9 points. The teacher's hints, the
+buggy files and the course notes were all written by the same author (Claude).
