@@ -105,3 +105,22 @@ Ideas that come up during a week but belong to a later week. Add them here inste
 - **(Week 4 Step 2+, cheap to measure) Search experiments.** (1) Without nomic's task prefixes,
   to see how much they matter. (2) Boost sections of the problem's own module. (3) Store the
   embedding model's digest, not only its name, so a re-pulled model re-embeds the notes.
+
+- **(Optional, if traces need a UI) Langfuse.** The brief planned Langfuse for tutor traces;
+  Week 4 kept them as `hints` rows instead (decided 2026-10-02, not added 2026-10-06). An
+  exporter could send finished hints to Langfuse Cloud (Hobby: 50k units/month, 30 days of
+  data) for its trace viewer and dashboards. Costs: a new package, a key in `.env`, and hint
+  text (student code inside) leaving the machine, so only with made-up or consenting users.
+
+- **(Tutor eval, more data) Narrow the intervals.** 54 situations × 5 answers can't tell the
+  tutor's +0.04 / +0.06 from 0. n = 10 makes the within-situation noise smaller (the intervals
+  shrink by up to ~√2; the spread between situations stays) and takes ~1 h more on mains. A
+  second student model (e.g. the 7B as the student, another family as the tutor) shows whether
+  the result is about hints or about one model.
+
+- **(Tutor prompt v2, measure with the eval) Two failure cases from Step 4.** (1) 16 of 54
+  level-2 hints talk about "the student" instead of "you". (2) The teacher's hint 1 for
+  group_anagrams lists three leads; the tutor picked the wrong one ("repeated words" instead of
+  repeated letters) and the fix rate fell 0.80 → 0.00. Ideas: tell the model to name only what
+  the visible/hidden results support, and add a "you" check to the guardrail's output checks.
+  Bump `TUTOR_PROMPT_VERSION` and re-run the tutor conditions (the `none` answers are reused).

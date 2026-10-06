@@ -29,7 +29,12 @@ from codetutor.tutor.tutor_eval import (
     run_student,
     start_or_check_meta,
 )
-from codetutor.tutor.tutor_eval_report import condition_stats, fix_rates, render_report
+from codetutor.tutor.tutor_eval_report import (
+    condition_stats,
+    fix_rates,
+    paired_difference,
+    render_report,
+)
 from conftest import BUGGY, SOLUTION, ScriptedModel, valid_problem_data
 
 # Passes the visible tests (n >= 1) but returns -1 for the hidden n = 0 and n = -5.
@@ -251,6 +256,28 @@ def test_the_report_is_deterministic_and_has_the_numbers(tmp_path: Path) -> None
     assert "| `tutor-1` | 3 | 6 | 0.67 [" in first
     assert "| 1 | 2 | 1 | 1 | 3 |" in first  # level 1: 2 hints, 1 own, 1 fallback, median words
     assert "`p/a`: 0.00 → 1.00 (+1.00)" in first  # helped most
+
+
+def test_tutor_vs_teacher_is_paired_by_situation(tmp_path: Path) -> None:
+    # p/a: teacher-1 0/2, tutor-1 2/2 (+1.0); p/b: teacher-1 2/2, tutor-1 1/2 (-0.5);
+    # p/c has only tutor answers, so it is left out of the pair.
+    records = [
+        *[_answer("p/a", "teacher-1", i, False) for i in range(2)],
+        *[_answer("p/a", "tutor-1", i, True) for i in range(2)],
+        *[_answer("p/b", "teacher-1", i, True) for i in range(2)],
+        _answer("p/b", "tutor-1", 0, True),
+        _answer("p/b", "tutor-1", 1, False),
+        *[_answer("p/c", "tutor-1", i, True) for i in range(2)],
+    ]
+    paired = paired_difference(fix_rates(records), "tutor-1", "teacher-1")
+    assert paired is not None
+    assert paired.situations == 2
+    assert paired.difference == pytest.approx(0.25)  # mean of +1.0 and -0.5
+    assert (paired.better, paired.worse, paired.same) == (1, 1, 0)
+    assert paired_difference(fix_rates(records), "tutor-2", "teacher-2") is None
+    report = render_report(records, tmp_path / "results.jsonl")
+    assert "| `tutor-1` | `teacher-1` | 2 | +0.25 [" in report
+    assert "`teacher-2`" not in report  # no answers for that pair: no row
 
 
 def test_bootstrap_mean_ci_basics() -> None:

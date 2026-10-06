@@ -5,11 +5,11 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Weeks 1–3 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
-language models through the grader, and the app around them (Postgres, a grading queue, an HTTP
-API and a web UI with a code editor). Week 4 is in progress: an AI tutor that gives hints, not
-answers (a guardrail, search over course notes, a tutor worker, hints and 👍/👎 in the UI are
-done; the offline tutor eval is next).
+**Status:** Weeks 1–4 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
+language models through the grader, the app around them (Postgres, a grading queue, an HTTP API
+and a web UI with a code editor), and an AI tutor that gives hints, not answers (a local model,
+search over course notes, a guardrail, 👍/👎 ratings), measured offline with a simulated
+student. Next: simulated students, integrity checks and difficulty estimates (Week 5).
 
 ## What is in it
 
@@ -18,9 +18,10 @@ done; the offline tutor eval is next).
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 416 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 607 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
-| App | Postgres (5 tables), a grading queue in Postgres, a FastAPI service (7 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
+| App | Postgres (7 tables), a grading queue in Postgres, a FastAPI service (11 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
+| AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
 not, and every buggy solution fails at least one test (a simple form of mutation testing).
@@ -46,6 +47,8 @@ Details: [docs/grader.md](docs/grader.md). Problem format: [docs/problem-format.
 - [uv](https://docs.astral.sh/uv/)
 - Docker with Compose (for the local database and the safe sandbox)
 - Node 24 (for the web UI only; installed with [nvm](https://github.com/nvm-sh/nvm))
+- [Ollama](https://ollama.com) (for model evals and the tutor only), with `qwen2.5-coder:7b`,
+  `qwen2.5-coder:1.5b-instruct-fp16` and `nomic-embed-text`
 
 > **⚠️ Security:** the default sandbox is a subprocess with resource limits. It is **not secure**:
 > graded code can read your files and use the network. For code you don't trust, use the Docker
@@ -180,6 +183,58 @@ The browser polls `GET /api/submissions/{id}` (and `GET /api/hints/{id}`) once p
 the job is done. There is no Redis: Postgres is the queue, so saving a request and queueing it
 can never disagree. Only the two workers read the sealed problem copies; the API never does.
 
+## The AI tutor
+A student who is stuck asks for a hint (level 1, then 2; level 3 is the teacher's last hint).
+The tutor worker finds the 3 best course-note sections for the problem and the student's code
+(keyword + vector search, merged), and asks the local Qwen 7B for a short hint. The model sees
+the problem, the teacher's hints up to that level, the student's code and their visible results,
+never the solution or the hidden tests. Three layers keep answers out:
+1. the prompt: "no code", and the student's text is marked as data (against prompt injection);
+2. the **guardrail** (`tutor/guardrail.py`): blocks code blocks, code statements, and any line
+   of the reference solution, with one retry;
+3. a **fallback**: if both tries are blocked, the student gets the teacher's hint instead.
+
+Every attempt, blocked ones too, is saved as a row in Postgres (the trace); only the shown text
+leaves the server. Measured (details in [docs/tutor.md](docs/tutor.md)):
+
+| What | Result |
+|---|---|
+| Guardrail on the bank's own hints 1–2 / on 298 generated leaks | 0 of 66 blocked / 298 of 298 blocked |
+| Note search, 40 labelled questions (recall@3) | keyword 34/40, vector 39/40, hybrid 40/40 |
+| Safety run, 97 buggy files: 7B first try blocked (level 1 / 2) | 3% / 10% (teacher's hint shown 3% / 1%) |
+| Offline eval: does a hint help a 1.5B "student" fix a hidden-only bug? | below |
+
+| Condition (54 situations × 5 answers) | Fix rate | Help vs no hint [95%] |
+|---|---|---|
+| No hint | 0.58 | – |
+| Teacher's hint 1 | 0.66 | +0.09 [+0.03, +0.15] |
+| Tutor's hint 1 | 0.62 | +0.04 [−0.02, +0.11] |
+| Tutor's hint 2 | 0.63 | +0.06 [−0.03, +0.15] |
+| Teacher's hint 3 (bottom-out) | 0.70 | +0.12 [+0.04, +0.21] |
+
+Honest reading: the tutor's hints help a little on average, but with this much data we can't
+tell that from no help; hints can also hurt (a hint with the wrong diagnosis took one situation
+from 0.80 to 0.00). The student is a small model, not a person. Full report:
+[lab/tutor/reports/tutor_eval.md](lab/tutor/reports/tutor_eval.md).
+
+```bash
+# One hint about a buggy file, with its trace (needs Ollama + the database; grading uses Docker)
+uv run python scripts/ask_tutor.py cs1.loops.fizzbuzz \
+    problems/cs1/03_loops/fizzbuzz/buggy/checks_fizz_first.py --no-save
+
+# Rebuild the tutor eval report from the committed results (no model needed)
+uv run python scripts/tutor_eval.py --report-only
+
+# A small test run of the tutor eval: 1 problem, written to lab/tutor/scratch/ (~1.5 min)
+uv run python scripts/tutor_eval.py --limit 1
+
+# Measure the note search again (needs `make notes-sync`)
+uv run python scripts/eval_retrieval.py
+```
+The full tutor eval (1,620 answers) took 63 minutes on the laptop GPU and can be stopped and
+resumed. Tracing uses our own Postgres table, not Langfuse (a change from the original plan:
+the table already holds the whole trace, and no hint data leaves the machine).
+
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
    `tests.yaml` (inputs only) and 1–3 files in `buggy/`.
@@ -204,6 +259,7 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `web/`: the web UI (Next.js + Monaco), with its own README
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
+- `lab/tutor/`: the retrieval questions, the tutor's safety-run and eval results, and their reports
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
 - `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`); `docs/notes/` holds weekly notes and interview notes
 
@@ -213,7 +269,7 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 | 1 | Problem bank + grader + validator (+ optional Docker sandbox) | ✅ done |
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
 | 3 | FastAPI + Postgres + job queue + minimal Next.js UI | ✅ done |
-| 4 | AI tutor that gives hints, not answers | |
+| 4 | AI tutor that gives hints, not answers | ✅ done |
 | 5 | Simulated students, integrity checks, difficulty estimates | |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |
 | 8 | Instructor dashboard, final write-up, demo | |

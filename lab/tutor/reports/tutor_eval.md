@@ -22,6 +22,18 @@ the teacher's text of the same level.
 | `tutor-2` | 54 | 270 | 0.63 [0.54, 0.72] | 0.91 | +0.06 [-0.03, +0.15] | 24 / 17 / 13 |
 | `teacher-3` | 54 | 270 | 0.70 [0.61, 0.79] | 0.92 | +0.12 [+0.04, +0.21] | 24 / 9 / 21 |
 
+## Tutor vs teacher
+
+Difference = the tutor's fix rate minus the teacher's *in the same situation*, then the
+mean, with a 95% bootstrap interval over situations (like the help column above). The
+last row compares level 1 with the bottom-out hint: well below it = no answer given away.
+
+| Tutor | Teacher | Situations | Difference [95%] | Tutor better / worse / same |
+|---|---|---|---|---|
+| `tutor-1` | `teacher-1` | 54 | -0.04 [-0.10, +0.02] | 11 / 17 / 26 |
+| `tutor-2` | `teacher-2` | 54 | +0.01 [-0.09, +0.10] | 16 / 18 / 20 |
+| `tutor-1` | `teacher-3` | 54 | -0.08 [-0.18, +0.02] | 14 / 22 / 18 |
+
 ## The tutor's hints
 
 | Level | Hints | The tutor's own | Teacher's hint (fallback) | Words (median) |

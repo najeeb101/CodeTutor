@@ -1,7 +1,7 @@
-# Lab (Weeks 2, 5–7)
+# Lab (Weeks 2, 4, 5–7)
 
-The AI-lab half of CodeTutor: evals now; simulated students, the dataset builder and GRPO
-training later.
+The AI-lab half of CodeTutor: model evals (Week 2) and the tutor's measurements (Week 4) now;
+simulated students, the dataset builder and GRPO training later.
 
 ## evals/ (Week 2)
 - `configs/`: one YAML file per official run (model, samples, temperature, seeds, ...).
@@ -13,3 +13,14 @@ training later.
 
 Run: `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/<name>.yaml`.
 How it works: [docs/evals.md](../docs/evals.md). The code is in `src/codetutor/evals/`.
+
+## tutor/ (Week 4)
+- `retrieval_questions.yaml`: 40 labelled questions for the note search (`scripts/eval_retrieval.py`).
+- `results/`: committed results. `safety-<model>.jsonl`: the tutor on every buggy file (what
+  it tries to show, what the guardrail blocks); `tutor-eval-<student>.jsonl` + `.meta.json`:
+  the offline tutor eval (tutor hints and graded student answers, one per line).
+- `reports/`: generated `retrieval.md`, `tutor_safety.md`, `tutor_eval.md` (do not edit by hand).
+- `scratch/`: `--limit` runs (gitignored; a tutor-eval scratch run starts fresh).
+
+Run: `uv run python scripts/tutor_eval.py` (resumable) or `--report-only`. How it works:
+[docs/tutor.md](../docs/tutor.md) §5. The code is in `src/codetutor/tutor/`.

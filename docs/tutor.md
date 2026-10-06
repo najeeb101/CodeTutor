@@ -5,8 +5,8 @@ problem, their code and their visible results, finds relevant course notes, and 
 a hint. A **guardrail** checks the hint before the student sees it. Every hint is saved as a row
 in Postgres (the trace), and students rate hints 👍/👎.
 
-Status: **Steps 0-4 of 6 are done** (the guardrail, course notes + search, the pipeline, the
-tutor worker + API + UI, the offline tutor eval). Next: wrap-up (Step 5).
+Status: **Week 4 is done** (Steps 0-5: the guardrail, course notes + search, the pipeline, the
+tutor worker + API + UI, the offline tutor eval, the wrap-up).
 
 Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_eval.py`,
 `context.py`, `prompt.py`, `service.py`, `safety.py`, `jobs.py`, `loop.py`,
@@ -18,7 +18,9 @@ Code: `src/codetutor/tutor/` (`guardrail.py`, `notes.py`, `rag.py`, `retrieval_e
 Decisions for the whole week (2026-10-02):
 - **Our own model client** (`evals/clients.py`), not LiteLLM.
 - **Traces are rows in Postgres** (prompt version, model, retrieved notes, guardrail result,
-  time, tokens, rating). Langfuse Cloud is optional, at the end.
+  time, tokens, rating). Langfuse Cloud was optional, at the end; **not added** (2026-10-06):
+  the `hints` table already holds the whole trace, and Langfuse would send hint data off the
+  machine. A deviation from the brief; the idea is in [ideas.md](ideas.md).
 - **The model never sees `solution.py`.** It gets the problem text, the 3 reference hints, the
   student's code and their visible results (hidden tests: only pass/fail counts).
 - **Hint 3 is the "bottom-out" hint** (§1.4).
@@ -349,7 +351,7 @@ grading). 1,619 answers were graded; **1 call failed** (below).
 | `tutor-2` | 0.63 [0.54, 0.72] | +0.06 [−0.03, +0.15] | 24 / 17 / 13 |
 | `teacher-3` | 0.70 [0.61, 0.79] | +0.12 [+0.04, +0.21] | 24 / 9 / 21 |
 
-Tutor vs teacher at the same level, paired (computed once for this section, not in the report):
+Tutor vs teacher, paired the same way (the report's "Tutor vs teacher" table):
 `tutor-1 − teacher-1` = −0.04 [−0.10, +0.02] (11 better / 17 worse); `tutor-2 − teacher-2` =
 +0.01 [−0.09, +0.10]; `tutor-1 − teacher-3` = −0.08 [−0.18, +0.02].
 
@@ -362,7 +364,8 @@ What the numbers say, and what they don't:
 - Only `teacher-1` and `teacher-3` help with an interval above 0. The tutor's hints help a
   little on average (+0.04, +0.06), but the intervals include 0: **with 54 situations and 5
   answers each, we can't tell them from "no help".**
-- `tutor-1` does **not** give away too much: it is below `teacher-3` (the bottom-out hint).
+- No sign that `tutor-1` gives the answer away: it is below `teacher-3` (the bottom-out hint)
+  by −0.08, but the interval [−0.18, +0.02] just reaches 0, so this is a hint, not a proof.
   It is a little below `teacher-1` (−0.04), also not significant.
 - More detail is not always more help: `teacher-2` (0.63) is below `teacher-1` (0.66).
 - **Hints also hurt.** In every condition 9-17 situations got worse. A clear example:

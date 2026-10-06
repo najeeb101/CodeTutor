@@ -8,8 +8,9 @@ Usage (Ollama running; Docker running; `make notes-sync` done):
 
 Writes lab/tutor/results/tutor-eval-<student>.jsonl (+ .meta.json) and
 lab/tutor/reports/tutor_eval.md. With --limit, everything goes to lab/tutor/scratch/
-(gitignored), so a partial run never mixes with the official file. The student's answers are
-graded in the Docker sandbox (model code is untrusted).
+(gitignored) and starts fresh (like run_eval.py), so a partial run never mixes with the
+official file, and an older scratch run with another --limit never blocks a new one. The
+student's answers are graded in the Docker sandbox (model code is untrusted).
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from codetutor.tutor.tutor_eval import (
     TutorEvalSettings,
     hidden_only,
     make_tutor_hints,
+    meta_path_for,
     read_records,
     results_path,
     run_student,
@@ -78,6 +80,9 @@ def main() -> int:
     problems = load_all()[: args.limit] if scratch else load_all()
 
     if not args.report_only:
+        if scratch:  # scratch runs always start fresh (only the scratch folder's files)
+            path.unlink(missing_ok=True)
+            meta_path_for(path).unlink(missing_ok=True)
         status = _run(args, settings, problems, path)
         if status != 0:
             return status

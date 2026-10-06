@@ -21,6 +21,8 @@ from codetutor.tutor.tutor_eval import CONDITIONS, TUTOR_LEVELS, meta_path_for
 
 READING_LIST = 3  # situations shown where a tutor hint helped most / hurt most
 BASELINE = "none"
+# (tutor condition, teacher condition): does the tutor help as much as the teacher's text?
+TUTOR_VS_TEACHER = (("tutor-1", "teacher-1"), ("tutor-2", "teacher-2"), ("tutor-1", "teacher-3"))
 
 HOW_TO_READ = """\
 How to read it. **Fix rate** = the share of a situation's answers that are accepted, averaged
@@ -36,6 +38,20 @@ may not teach a human, and a model may fix the code by rewriting the whole funct
 using the hint. One student model and one tutor model. Each situation is one buggy file; with
 {situations} situations, one situation moves a rate by {points:.1f} points. The teacher's hints, the
 buggy files and the course notes were all written by the same author (Claude)."""
+
+
+@dataclass(frozen=True)
+class PairedStats:
+    """One condition minus another, situation by situation (only situations both have)."""
+
+    condition: str
+    baseline: str
+    situations: int
+    difference: float
+    interval: tuple[float, float] | None
+    better: int
+    worse: int
+    same: int
 
 
 @dataclass(frozen=True)
@@ -81,6 +97,26 @@ def _rewards(records: Sequence[dict[str, Any]]) -> dict[str, dict[str, float]]:
     return rewards
 
 
+def paired_difference(
+    rates: dict[str, dict[str, float]], condition: str, baseline: str
+) -> PairedStats | None:
+    """The mean of (condition - baseline) over the situations both have, with a 95% interval."""
+    own, base = rates.get(condition, {}), rates.get(baseline, {})
+    diffs = [own[situation] - base[situation] for situation in sorted(set(own) & set(base))]
+    if not diffs:
+        return None
+    return PairedStats(
+        condition=condition,
+        baseline=baseline,
+        situations=len(diffs),
+        difference=mean(diffs),
+        interval=bootstrap_mean_ci(diffs),
+        better=sum(diff > 0 for diff in diffs),
+        worse=sum(diff < 0 for diff in diffs),
+        same=sum(diff == 0 for diff in diffs),
+    )
+
+
 def condition_stats(records: Sequence[dict[str, Any]]) -> list[ConditionStats]:
     """The numbers per condition, in CONDITIONS order (conditions without answers left out)."""
     rates = fix_rates(records)
@@ -89,15 +125,13 @@ def condition_stats(records: Sequence[dict[str, Any]]) -> list[ConditionStats]:
     for record in records:
         if record["kind"] == "answer":
             answers[record["condition"]] += 1
-    base = rates.get(BASELINE, {})
     stats = []
     for condition in CONDITIONS:
         own = rates.get(condition)
         if not own:
             continue
         values = [own[situation] for situation in sorted(own)]
-        paired = sorted(set(own) & set(base)) if condition != BASELINE else []
-        diffs = [own[situation] - base[situation] for situation in paired]
+        paired = paired_difference(rates, condition, BASELINE) if condition != BASELINE else None
         stats.append(
             ConditionStats(
                 condition=condition,
@@ -106,11 +140,11 @@ def condition_stats(records: Sequence[dict[str, Any]]) -> list[ConditionStats]:
                 fix_rate=mean(values),
                 interval=bootstrap_mean_ci(values),
                 mean_reward=mean(rewards[condition][s] for s in sorted(own)),
-                help=mean(diffs) if diffs else None,
-                help_interval=bootstrap_mean_ci(diffs) if diffs else None,
-                better=sum(diff > 0 for diff in diffs),
-                worse=sum(diff < 0 for diff in diffs),
-                same=sum(diff == 0 for diff in diffs),
+                help=paired.difference if paired else None,
+                help_interval=paired.interval if paired else None,
+                better=paired.better if paired else 0,
+                worse=paired.worse if paired else 0,
+                same=paired.same if paired else 0,
             )
         )
     return stats
@@ -142,6 +176,30 @@ def _stats_table(stats: Sequence[ConditionStats]) -> list[str]:
             f"| `{item.condition}` | {item.situations} | {item.answers} "
             f"| {_num(item.fix_rate)}{_interval(item.interval)} | {_num(item.mean_reward)} "
             f"| {help_text} | {counts} |"
+        )
+    return lines
+
+
+def _tutor_vs_teacher_table(records: Sequence[dict[str, Any]]) -> list[str]:
+    rates = fix_rates(records)
+    pairs = [paired_difference(rates, tutor, teacher) for tutor, teacher in TUTOR_VS_TEACHER]
+    if not any(pairs):
+        return ["No tutor and teacher answers for the same situations yet."]
+    lines = [
+        "Difference = the tutor's fix rate minus the teacher's *in the same situation*, then the",
+        "mean, with a 95% bootstrap interval over situations (like the help column above). The",
+        "last row compares level 1 with the bottom-out hint: well below it = no answer given away.",
+        "",
+        "| Tutor | Teacher | Situations | Difference [95%] | Tutor better / worse / same |",
+        "|---|---|---|---|---|",
+    ]
+    for item in pairs:
+        if item is None:
+            continue
+        lines.append(
+            f"| `{item.condition}` | `{item.baseline}` | {item.situations} "
+            f"| {_num(item.difference, sign=True)}{_interval(item.interval, sign=True)} "
+            f"| {item.better} / {item.worse} / {item.same} |"
         )
     return lines
 
@@ -216,6 +274,10 @@ def render_report(records: Sequence[dict[str, Any]], results: Path) -> str:
         "## Fix rate per condition",
         "",
         *(_stats_table(stats) if stats else ["No answers yet."]),
+        "",
+        "## Tutor vs teacher",
+        "",
+        *_tutor_vs_teacher_table(records),
         "",
         "## The tutor's hints",
         "",
