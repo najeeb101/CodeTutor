@@ -394,6 +394,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   0 retried/failed/lost); accepted 1,816, wrong 952, runtime 201, timeout 49, compile 28;
   **grade = intended label for 3,046 of 3,046**. Suite 642 passed, **58.6 s on mains** (Q18);
   `make all` 72 s.
+- **Done (2026-10-06): Q18 resolved (option B, Najeeb).** `--durations` first: the Week 5 tests
+  were only ~7 s; the rest of the jump from 45 s is machine load (Epic Games launcher, Docker
+  Desktop, Opera; 15-min load 4.4 right after `make sim`). test_sim's determinism test now
+  regenerates a 6-student class; test_sim_db syncs a copy of the 4 module-1 problems (the loader
+  doesn't follow symlinks) and uses 24 rows: both files 10.2 s → 5.0 s. Full suite on mains,
+  9 runs: 50.5-62.2 s (median ~55 s). **1 of those 9 runs had 1 failed test whose name was
+  lost** (only the last line was printed); 7 later runs with saved output all passed. Maybe
+  Q14; every run now saves its full output.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -959,12 +967,6 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   wrong row when two rows held identical code, so it uses `graded_rows` (by id) instead.
 
 ## Open questions
-- Q18: suite time is back near the limit: 642 tests in **58.6 s on mains** (2026-10-06; 604 tests
-  took 45.3 s that morning). Week 5 added ~13 s (test_sim.py ~5 s: one class regeneration +
-  66 gradings; test_sim_db.py ~5 s; editor-summary tests). Options: (A) mark the heaviest new
-  tests `slow` (like Q11); (B) make them cheaper first (e.g. one session-wide cohort fixture,
-  fewer gradings in the disguise test, a smaller row set in test_sim_db.py), then re-measure;
-  (C) leave it and re-measure after Step 2. Recommendation: B, measured with `--durations`.
 - Q14: the memory-bomb flake (Decisions log, 2026-10-01). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
