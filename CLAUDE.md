@@ -488,6 +488,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   all-or-nothing, **64% of groups all-equal** (little signal; Step 3 measures the 0.5B).
   16 tests (2 s; a top-level infinite loop was dropped: 23 s). Suite 742 passed: 57.7 / 54.9 s
   on mains when quiet, 71.5 s right after the 7-min Docker bench (Q20: load, as before).
+- **Done (2026-10-07): Week 6 Step 3** (the "before" baseline; plan approved). `rl/hf.py`
+  (`HFGenerator`, `BatchedResponder`: all 10 answers of a problem in one batch; plain sampling,
+  seed 0, bf16), model prefix `hf/<id>` in `evals/run.py`, `rl/baseline.py`,
+  `scripts/rl_baseline.py`, `make rl-baseline-run` / `rl-baseline-report`, 2 configs, committed
+  results (code commit 1bc794e before the runs, metas `git_dirty: false`),
+  `lab/rl/reports/baseline.md`. Scratch run twice: 20/20 identical answers. **0.5B: pass@1 0.64
+  [0.53, 0.74], pass@5 0.88, groups all-equal 18% (partial) / 27% (all-or-nothing), mixed
+  groups in 24 of 33 problems. 1.5B (HF): 0.90 [0.82, 0.96], pass@5 0.98, 64% all-equal, 12 of
+  33 mixed** (Ollama Week 2: 0.87). Held-out folds swing (0.5B: a 0.80, b 0.73, c 0.41, d 0.61).
+  **Decision for Step 4: the 0.5B is the model to train.** 5 new tests. Suite 747 passed, 52 s
+  on mains; **Q14 failed again on mains** (`test_memory_bomb[subprocess-memory_bomb_growing]`,
+  first `make all` run, 69 s; the rerun was green).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -575,16 +587,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
   by so little here. Week 5 wrap-up: Q1 why the README command for generating a class leaves
   a modified meta file; Q2 why `make sim` was not re-run; Q3 why the README says "our
-  cheaters", not "cheaters". Week 6 Step 2: Q1 why the reward uses hidden tests and the same grader as the evals; Q2 why one
+  cheaters", not "cheaters". Week 6 Step 3: Q1 why the baseline was re-measured through Hugging Face when an Ollama one
+  existed; Q2 why the 0.5B, not the 1.5B, is the model to train; Q3 why all four folds must be
+  reported. Week 6 Step 2: Q1 why the reward uses hidden tests and the same grader as the evals; Q2 why one
   failing answer is scored 0.0 and counted instead of raising; Q3 what 64% all-equal groups
   mean for training. Week 6 Step 1: Q1 why we split by module, not by problem; Q2 why
   the split is committed in lab/rl/splits.json; Q3 why one fold's result is not enough. Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
-  (134 in total; answer key in Claude's memory.)
+  (137 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
   third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 6 Step 3** (the 'before' baseline: 0.5B and 1.5B on the held-out folds through the HF generation path, n = 10, group signal; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 4** (GRPO smoke run on the 0.5B: a few dozen steps, loss/reward logged, seconds per step and VRAM measured; plan mode first; Q14 now needs your decision). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1121,7 +1135,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 ## Open questions
 - Q20: suite time. 700 tests took 62.3, 70.2 and 77.4 s on mains on 2026-10-06 evening (limit 60 s); the 14 Step 2c tests take 0.8 s, the rest is machine load from Windows (Docker Desktop, Opera, Epic Games overlay; WSL itself 97% idle). Options: (A) re-measure with those apps closed before deciding; (B) mark more slow tests `slow` (the grader timeout tests and the migration round trip are ~2-2.5 s each); (C) raise the limit to 90 s. Recommendation: A first.
 - Q19: `test_without_a_tutor_the_hint_check_fails_and_says_why` failed once (2026-10-06, under load): the "my submissions" check, which expects the newest submission first. The list is ordered by `created_at desc, id desc`, and `created_at` is Postgres `now()` in the container, so a backward clock step (WSL/Docker VM time sync) between the two submits would swap them; not proven (the second assert hid the check's detail), 6 reruns green. Options: (A) order "my submissions" by `id desc` (ids follow the real submit order; small API change + test) and print `_report(checks)` in that assert; (B) only improve the assert message and wait for a repeat. Recommendation: B now, A if it repeats.
-- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-07 (third time, on battery, load 1)**, my earlier "A until it happens again" is used up: now I recommend B (3 s). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
+- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-07 evening on mains** (4th time overall; `make all` 69 s, rerun green): recommendation B (3 s timer) stands. **Recurred 2026-10-07 (third time, on battery, load 1)**, my earlier "A until it happens again" is used up: now I recommend B (3 s). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
