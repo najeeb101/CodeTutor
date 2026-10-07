@@ -450,7 +450,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   integrity checks lifts skill r to 0.93 / 0.93. 13 tests (0.3 s). Suite 713 passed, but **on
   battery** (Discharging at 84%): 95 s and 104 s; the first run had **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]` timeout), the rerun was green.
-- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
+- **Done (2026-10-07): Week 5 Step 4 = Week 5 done** (wrap-up). README (Weeks 1-5, new
+  "Simulated students, integrity and skill" section with the held-out numbers and honest
+  limits, 8 tables, 716 tests, layout, roadmap), `docs/notes/week5.md` skeleton (7 sections,
+  facts in comment boxes, numbers table; Najeeb writes the text, then "review"), 3 ideas in
+  ideas.md (store/show estimates, more integrity evidence, Rasch beyond first tries). README
+  commands run as written: `make integrity` (265 / 221 needing review, report unchanged),
+  `make skill` (report unchanged), `integrity.py tune`, `skill.py show --dev`,
+  `sim_cohort.py generate --seed 1` (rows byte-identical; the tracked meta file changes its git
+  fields, so it was restored with `git checkout`). `make sim` was not re-run. `make all`: 713
+  passed, 33 valid, but **130 s on battery** (Discharging 84%, not comparable; Q20).
+- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
@@ -535,11 +545,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   students, not submissions; Q2 why paste 0.5, 0.7 and 0.9 flag the same rows on seed 0; Q3
   what goes wrong if you change a threshold after reading the seed-1 report. Week 5 Step 3:
   Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
-  by so little here.
-  (122 in total; answer key in Claude's memory.)
+  by so little here. Week 5 wrap-up: Q1 why the README command for generating a class leaves
+  a modified meta file; Q2 why `make sim` was not re-run; Q3 why the README says "our
+  cheaters", not "cheaters".
+  (125 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
   third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 5 Step 4** (wrap-up: README, docs, week5 notes skeleton; plan mode first). Najeeb: his text in `docs/notes/week4.md`
+  **Week 6** planning (dataset builder + GRPO: needs decisions on GPU/TRL setup; plan mode
+  first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
