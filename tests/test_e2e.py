@@ -117,7 +117,7 @@ def test_without_a_tutor_the_hint_check_fails_and_says_why(
     checks = run_checks(api_url, problem, hint_timeout_s=1.0)
 
     assert [check.ok for check in checks][-2:] == [True, False], _report(checks)
-    assert checks[-1].name == "a hint about the buggy submission"
+    assert checks[-1].name == "a hint about the buggy submission", _report(checks)  # Q19
     assert "is `make tutor` running?" in checks[-1].detail
 
 

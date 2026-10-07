@@ -46,8 +46,10 @@ FAST = Limits(per_test_timeout_s=0.5, memory_mb=256)
 SHORT_TOTAL = Limits(per_test_timeout_s=0.5, total_timeout_s=2.0, memory_mb=256)
 # Memory bombs must be stopped by the memory limit, not the timer. Filling 256 MB usually takes
 # ~150 ms, but under load it was measured at up to ~500 ms on WSL2, so a 0.5 s timer sometimes
-# won the race and the test failed (Q12). With 2 s there is a wide margin (max seen: 303 ms).
-MEMORY_TEST = Limits(per_test_timeout_s=2.0, memory_mb=256)
+# won the race and the test failed (Q12). 2 s still lost the race 4 times in ~60 full runs on
+# 2026-10-01..07 (Q14, always a `timeout` in the growing bomb, also on mains power), so it is 3 s.
+# The assertion is unchanged: a broken memory limit would still fail the test.
+MEMORY_TEST = Limits(per_test_timeout_s=3.0, memory_mb=256)
 
 
 def submission(name: str) -> str:

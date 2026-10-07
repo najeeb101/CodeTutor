@@ -596,9 +596,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
   (137 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
-  third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 6 Step 4** (GRPO smoke run on the 0.5B: a few dozen steps, loss/reward logged, seconds per step and VRAM measured; plan mode first; Q14 now needs your decision). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
+  **Week 6 Step 4** (GRPO smoke run on the 0.5B: a few dozen steps, loss/reward logged, seconds per step and VRAM measured; plan mode first; not started, on Najeeb's request). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1132,10 +1131,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   first draft said Rasch "should hold up better", the measured gain is 0.01-0.04. Report
   runtime 25 s (bootstrap + 20 refits per experiment).
 
+- 2026-10-07: Q14, Q19, Q20 resolved by Najeeb's "do your recommendations". **Q14 = B**:
+  `MEMORY_TEST` per-test timer 2 s → 3 s (the growing memory bomb lost the race 4 times in ~60
+  full runs, once also on mains; assertion unchanged, so a broken memory limit still fails;
+  5/5 reruns green). **Q19 = B**: the failing e2e assert now prints the whole check report; the
+  list order stays (`created_at desc, id desc`) unless it repeats. **Q20** closed: the suite is
+  ~52-58 s when the machine is quiet and 70+ s right after Docker-heavy work or on battery;
+  not a test-code problem. Revisit only if it exceeds 60 s on a quiet machine.
+
 ## Open questions
-- Q20: suite time. 700 tests took 62.3, 70.2 and 77.4 s on mains on 2026-10-06 evening (limit 60 s); the 14 Step 2c tests take 0.8 s, the rest is machine load from Windows (Docker Desktop, Opera, Epic Games overlay; WSL itself 97% idle). Options: (A) re-measure with those apps closed before deciding; (B) mark more slow tests `slow` (the grader timeout tests and the migration round trip are ~2-2.5 s each); (C) raise the limit to 90 s. Recommendation: A first.
-- Q19: `test_without_a_tutor_the_hint_check_fails_and_says_why` failed once (2026-10-06, under load): the "my submissions" check, which expects the newest submission first. The list is ordered by `created_at desc, id desc`, and `created_at` is Postgres `now()` in the container, so a backward clock step (WSL/Docker VM time sync) between the two submits would swap them; not proven (the second assert hid the check's detail), 6 reruns green. Options: (A) order "my submissions" by `id desc` (ids follow the real submit order; small API change + test) and print `_report(checks)` in that assert; (B) only improve the assert message and wait for a repeat. Recommendation: B now, A if it repeats.
-- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-07 evening on mains** (4th time overall; `make all` 69 s, rerun green): recommendation B (3 s timer) stands. **Recurred 2026-10-07 (third time, on battery, load 1)**, my earlier "A until it happens again" is used up: now I recommend B (3 s). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
