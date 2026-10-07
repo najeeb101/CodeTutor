@@ -6,8 +6,8 @@ saw. Decided 2026-10-07: train **locally in WSL on the laptop GPU** (the real Do
 the reward), model **Qwen2.5-Coder-0.5B-Instruct first, 1.5B as a stretch**, hold out **whole
 modules** (33 problems only; no generated problems yet).
 
-Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) are done. Next:
-reward function, "before" baseline, GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
+Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) and **Step 2** (the reward, §3) are done. Next:
+"before" baseline, GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
 
 ## 1. The training environment (Step 0)
 
@@ -58,7 +58,39 @@ make rl-data        # dist/rl/fold-<a..d>/{train,heldout}.jsonl + manifest.json,
   skill. About 8 held-out problems per fold means wide intervals: report every fold, and
   never pick the fold after seeing results. The visible examples are in the prompts.
 
-## 3. What is still open
+## 3. The reward (Step 2)
+
+```bash
+make rl-reward-bench   # consistency + speed + signal on the stored Week 2 answers (needs Docker, ~7 min)
+```
+- **`reward_for`** = `extract_code` + `grade(reveal_hidden=False)`: the same path as submissions
+  and evals. **`TrlReward`** wraps it for `GRPOTrainer(reward_funcs=[...])` (it is called with
+  `completions=[chat messages]` and the dataset's `problem_id` column; one float per answer, in
+  order). It runs in the trainer process and sees the hidden tests; the model never does.
+- **Modes** (`RewardConfig.mode`): `partial` (passed / total) or `all_or_nothing` (1.0 only if
+  every test passes). The choice is made in Step 4 from measured signal, not by taste.
+- **Never crashes a run:** one answer whose grading fails (a broken sandbox) is logged, counted
+  in `counters.errors` and scored 0.0; an unknown `problem_id` is a loud setup error instead.
+  This is the one broad `except Exception` besides the runner's (commented in the code).
+- **Cheats tested** (fizzbuzz, real subprocess runs; none reaches 1.0): hard-coding the visible
+  examples (caught by hidden tests; 0 under all-or-nothing), printing instead of returning,
+  `sys.exit(0)`, `os._exit(0)`, a fake result token, no code, and code without the function.
+- **Same number as the evals** (measured 2026-10-07, Docker): all **660 of 660** stored Week 2
+  answers (330 per model) get exactly their stored reward.
+- **Speed** (64 answers of the 1.5B, on mains): Docker 1 worker 1.3 answers/s, 4 workers 3.1,
+  **8 workers 4.5** (14 s for 64); subprocess 48/s (trusted fixtures only). So the reward costs
+  ~15 s per 64 answers, about half of one generation round (~32 s, §1): worth overlapping later,
+  not a blocker.
+- **Signal** (1.5B, 10 answers per problem): mean reward 0.953 (partial) or 0.867 (all-or-
+  nothing), and **64% of the 33 groups are all-equal** (mostly all passing): nothing to learn
+  there. The all-or-nothing mode raises the spread (0.21 → 0.36) but not the number of flat
+  groups. So the 1.5B's problems are mostly "already solved"; Step 3 measures the 0.5B, which
+  should have more informative groups, and Step 4 may train only on problems with a mixed group.
+- **Limits:** partial credit lets a model earn points on easy tests; the Docker sandbox is the
+  protection for model code (the subprocess one is for fixtures); an answer in a format the
+  extractor misses scores 0, which also punishes honest format slips.
+
+## 4. What is still open
 - A 0.5B baseline does not exist yet. If it is near 0, the signal would be mostly format, and
   we would say so and start from 1.5B.
 - Generation speed may need vLLM (a large new dependency): decide after the smoke run.

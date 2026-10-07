@@ -565,3 +565,16 @@ held-out problems per fold, so intervals are wide, and modules still share ideas
 *How I'd say it:* "I split by the group that carries the leakage, here the topic, not by row, and
 I fixed the split before training so I could not pick a fold that looked good."
 
+## Reward hacking: the reward is the spec (Week 6, Step 2)
+A model trained on a reward finds the cheapest way to get it. If the reward were "the visible
+examples pass", it would learn `if n == 5: return [...]`. Ours scores hidden tests too, runs
+the code in a sandbox without the expected values, and uses the same grader as student
+submissions, so a cheat that works against it would also fool students' grading. We tested the
+cheats we could think of (hard-coding, printing, exiting early, faking the result token) and
+measured that all 660 stored answers get exactly the reward the eval recorded. Two honest
+caveats: partial credit pays for easy tests (so we can switch to all-or-nothing), and 64% of
+the 1.5B's problem groups are all-equal, so most of the signal sits in few problems.
+*How I'd say it:* "Before training, I treat the reward as the specification: I attack it with
+the cheats I expect, check it equals the evaluation's number, and measure how much of the
+training data can actually produce a gradient."
+

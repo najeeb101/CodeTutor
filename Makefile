@@ -1,4 +1,4 @@
-.PHONY: rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -100,6 +100,9 @@ rl-install:  ## install the training packages too (uv sync --group rl; ~5.6 GB)
 
 rl-data:  ## build the RL prompt files: 4 module folds into dist/rl/ + lab/rl/splits.json (no GPU needed)
 	uv run python scripts/rl_dataset.py build
+
+rl-reward-bench:  ## check the RL reward against the stored Week 2 grades and time it (needs Docker, ~5 min)
+	uv run python scripts/rl_reward_bench.py
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py
