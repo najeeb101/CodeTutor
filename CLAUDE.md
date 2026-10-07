@@ -460,6 +460,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `sim_cohort.py generate --seed 1` (rows byte-identical; the tracked meta file changes its git
   fields, so it was restored with `git checkout`). `make sim` was not re-run. `make all`: 713
   passed, 33 valid, but **130 s on battery** (Discharging 84%, not comparable; Q20).
+- **Done (2026-10-07): Week 6 Step 0** (36b07a2; plan approved; decisions: train locally in
+  WSL on the RTX 4060, 0.5B first with 1.5B as a stretch, hold out whole modules). New
+  dependency group `rl` (torch 2.14.1+cu130, transformers 5.19.0, trl 1.14.2, peft, accelerate,
+  datasets): 34 → 94 packages, `.venv` 104 MB → 5.7 GB. `src/codetutor/rl/env.py` +
+  `scripts/rl_env_check.py` + `make rl-install` / `make rl-env` + `docs/rl.md` +
+  `tests/test_rl_env.py` (3 tests). Measured (on battery): 6.9 GiB GPU free (Windows uses ~1.1),
+  bf16 works; 0.5B 0.93 GiB / 1.5B 2.88 GiB of weights; generation ~15 steps/s whatever the
+  batch (32 s for 8 or for 64 answers; peak 1.09 / 2.21 GiB for 0.5B), Docker grading ~2 s per
+  answer; first 0.5B answers: accepted once, 3/10 once. `make all` 716 passed (78.5 s, battery).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -547,12 +556,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
   by so little here. Week 5 wrap-up: Q1 why the README command for generating a class leaves
   a modified meta file; Q2 why `make sim` was not re-run; Q3 why the README says "our
-  cheaters", not "cheaters".
-  (125 in total; answer key in Claude's memory.)
+  cheaters", not "cheaters". Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
+  Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
+  cheaper per answer.
+  (128 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
   third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 6** planning (dataset builder + GRPO: needs decisions on GPU/TRL setup; plan mode
-  first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 1** (dataset builder: prompts, split by module; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
