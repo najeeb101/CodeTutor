@@ -526,3 +526,19 @@ a new signal, not a finer grid.
 *How I'd say it:* "I bootstrap over the unit that is actually independent (students, users,
 documents), not over rows, or the interval lies. And when a hyperparameter grid is flat at the
 top, I stop tuning and look at the errors: here they were all one kind of honest behaviour."
+
+## Rasch in one paragraph, and an honest comparison with counting (Week 5, Step 3)
+The Rasch model says a student solves a problem with chance sigmoid(skill − difficulty). It is
+logistic regression with one number per student and one per problem, fitted together, so
+"hard" is judged against *who* tried it, not just how many failed. Three details matter. The
+scale has no zero (only differences mean something), so we centre the difficulties. A student
+who solved everything has an infinite best-fit skill, so we add a prior (a mild pull towards
+average), which is MAP estimation. And the model's value shows with *incomplete* data: plain
+pass rates call a problem easy if the weak students skipped it. We measured it on the simulated
+class: with complete data Rasch and pass rates are nearly the same (difficulty r 0.84 vs 0.82);
+with answers missing, Rasch led by only 0.01 to 0.04. The simulator itself follows Rasch, so
+this tests our fitting code, not the world.
+*How I'd say it:* "I implemented Rasch from scratch, checked it against known truth in a
+simulation, and reported that it only slightly beat pass rates on complete data. The gain shows
+up when data is missing in a biased way, and I would verify that on real data before trusting it."
+

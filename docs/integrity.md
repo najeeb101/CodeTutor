@@ -7,15 +7,16 @@ how hard each problem and how skilled each student is. Flags never punish anyone
 Status: **Step 0** (editor summary per submit, [api.md](api.md) §1), **Step 1** (the
 simulated class, generated, loaded and graded, §1), **Step 2a** (a harder class + held-out seed
 1, §1), **Step 2b** (the checks and `integrity_flags`, §2) and **Step 2c** (thresholds chosen
-on seed 0 and frozen as version 1, measured on held-out seed 1, §2.4) are done. Next: Step 3
-(difficulty and skill), Step 4 (wrap-up).
+on seed 0 and frozen as version 1, measured on held-out seed 1, §2.4) and **Step 3**
+(difficulty and skill, §3) are done. Next: Step 4 (wrap-up).
 
 Code: `src/codetutor/sim/` (`personas.py`, `pools.py`, `transforms.py`, `editor.py`,
 `cohort.py`, `load.py`), `scripts/sim_cohort.py`, `src/codetutor/db/admin.py`;
 `src/codetutor/integrity/` (`normalize.py`, `signals.py`, `known_ai.py`, `store.py`,
-`evaluate.py`, `report.py`), `scripts/integrity.py`. Tests: `tests/test_sim.py`,
-`tests/test_sim_db.py`, `tests/test_integrity.py`, `tests/test_integrity_eval.py`. Report:
-`lab/integrity/reports/integrity.md`.
+`evaluate.py`, `report.py`), `src/codetutor/skill/` (`rasch.py`, `load.py`, `evaluate.py`,
+`report.py`), `scripts/integrity.py`, `scripts/skill.py`. Tests: `tests/test_sim.py`,
+`tests/test_sim_db.py`, `tests/test_integrity.py`, `tests/test_integrity_eval.py`, `tests/test_skill.py`. Reports:
+`lab/integrity/reports/integrity.md`, `lab/skill/reports/skill.md`.
 
 ## 1. The simulated class (Step 1)
 
@@ -242,3 +243,36 @@ uv run python scripts/integrity.py report          # lab/integrity/reports/integ
   - Copies are caught more often (seed 1: 79 of 80) than AI pastes (63 of 86). `same_as_ai`
     knows only 5 answers per problem, and a model can write other versions.
 - The limits in §1.6 apply. The report's own limits section says them again.
+
+## 3. Difficulty and skill (Step 3)
+
+```bash
+make skill                                  # lab/skill/reports/skill.md (both classes, ~25 s)
+uv run python scripts/skill.py show --dev   # hardest problems + lowest skills of the dev database
+```
+Estimated from **first attempts only**: one response per (student, problem), "accepted or
+not" (`skill/load.py`). Later tries are practice, so they would blur "skill minus difficulty".
+
+- **Pass rates** (the baseline): difficulty = log(failed / solved) with half an answer added
+  to each side (so 0 and 100% stay finite); skill = share of the student's problems solved.
+- **Rasch** (`skill/rasch.py`, pure Python): P(solve) = sigmoid(skill − difficulty), one
+  number per student and per problem, fitted together by alternating Newton steps. A
+  Gaussian prior (spread 1.0, fixed by convention, never tuned) keeps a student who solved
+  everything finite; difficulties are centred to mean 0, because the scale has no natural zero.
+- **Scoring** (`skill/evaluate.py`): the simulation's true skills and difficulties, Pearson
+  and Spearman correlation, RMSE after centring, 95% intervals that resample the problems
+  (or the students). Nothing is tuned on either class, so both are reported the same way.
+
+**Result (2026-10-07, detector version 1):** difficulty r 0.84 (seed 0) and 0.89 (seed 1),
+skill r 0.91 and 0.86; pass rates 0.82 / 0.88 and 0.90 / 0.85. Without the first tries the
+integrity checks flag, skill r rises to 0.93 / 0.93; difficulty barely moves. With 30% of the
+answers missing, Rasch stays ahead of the pass rates in 8 of 8 comparisons, but only by 0.01 to
+0.04. So on this data **Rasch is only slightly better than counting**, as expected when almost
+every student tried almost every problem; it earns more when answers are missing in a biased
+way. It also gives problems an estimated difficulty to compare with the declared level (§4 of
+the report): for example `remove_duplicates`, declared easy, is clearly easier than the
+other easy problems.
+
+Limits: the simulator follows Rasch, so this tests our fitting code, not whether real students
+do (§1.6); skill numbers are for a teacher to see who needs help, never a grade. No table
+stores the estimates yet and no route shows them (Week 8).

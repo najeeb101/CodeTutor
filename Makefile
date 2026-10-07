@@ -1,4 +1,4 @@
-.PHONY: install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -79,6 +79,10 @@ integrity: db-up  ## run the integrity checks on both simulated classes + write 
 	uv run python scripts/integrity.py run --seed 0
 	uv run python scripts/integrity.py run --seed 1
 	uv run python scripts/integrity.py report
+
+# Week 5 Step 3: difficulty and skill estimates (pass rates + Rasch) scored against the sim's truth.
+skill: db-up  ## write lab/skill/reports/skill.md from both graded simulated classes (~25 s)
+	uv run python scripts/skill.py report
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py
