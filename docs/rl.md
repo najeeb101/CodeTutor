@@ -6,8 +6,7 @@ saw. Decided 2026-10-07: train **locally in WSL on the laptop GPU** (the real Do
 the reward), model **Qwen2.5-Coder-0.5B-Instruct first, 1.5B as a stretch**, hold out **whole
 modules** (33 problems only; no generated problems yet).
 
-Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) and **Step 2** (the reward, §3) are done. Next:
-"before" baseline, GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
+Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) and **Step 2** (the reward, §3) and **Step 3** (the "before" baseline, §4) are done. Next: GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
 
 ## 1. The training environment (Step 0)
 
@@ -90,7 +89,37 @@ make rl-reward-bench   # consistency + speed + signal on the stored Week 2 answe
   protection for model code (the subprocess one is for fixtures); an answer in a format the
   extractor misses scores 0, which also punishes honest format slips.
 
-## 4. What is still open
+## 4. The "before" baseline (Step 3)
+
+```bash
+make rl-baseline-run      # both runs: GPU + Docker, ~35 min each, resumable (Ollama idle, on mains)
+make rl-baseline-report   # lab/rl/reports/baseline.md from the committed results (no GPU)
+```
+- **One harness for everything:** the two runs are Week 2 `run_eval` runs with a new model
+  prefix `hf/<hub id>` (`rl/hf.py`): all 33 problems, 10 answers each, temperature 0.8, plain
+  sampling (no top-p, top-k or repetition penalty), 1024 new tokens, Docker grading, committed
+  results + meta in `lab/evals/results/`. The 10 answers of a problem are generated in **one
+  batch** (`BatchedResponder`), because a GPU decodes 10 about as fast as 1. In these records
+  `seed` means the position in the batch (the batch itself uses seed 0). Every problem is held
+  out in one fold, so one run per model is the baseline of all four folds.
+- **Reproducible:** a 2-problem scratch run twice gave 20 of 20 identical answers.
+- **Results** (details and per-fold tables: `lab/rl/reports/baseline.md`):
+
+| Model | pass@1 [95%] | pass@5 | All-equal groups | Problems with a mixed group |
+|---|---|---|---|---|
+| 0.5B (HF) | 0.64 [0.53, 0.74] | 0.88 | 18% (partial) / 27% (all-or-nothing) | **24 of 33** |
+| 1.5B (HF) | 0.90 [0.82, 0.96] | 0.98 | 64% / 64% | 12 of 33 |
+| 1.5B (Ollama, Week 2) | 0.87 [0.78, 0.94] | 0.98 | 64% / 64% | – |
+
+- **Reading:** the 1.5B through Hugging Face lands within 3 points of the Week 2 Ollama number
+  (another runtime and sampler), so the two pipelines agree. The **0.5B is the model to train**:
+  lots of room (pass@1 0.64) and a learning signal in 24 of 33 problems; for the 1.5B, 64% of the
+  groups are all-equal, so GRPO would mostly see nothing to learn. Held-out folds differ a lot
+  (0.5B: 0.41 on fold c, 0.80 on fold a, 8 problems each), so Week 7 must report all folds.
+- **Limits:** one seed per run; 8-9 problems per held-out side; the all-or-nothing reward makes
+  more groups all-equal for the 0.5B (27% vs 18%), so the reward mode is a real choice in Step 4.
+
+## 5. What is still open
 - A 0.5B baseline does not exist yet. If it is near 0, the signal would be mostly format, and
   we would say so and start from 1.5B.
 - Generation speed may need vLLM (a large new dependency): decide after the smoke run.

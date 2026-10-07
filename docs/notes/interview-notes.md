@@ -578,3 +578,16 @@ the 1.5B's problem groups are all-equal, so most of the signal sits in few probl
 the cheats I expect, check it equals the evaluation's number, and measure how much of the
 training data can actually produce a gradient."
 
+## Measure "before" with the exact pipeline of "after" (Week 6, Step 3)
+We already had a baseline for the 1.5B (Ollama, 0.87). We did not use it: training uses Hugging
+Face weights, so we re-measured with the same code that will measure "after": same prompt, same
+plain sampling, same grader, same settings, committed with its meta file. The two numbers agree
+within 3 points (0.90 vs 0.87), which is also a check that our new pipeline is not broken. The
+more important result was about *headroom*: the 1.5B already solves 90%, and 64% of its groups
+of 10 answers are all-equal, so GRPO would see little to learn. The 0.5B (pass@1 0.64, mixed
+groups in 24 of 33 problems) is the better student. Per fold the numbers swing a lot (0.41 to
+0.80 on 8 problems), so we report all four folds.
+*How I'd say it:* "A baseline is only a baseline if it goes through the identical pipeline. I
+also measure how many prompts can produce a learning signal, because RL on a model that
+already passes everything teaches nothing."
+
