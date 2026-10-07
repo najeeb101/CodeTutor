@@ -5,11 +5,13 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Weeks 1–4 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
+**Status:** Weeks 1–5 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
 language models through the grader, the app around them (Postgres, a grading queue, an HTTP API
 and a web UI with a code editor), and an AI tutor that gives hints, not answers (a local model,
 search over course notes, a guardrail, 👍/👎 ratings), measured offline with a simulated
-student. Next: simulated students, integrity checks and difficulty estimates (Week 5).
+student. Week 5 added a simulated class of 60 students with known cheaters, four integrity
+signals measured on a held-out class, and difficulty and skill estimates (pass rates and a
+Rasch model). Next: GRPO training of a small Qwen model with the grader as reward (Weeks 6–7).
 
 ## What is in it
 
@@ -18,10 +20,12 @@ student. Next: simulated students, integrity checks and difficulty estimates (We
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 607 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 716 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
-| App | Postgres (7 tables), a grading queue in Postgres, a FastAPI service (11 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
+| App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
 | AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
+| Simulated class | 2 classes of 60 students (seed 0: 3,145 submissions, seed 1: 3,076), each graded by the real workers in its own database; every row has a label (honest, copy, AI paste, how it was entered) that is kept out of the database |
+| Integrity + skill | 4 signals (paste, fast typing, same as another student, same as a known AI answer), thresholds chosen on seed 0 and measured on seed 1; Rasch difficulty and skill estimates scored against the simulation's true values |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
 not, and every buggy solution fails at least one test (a simple form of mutation testing).
@@ -235,6 +239,55 @@ The full tutor eval (1,620 answers) took 63 minutes on the laptop GPU and can be
 resumed. Tracing uses our own Postgres table, not Langfuse (a change from the original plan:
 the table already holds the whole trace, and no hint data leaves the machine).
 
+## Simulated students, integrity and skill
+Real students are not available, so Week 5 simulates a class whose behaviour we **know**: 60
+students (strong, average, struggling, quitters, 4 copiers, 4 AI users), their true skills, and
+which submissions are cheating and how they were entered (pasted, retyped, or honest code pasted
+from the student's own editor). No model is called: the code comes from the bank's solutions and
+buggy files, the Week 2 and Week 4 model answers, and programmatic disguises (renamed variables,
+reformatting). The class goes through the same door as a real submit and is graded by the real
+Docker workers; the labels stay in `lab/sim/` and never enter the database.
+
+**Integrity checks** (a batch job; flags are for a teacher, never a punishment): two signals for
+how the code got in (one big paste; typing faster than a person thinks) and two for what it is
+(the same structure as another student's earlier code, or as a known AI answer; names and layout
+are ignored). A submission **needs review** when it has one of each. Thresholds were chosen on
+class seed 0 and measured once on held-out class seed 1:
+
+| Held-out class (seed 1) | Result |
+|---|---|
+| Needs review: precision | 0.64 [0.32, 0.99] |
+| Needs review: recall | 0.86 [0.74, 0.97] |
+| Cheating students with at least one flag / honest students with a false flag | 8 of 8 / 5 of 52 |
+| Each signal alone: precision | paste 0.51, fast typing 0.93, same as student 0.06, same as AI 0.16 |
+
+Honest reading: the intervals resample students (one copier makes many similar rows), and they
+are wide because 76 of the 79 false flags are honest students who paste whole programs from their
+own editor. Thresholds can't fix that; only new evidence could. The simulator also chose how
+cheaters behave (for example, retypers type fast), so these are the numbers for *our* cheaters.
+
+**Difficulty and skill** from each student's first try at each problem, by counting and by a
+Rasch model (the chance of a first-try solve is a function of skill minus difficulty), scored
+against the simulation's true values: difficulty r 0.84 / 0.89 and skill r 0.91 / 0.86 (seeds 0 /
+1). Rasch is only slightly better than counting here (by 0.01 to 0.04 even with answers missing),
+because almost every simulated student tried almost every problem.
+
+```bash
+# The integrity checks on both graded classes, then the held-out report (needs `make db-up`
+# and the graded classes: `make sim`, then `SIM_SEED=1 make sim`, ~13 min each, Docker)
+make integrity       # ~15 s; writes lab/integrity/reports/integrity.md (byte-identical)
+make skill           # ~25 s; writes lab/skill/reports/skill.md
+
+# The threshold search alone, and the estimates for the development database
+uv run python scripts/integrity.py tune --seed 0
+uv run python scripts/skill.py show --dev
+
+# Regenerate a simulated class: the rows file is byte-identical every time
+uv run python scripts/sim_cohort.py generate --seed 1
+```
+How it works: [docs/integrity.md](docs/integrity.md). Reports:
+[integrity](lab/integrity/reports/integrity.md), [skill](lab/skill/reports/skill.md).
+
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
    `tests.yaml` (inputs only) and 1–3 files in `buggy/`.
@@ -254,14 +307,18 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
 - `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits, hint requests
 - `src/codetutor/tutor/`: the AI tutor: guardrail, course-note search, prompt, `give_hint`, the hint queue and worker
+- `src/codetutor/sim/`: the simulated class: personas, code pools, disguises, editor summaries, loading
+- `src/codetutor/integrity/`: the four integrity signals, rename-proof comparison, threshold search, report
+- `src/codetutor/skill/`: first-attempt responses, Rasch fit, pass-rate baselines, scoring, report
 - `course/notes/`: the course notes the tutor searches
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack (`make e2e`)
 - `web/`: the web UI (Next.js + Monaco), with its own README
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `lab/tutor/`: the retrieval questions, the tutor's safety-run and eval results, and their reports
+- `lab/sim/`: the two simulated classes with their labels; `lab/integrity/`, `lab/skill/`: generated reports
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`); `docs/notes/` holds weekly notes and interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`); `docs/notes/` holds weekly notes and interview notes
 
 ## Roadmap
 | Week | Deliverable | |
@@ -270,6 +327,6 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 | 2 | Eval harness: LLMs through the grader, pass@1 / pass@k by module and difficulty | ✅ done |
 | 3 | FastAPI + Postgres + job queue + minimal Next.js UI | ✅ done |
 | 4 | AI tutor that gives hints, not answers | ✅ done |
-| 5 | Simulated students, integrity checks, difficulty estimates | |
+| 5 | Simulated students, integrity checks, difficulty estimates | ✅ done |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | |
 | 8 | Instructor dashboard, final write-up, demo | |

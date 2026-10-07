@@ -135,3 +135,17 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   (Claude drafts, Najeeb reviews), new tables (schema change), API endpoints, a UI page; ~1-2
   days. Scope: a practice quiz, not an exam (exams are out of scope in the brief); the brief's
   job map lists a "placement quiz" as Light.
+
+- **(Week 8) Store and show the estimates.** Week 5 computes flags and Rasch estimates but only
+  writes `integrity_flags`; skill and difficulty live in a report. For the instructor dashboard:
+  a table for estimates (with the data version and date), screens for flags (reasons first,
+  needs-review list per student) and skills. Keep "for a teacher, never a grade" in the wording.
+- **(Later, needs real data) More integrity evidence.** The measured limit is honest students who
+  paste whole programs from their own editor (76 of 79 false flags on the held-out class). New
+  evidence is needed, not new thresholds: e.g. how often a student pastes and whether the pasted
+  code was failing before, tests run before submit, time between runs. Tune on real classes only
+  after consent and privacy are decided.
+- **(Week 8 or later) Rasch beyond first tries.** Partial credit (the reward from `grade()`),
+  a practice effect per attempt, or Elo for live updates. Worth it only where answers are
+  missing in a biased way; on the complete simulated data counting was nearly as good.
+
