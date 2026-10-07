@@ -469,6 +469,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   bf16 works; 0.5B 0.93 GiB / 1.5B 2.88 GiB of weights; generation ~15 steps/s whatever the
   batch (32 s for 8 or for 64 answers; peak 1.09 / 2.21 GiB for 0.5B), Docker grading ~2 s per
   answer; first 0.5B answers: accepted once, 3/10 once. `make all` 716 passed (78.5 s, battery).
+- **Done (2026-10-07): Week 6 Step 1** (RL dataset; plan approved). `rl/dataset.py`:
+  `FOLDS` (held-out modules a = 1+5, b = 2+6, c = 3+7, d = 4+8, so every problem is held out once),
+  `RlRow` (Week 2 prompt of the student view as chat + problem_id, version, module, content
+  hash), `build_fold` (byte-identical `dist/rl/fold-<k>/{train,heldout}.jsonl` + manifest),
+  `stale_rows`; committed `lab/rl/splits.json`; `scripts/rl_dataset.py`, `make rl-data`.
+  Train 24-25 / held-out 8-9 problems per fold. 10 tests (1.2 s). Suite 726 passed,
+  **52.3 s on mains** (a first run 69.6 s right after `make all`; Q20 looks like load, the
+  limit holds when quiet).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -556,13 +564,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
   by so little here. Week 5 wrap-up: Q1 why the README command for generating a class leaves
   a modified meta file; Q2 why `make sim` was not re-run; Q3 why the README says "our
-  cheaters", not "cheaters". Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
+  cheaters", not "cheaters". Week 6 Step 1: Q1 why we split by module, not by problem; Q2 why
+  the split is committed in lab/rl/splits.json; Q3 why one fold's result is not enough. Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
-  (128 in total; answer key in Claude's memory.)
+  (131 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
   third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 6 Step 1** (dataset builder: prompts, split by module; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 2** (reward function + throughput: `rl/reward.py`, hack-check tests; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
