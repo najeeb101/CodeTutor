@@ -542,3 +542,16 @@ this tests our fitting code, not the world.
 simulation, and reported that it only slightly beat pass rates on complete data. The gain shows
 up when data is missing in a biased way, and I would verify that on real data before trusting it."
 
+
+## What GRPO needs from a reward (Week 6, Step 0)
+GRPO samples a group of answers per prompt, scores each with the reward, and nudges the model
+towards the answers that scored above the group's average. So the reward must (1) vary inside
+a group (if all 8 answers pass or all fail, there is nothing to learn from), (2) be hard to
+cheat, and (3) be fast, because the training step waits for it. Our grader fits: tests are
+automatic, hidden tests stop hard-coding the visible examples, and partial credit gives a
+gradient. The costs are speed (Docker ~2 s per answer, generation ~15 decoding steps per second
+without vLLM, so large batches matter) and headroom: a model that already passes 87% has little
+left to learn, which is why we start with the smaller 0.5B.
+*How I'd say it:* "The grader is the reward function. I check three things before training: does
+it vary within a group, can it be gamed, and is it fast enough. Then I measure the baseline so I
+know what 'better' means."

@@ -1,4 +1,4 @@
-.PHONY: skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -92,6 +92,14 @@ web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs
 
 test: db-up  ## run the test suite (without the Docker and slow tests); starts the database first
 	uv run pytest
+
+# Week 6 (RL training). The `rl` dependency group (torch, transformers, trl, peft, ...) is not part
+# of `make install`: a plain `uv sync` is exact and should remove it again (not tried); `rl-install` puts it back.
+rl-install:  ## install the training packages too (uv sync --group rl; ~5.6 GB)
+	uv sync --group rl
+
+rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
+	uv run --group rl python scripts/rl_env_check.py
 
 test-docker: db-up  ## run the hostile-submission and worker tests in the Docker sandbox (needs Docker)
 	uv run pytest -m docker
