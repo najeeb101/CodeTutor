@@ -1,0 +1,174 @@
+{
+  "a": {
+    "heldout": [
+      "cs1.lists.merge_sorted",
+      "cs1.lists.remove_duplicates",
+      "cs1.lists.rotate_right",
+      "cs1.lists.second_largest",
+      "cs1.variables.average_of_three",
+      "cs1.variables.celsius_to_fahrenheit",
+      "cs1.variables.rectangle_stats",
+      "cs1.variables.seconds_to_hms"
+    ],
+    "heldout_modules": [
+      1,
+      5
+    ],
+    "train": [
+      "cs1.conditions.is_leap_year",
+      "cs1.conditions.letter_grade",
+      "cs1.conditions.max_of_three",
+      "cs1.conditions.triangle_type",
+      "cs1.dicts.first_unique_char",
+      "cs1.dicts.group_anagrams",
+      "cs1.dicts.two_sum",
+      "cs1.dicts.word_frequency",
+      "cs1.functions.gcd",
+      "cs1.functions.is_prime",
+      "cs1.functions.primes_up_to",
+      "cs1.functions.running_total",
+      "cs1.loops.count_digits",
+      "cs1.loops.factorial",
+      "cs1.loops.fizzbuzz",
+      "cs1.loops.sum_of_evens",
+      "cs1.recursion.binary_search",
+      "cs1.recursion.fibonacci",
+      "cs1.recursion.flatten",
+      "cs1.recursion.recursive_sum",
+      "cs1.recursion.valid_parentheses",
+      "cs1.strings.compress",
+      "cs1.strings.count_vowels",
+      "cs1.strings.is_palindrome",
+      "cs1.strings.reverse_words"
+    ]
+  },
+  "b": {
+    "heldout": [
+      "cs1.conditions.is_leap_year",
+      "cs1.conditions.letter_grade",
+      "cs1.conditions.max_of_three",
+      "cs1.conditions.triangle_type",
+      "cs1.functions.gcd",
+      "cs1.functions.is_prime",
+      "cs1.functions.primes_up_to",
+      "cs1.functions.running_total"
+    ],
+    "heldout_modules": [
+      2,
+      6
+    ],
+    "train": [
+      "cs1.dicts.first_unique_char",
+      "cs1.dicts.group_anagrams",
+      "cs1.dicts.two_sum",
+      "cs1.dicts.word_frequency",
+      "cs1.lists.merge_sorted",
+      "cs1.lists.remove_duplicates",
+      "cs1.lists.rotate_right",
+      "cs1.lists.second_largest",
+      "cs1.loops.count_digits",
+      "cs1.loops.factorial",
+      "cs1.loops.fizzbuzz",
+      "cs1.loops.sum_of_evens",
+      "cs1.recursion.binary_search",
+      "cs1.recursion.fibonacci",
+      "cs1.recursion.flatten",
+      "cs1.recursion.recursive_sum",
+      "cs1.recursion.valid_parentheses",
+      "cs1.strings.compress",
+      "cs1.strings.count_vowels",
+      "cs1.strings.is_palindrome",
+      "cs1.strings.reverse_words",
+      "cs1.variables.average_of_three",
+      "cs1.variables.celsius_to_fahrenheit",
+      "cs1.variables.rectangle_stats",
+      "cs1.variables.seconds_to_hms"
+    ]
+  },
+  "c": {
+    "heldout": [
+      "cs1.dicts.first_unique_char",
+      "cs1.dicts.group_anagrams",
+      "cs1.dicts.two_sum",
+      "cs1.dicts.word_frequency",
+      "cs1.loops.count_digits",
+      "cs1.loops.factorial",
+      "cs1.loops.fizzbuzz",
+      "cs1.loops.sum_of_evens"
+    ],
+    "heldout_modules": [
+      3,
+      7
+    ],
+    "train": [
+      "cs1.conditions.is_leap_year",
+      "cs1.conditions.letter_grade",
+      "cs1.conditions.max_of_three",
+      "cs1.conditions.triangle_type",
+      "cs1.functions.gcd",
+      "cs1.functions.is_prime",
+      "cs1.functions.primes_up_to",
+      "cs1.functions.running_total",
+      "cs1.lists.merge_sorted",
+      "cs1.lists.remove_duplicates",
+      "cs1.lists.rotate_right",
+      "cs1.lists.second_largest",
+      "cs1.recursion.binary_search",
+      "cs1.recursion.fibonacci",
+      "cs1.recursion.flatten",
+      "cs1.recursion.recursive_sum",
+      "cs1.recursion.valid_parentheses",
+      "cs1.strings.compress",
+      "cs1.strings.count_vowels",
+      "cs1.strings.is_palindrome",
+      "cs1.strings.reverse_words",
+      "cs1.variables.average_of_three",
+      "cs1.variables.celsius_to_fahrenheit",
+      "cs1.variables.rectangle_stats",
+      "cs1.variables.seconds_to_hms"
+    ]
+  },
+  "d": {
+    "heldout": [
+      "cs1.recursion.binary_search",
+      "cs1.recursion.fibonacci",
+      "cs1.recursion.flatten",
+      "cs1.recursion.recursive_sum",
+      "cs1.recursion.valid_parentheses",
+      "cs1.strings.compress",
+      "cs1.strings.count_vowels",
+      "cs1.strings.is_palindrome",
+      "cs1.strings.reverse_words"
+    ],
+    "heldout_modules": [
+      4,
+      8
+    ],
+    "train": [
+      "cs1.conditions.is_leap_year",
+      "cs1.conditions.letter_grade",
+      "cs1.conditions.max_of_three",
+      "cs1.conditions.triangle_type",
+      "cs1.dicts.first_unique_char",
+      "cs1.dicts.group_anagrams",
+      "cs1.dicts.two_sum",
+      "cs1.dicts.word_frequency",
+      "cs1.functions.gcd",
+      "cs1.functions.is_prime",
+      "cs1.functions.primes_up_to",
+      "cs1.functions.running_total",
+      "cs1.lists.merge_sorted",
+      "cs1.lists.remove_duplicates",
+      "cs1.lists.rotate_right",
+      "cs1.lists.second_largest",
+      "cs1.loops.count_digits",
+      "cs1.loops.factorial",
+      "cs1.loops.fizzbuzz",
+      "cs1.loops.sum_of_evens",
+      "cs1.variables.average_of_three",
+      "cs1.variables.celsius_to_fahrenheit",
+      "cs1.variables.rectangle_stats",
+      "cs1.variables.seconds_to_hms"
+    ]
+  }
+}

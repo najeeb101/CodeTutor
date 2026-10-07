@@ -555,3 +555,13 @@ left to learn, which is why we start with the smaller 0.5B.
 *How I'd say it:* "The grader is the reward function. I check three things before training: does
 it vary within a group, can it be gamed, and is it fast enough. Then I measure the baseline so I
 know what 'better' means."
+
+## Split by group, not by row (Week 6, Step 1)
+If we split the 33 problems at random, a model trained on `sum_of_evens` is then tested on
+`sum_of_odds`: a near-twin, so the test measures memory, not skill. We split by **whole module**
+(a topic), in four folds that pair the modules so each problem is held out exactly once, and we
+commit the split so a changed bank cannot move a problem silently. The honest costs: about 8
+held-out problems per fold, so intervals are wide, and modules still share ideas.
+*How I'd say it:* "I split by the group that carries the leakage, here the topic, not by row, and
+I fixed the split before training so I could not pick a fold that looked good."
+

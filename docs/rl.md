@@ -6,8 +6,8 @@ saw. Decided 2026-10-07: train **locally in WSL on the laptop GPU** (the real Do
 the reward), model **Qwen2.5-Coder-0.5B-Instruct first, 1.5B as a stretch**, hold out **whole
 modules** (33 problems only; no generated problems yet).
 
-Status: **Step 0** (the training environment, §1) is done. Next: dataset builder, reward function,
-"before" baseline, GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
+Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) are done. Next:
+reward function, "before" baseline, GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
 
 ## 1. The training environment (Step 0)
 
@@ -38,7 +38,27 @@ uv run --group rl python scripts/rl_env_check.py --model Qwen/Qwen2.5-Coder-1.5B
 - **Before training:** unload Ollama's models (`ollama.exe ps` empty), close browsers; the GPU
   is shared with Windows.
 
-## 2. What is still open
+## 2. The dataset (Step 1)
+
+```bash
+make rl-data        # dist/rl/fold-<a..d>/{train,heldout}.jsonl + manifest.json, lab/rl/splits.json
+```
+- **Rows** are the Week 2 prompt (`PROMPT_VERSION`, student view only) as a chat (`prompt`), plus
+  `problem_id`, `problem_version`, `module`, `content_hash`. TRL's `GRPOTrainer` reads `prompt`
+  and passes the other columns to the reward function. The solution, hints, buggy files and
+  hidden tests cannot get in: the prompt is built from `StudentProblem`, and a test checks every
+  row against the bank (no solution text, no non-trivial solution line, no hint, no buggy file).
+- **Split by whole module**, four folds that hold out two modules each, so every problem is held
+  out exactly once: `a` = modules 1+5, `b` = 2+6, `c` = 3+7, `d` = 4+8. Train 24-25 problems,
+  held-out 8-9. The definition lives in one place (`FOLDS` in `rl/dataset.py`); the resulting
+  problem lists are committed in `lab/rl/splits.json`, and a test fails if a changed bank would
+  move a problem. `dist/rl/` is generated and byte-identical for the same bank.
+- **Limits:** modules build on each other (recursion uses lists and functions), and a few
+  problems are near-twins across modules, so "held out" means a different topic, not an unrelated
+  skill. About 8 held-out problems per fold means wide intervals: report every fold, and
+  never pick the fold after seeing results. The visible examples are in the prompts.
+
+## 3. What is still open
 - A 0.5B baseline does not exist yet. If it is near 0, the signal would be mostly format, and
   we would say so and start from 1.5B.
 - Generation speed may need vLLM (a large new dependency): decide after the smoke run.
