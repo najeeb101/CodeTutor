@@ -477,6 +477,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Train 24-25 / held-out 8-9 problems per fold. 10 tests (1.2 s). Suite 726 passed,
   **52.3 s on mains** (a first run 69.6 s right after `make all`; Q20 looks like load, the
   limit holds when quiet).
+- **Done (2026-10-07): Week 6 Step 2** (reward; plan approved). `rl/reward.py`: `reward_for`
+  (`extract_code` + `grade(reveal_hidden=False)`), `RewardConfig` (mode partial |
+  all_or_nothing, workers, sandbox docker | subprocess), `TrlReward` (callable for
+  `GRPOTrainer`, `problem_id` column, order kept, never raises for one answer: counted in
+  `counters.errors`, scored 0.0; unknown id = loud setup error), `group_stats`;
+  `scripts/rl_reward_bench.py` / `make rl-reward-bench` (~7 min). Measured on mains: **660/660**
+  stored Week 2 answers get exactly their stored reward; Docker 1.3 / 3.1 / **4.5 answers/s**
+  at 1 / 4 / 8 workers (subprocess 48/s); 1.5B groups of 10: mean reward 0.953 partial, 0.867
+  all-or-nothing, **64% of groups all-equal** (little signal; Step 3 measures the 0.5B).
+  16 tests (2 s; a top-level infinite loop was dropped: 23 s). Suite 742 passed: 57.7 / 54.9 s
+  on mains when quiet, 71.5 s right after the 7-min Docker bench (Q20: load, as before).
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -564,14 +575,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
   by so little here. Week 5 wrap-up: Q1 why the README command for generating a class leaves
   a modified meta file; Q2 why `make sim` was not re-run; Q3 why the README says "our
-  cheaters", not "cheaters". Week 6 Step 1: Q1 why we split by module, not by problem; Q2 why
+  cheaters", not "cheaters". Week 6 Step 2: Q1 why the reward uses hidden tests and the same grader as the evals; Q2 why one
+  failing answer is scored 0.0 and counted instead of raising; Q3 what 64% all-equal groups
+  mean for training. Week 6 Step 1: Q1 why we split by module, not by problem; Q2 why
   the split is committed in lab/rl/splits.json; Q3 why one fold's result is not enough. Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
-  (131 in total; answer key in Claude's memory.)
+  (134 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
   third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
-  **Week 6 Step 2** (reward function + throughput: `rl/reward.py`, hack-check tests; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 3** (the 'before' baseline: 0.5B and 1.5B on the held-out folds through the HF generation path, n = 10, group signal; plan mode first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
