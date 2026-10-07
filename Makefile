@@ -1,4 +1,4 @@
-.PHONY: rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -103,6 +103,13 @@ rl-data:  ## build the RL prompt files: 4 module folds into dist/rl/ + lab/rl/sp
 
 rl-reward-bench:  ## check the RL reward against the stored Week 2 grades and time it (needs Docker, ~5 min)
 	uv run python scripts/rl_reward_bench.py
+
+rl-baseline-run:  ## the 'before' baseline: 0.5B and 1.5B on all 33 problems, n=10 (GPU + Docker, ~1 h, resumable)
+	uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-bf16-t0.8-n10.yaml
+	uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-1.5b-bf16-t0.8-n10.yaml
+
+rl-baseline-report:  ## lab/rl/reports/baseline.md from the committed results (no GPU)
+	uv run python scripts/rl_baseline.py report
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py

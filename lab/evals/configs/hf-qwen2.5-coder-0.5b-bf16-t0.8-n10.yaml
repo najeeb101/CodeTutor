@@ -1,0 +1,10 @@
+# Official "before" baseline for GRPO (Week 6 Step 3): the untrained model, Hugging Face weights.
+# Run: uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-bf16-t0.8-n10.yaml
+# Needs the `rl` packages, Ollama idle and the laptop on mains. Resumable.
+run_id: hf-qwen2.5-coder-0.5b-bf16-t0.8-n10
+model: hf/Qwen/Qwen2.5-Coder-0.5B-Instruct
+samples: 10          # n = 10 answers per problem, generated together in one batch
+temperature: 0.8     # plain sampling (no top-p / top-k), the same as in training
+max_tokens: 1024     # as in Week 2
+seed_base: 0         # hf runs: the "seed" of sample i is its position i in the batch (docs/rl.md §4)
+sandbox: docker      # model code is untrusted

@@ -50,6 +50,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_DIR = REPO_ROOT / "lab" / "evals" / "results"  # official runs (committed)
 SCRATCH_DIR = REPO_ROOT / "lab" / "evals" / "scratch"  # test and smoke runs (gitignored)
 MAX_FAILURES_IN_A_ROW = 5
+# model id -> details of the loaded Hugging Face generator. Module-level on purpose: the
+# harness builds the responder first and the meta file afterwards, and this is how the meta
+# learns what was loaded (one entry per model per process).
+_HF_DETAILS: dict[str, dict[str, JsonValue]] = {}
 
 _STRICT = ConfigDict(extra="forbid", frozen=True)
 
@@ -141,6 +145,16 @@ def make_responder(config: RunConfig) -> Responder:
 
         return answer_fake
 
+    if config.model.startswith("hf/"):  # a Hugging Face model on the local GPU (Week 6)
+        from codetutor.rl.hf import BatchedResponder, HFGenerator
+
+        generator = HFGenerator(
+            config.model.removeprefix("hf/"), config.temperature, config.max_tokens
+        )
+        batched = BatchedResponder(lambda messages, n: generator(messages, n), config.samples)
+        _HF_DETAILS[config.model] = generator.details()
+        return batched
+
     client = make_client(config.model, rpm=config.rpm, extra_body=config.extra_body)
 
     def answer(problem: Problem, messages: list[dict[str, str]], seed: int | None) -> ModelReply:
@@ -178,6 +192,8 @@ def git_state() -> tuple[str | None, bool | None]:
 def model_details(model: str) -> dict[str, JsonValue]:
     """The exact model identity, where the provider tells us (Ollama: digest and precision)."""
     provider, _, name = model.partition("/")
+    if provider == "hf":  # filled in by make_responder when the model was loaded
+        return dict(_HF_DETAILS.get(model, {}))
     if provider != "ollama":
         return {}
     base_url = (os.environ.get(OLLAMA_URL_ENV) or OLLAMA_BASE_URL).removesuffix("/v1")

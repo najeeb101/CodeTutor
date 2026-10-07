@@ -1,0 +1,134 @@
+"""Hugging Face generation for the baseline and the "after" eval (Week 6 Step 3).
+
+The Week 2 run harness asks for one (problem, sample) at a time. A GPU decodes 10 answers about
+as fast as 1 (docs/rl.md §1), so `BatchedResponder` generates **all n answers of a problem at the
+first request** and serves the rest from a cache. `HFGenerator` does the real work and imports
+torch only when it is used; the cache logic works (and is tested) with any generator function.
+
+Sampling is plain: temperature only (no top-p, no top-k, no repetition penalty), so "before" and
+"after" training use the same, known distribution.
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Callable
+from typing import Any
+
+from codetutor.evals.records import ModelReply
+from codetutor.problems import Problem
+
+HF_SEED = 0  # set before every batch: the same machine and software give the same answers
+
+# (chat messages, n) -> n replies
+Generate = Callable[[list[dict[str, str]], int], list[ModelReply]]
+
+
+class BatchRequestError(ValueError):
+    """The harness asked for a sample the batch does not have."""
+
+
+class BatchedResponder:
+    """A harness `Responder` that generates all n samples of a problem in one go."""
+
+    def __init__(self, generate: Generate, samples: int) -> None:
+        self._generate = generate
+        self._samples = samples
+        self._cache: tuple[str, list[ModelReply]] | None = None
+
+    def __call__(
+        self, problem: Problem, messages: list[dict[str, str]], seed: int | None
+    ) -> ModelReply:
+        """Sample number `seed` of `problem`.
+
+        The harness has no "sample index" argument, but it passes `seed_base + index` as the
+        seed; with `seed_base: 0` that is the index, so for these runs the record's `seed` field
+        means "position in the batch" (the batch itself is made with `HF_SEED`). Asking for a
+        sample that was saved already is the harness's business: it never does.
+        """
+        if seed is None:
+            raise BatchRequestError("hf runs need `seed_base: 0` (the seed is the batch position)")
+        if not 0 <= seed < self._samples:
+            raise BatchRequestError(f"{problem.id}: sample {seed} of a batch of {self._samples}")
+        if self._cache is None or self._cache[0] != problem.id:
+            self._cache = (problem.id, self._generate(messages, self._samples))
+        return self._cache[1][seed]
+
+
+class HFGenerator:
+    """A model loaded on the GPU that answers chat messages, n answers at a time."""
+
+    def __init__(
+        self, model_id: str, temperature: float, max_new_tokens: int, adapter: str | None = None
+    ) -> None:
+        import torch
+        import transformers
+
+        self._torch = torch
+        self.temperature = temperature
+        self.max_new_tokens = max_new_tokens
+        self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_id, padding_side="left")
+        self.model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_id, dtype=self.dtype
+        ).to("cuda")
+        if adapter is not None:  # a LoRA adapter from training (Week 7)
+            from peft import PeftModel
+
+            self.model = PeftModel.from_pretrained(self.model, adapter).to("cuda")
+        self.model.eval()
+
+    def __call__(self, messages: list[dict[str, str]], n: int) -> list[ModelReply]:
+        torch = self._torch
+        prompt = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = self.tokenizer([prompt], return_tensors="pt").to("cuda")
+        torch.manual_seed(HF_SEED)
+        start = time.perf_counter()
+        with torch.no_grad():
+            output = self.model.generate(
+                **inputs,
+                do_sample=True,
+                temperature=self.temperature,
+                top_p=1.0,
+                top_k=0,
+                repetition_penalty=1.0,
+                max_new_tokens=self.max_new_tokens,
+                num_return_sequences=n,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+        latency_ms = (time.perf_counter() - start) * 1000
+        prompt_tokens = int(inputs["input_ids"].shape[1])
+        ends = {self.tokenizer.eos_token_id, self.tokenizer.pad_token_id}
+        replies = []
+        for row in output[:, prompt_tokens:]:
+            tokens = row.tolist()
+            length = next((i for i, t in enumerate(tokens) if t in ends), len(tokens))
+            finished = length < len(tokens)
+            replies.append(
+                ModelReply(
+                    text=self.tokenizer.decode(tokens[:length], skip_special_tokens=True),
+                    latency_ms=latency_ms,  # the whole batch: the answers were made together
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=length,
+                    total_tokens=prompt_tokens + length,
+                    finish_reason="stop" if finished else "length",
+                )
+            )
+        return replies
+
+    def details(self) -> dict[str, Any]:
+        """What identifies this generator, for the run's meta file."""
+        import transformers
+
+        torch = self._torch
+        return {
+            "runtime": "huggingface-transformers",
+            "torch": torch.__version__,
+            "transformers": transformers.__version__,
+            "dtype": str(self.dtype).removeprefix("torch."),
+            "device": torch.cuda.get_device_name(0),
+            "seed": HF_SEED,
+            "sampling": "temperature only (top_p 1.0, top_k off, repetition_penalty 1.0)",
+        }
