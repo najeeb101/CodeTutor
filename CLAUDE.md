@@ -86,6 +86,7 @@ every line in an interview.
 - `tests/`: pytest suite; `tests/submissions/` holds adversarial submissions; `tests/hints/` labelled hints for the guardrail
 - `docs/`: `KICKOFF.md`, `ideas.md`, `problem-format.md`, `grader.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md` (Week 5), `notes/`
 - `lab/sim/`: `cohort-s0.jsonl` / `cohort-s1.jsonl` + `.meta.json` (the simulated classes with labels and true skills; seed 0 = tuning, seed 1 = held out; committed, byte-identical on regeneration)
+- `src/codetutor/skill/`: difficulty + skill (Week 5 Step 3): `rasch.py` (`fit_rasch`, `pass_rate_baselines`), `load.py` (`first_attempts`), `evaluate.py` (scoring vs truth, missing-data experiments), `report.py`; `scripts/skill.py`; report `lab/skill/reports/skill.md`
 - `lab/integrity/reports/integrity.md`: generated held-out integrity report (`scripts/integrity.py report`, byte-identical)
 - `lab/tutor/`: `retrieval_questions.yaml` (40 labelled questions), `results/` (committed safety-run JSONL), `reports/` (generated `retrieval.md`, `tutor_safety.md`), `scratch/` (gitignored)
 - `lab/evals/`: `configs/` (one YAML per official run), `results/` (committed JSONL + meta),
@@ -118,7 +119,7 @@ every line in an interview.
   127.0.0.1:8000; start it after the workers, two syncs at once are not guarded),
   `sim-db` / `sim-load` / `sim-grade` / `sim-summary` / `sim` (Week 5: the simulated class in its own
   database `codetutor_sim`, or `codetutor_sim_s1` with `SIM_SEED=1`; `sim-db` deletes it;
-  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes, ~4 s each, then the held-out report), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
+  `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes, ~4 s each, then the held-out report), `skill` (difficulty + skill report, ~25 s), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
@@ -439,6 +440,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   AI pastes 63/86. 14 new tests (0.8 s). Suite 700 passed, **62.3-77.4 s on mains tonight**
   (Windows-side load: Docker Desktop, Opera, Epic overlay; WSL 97% idle; 59.6 s with 686
   tests the same evening); one run had 1 e2e failure (Q19), 6 reruns of test_e2e.py green.
+- **Done (2026-10-07): Week 5 Step 3** (502e081; plan approved, all recommendations).
+  `skill/`: first-attempt responses, pure-Python Rasch (alternating Newton, fixed prior sd 1.0,
+  difficulty centred), pass-rate baselines, scoring against the sim's true θ and b (Pearson,
+  Spearman, RMSE, bootstrap over problems/students), missing-data experiments, declared vs
+  estimated difficulty; `make skill` (~25 s), `scripts/skill.py show --dev`. Result: Rasch only
+  slightly better than counting (difficulty r 0.84 / 0.89, skill 0.91 / 0.86 on seeds 0 / 1;
+  ahead in 8 of 8 missing-data comparisons by 0.01-0.04); dropping first tries flagged by the
+  integrity checks lifts skill r to 0.93 / 0.93. 13 tests (0.3 s). Suite 713 passed, but **on
+  battery** (Discharging at 84%): 95 s and 104 s; the first run had **Q14 again**
+  (`test_memory_bomb[subprocess-memory_bomb_growing]` timeout), the rerun was green.
 - **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -522,11 +533,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   submissions is flagged; Q2 why `same_as_student` alone fires on 2,328 rows; Q3 why the batch
   job deletes and inserts in one transaction. Week 5 Step 2c: Q1 why the intervals resample
   students, not submissions; Q2 why paste 0.5, 0.7 and 0.9 flag the same rows on seed 0; Q3
-  what goes wrong if you change a threshold after reading the seed-1 report.
-  (119 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Steps 2b and 2c (STOP given 2026-10-06), decides
-  Q14, Q19 and the suite-time options (Q20); then **Week 5 Step 3** (difficulty + skill: pass
-  rates + Rasch in pure Python, checked against the sim's true θ and b; plan mode first). Najeeb: his text in `docs/notes/week4.md`
+  what goes wrong if you change a threshold after reading the seed-1 report. Week 5 Step 3:
+  Q1 why only first attempts count; Q2 why Rasch needs a prior; Q3 why Rasch beats pass rates
+  by so little here.
+  (122 in total; answer key in Claude's memory.)
+- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, decides Q14 (it happened a
+  third time, now with the A recommendation expired: choose A or B), Q19 and Q20; then
+  **Week 5 Step 4** (wrap-up: README, docs, week5 notes skeleton; plan mode first). Najeeb: his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1052,10 +1065,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   text hard-coded "8 of 60" cheaters, now computed; the first tie test checked nothing about
   "fewer flags wins" and was rewritten before the commit.
 
+- 2026-10-07: Week 5 Step 3. First attempts only (later tries are practice; the sim makes them
+  easier). Rasch prior sd 1.0 fixed by convention, nothing tuned, so seeds 0 and 1 are both
+  reported the same way. Flagged first tries are dropped by running the frozen `detect` on the
+  fly (the report doesn't read `integrity_flags`). The prototype and the report agree
+  (b 0.84, θ 0.91 on seed 0). Missing-data text in the report is computed from the data: my
+  first draft said Rasch "should hold up better", the measured gain is 0.01-0.04. Report
+  runtime 25 s (bootstrap + 20 refits per experiment).
+
 ## Open questions
 - Q20: suite time. 700 tests took 62.3, 70.2 and 77.4 s on mains on 2026-10-06 evening (limit 60 s); the 14 Step 2c tests take 0.8 s, the rest is machine load from Windows (Docker Desktop, Opera, Epic Games overlay; WSL itself 97% idle). Options: (A) re-measure with those apps closed before deciding; (B) mark more slow tests `slow` (the grader timeout tests and the migration round trip are ~2-2.5 s each); (C) raise the limit to 90 s. Recommendation: A first.
 - Q19: `test_without_a_tutor_the_hint_check_fails_and_says_why` failed once (2026-10-06, under load): the "my submissions" check, which expects the newest submission first. The list is ordered by `created_at desc, id desc`, and `created_at` is Postgres `now()` in the container, so a backward clock step (WSL/Docker VM time sync) between the two submits would swap them; not proven (the second assert hid the check's detail), 6 reruns green. Options: (A) order "my submissions" by `id desc` (ids follow the real submit order; small API change + test) and print `_report(checks)` in that assert; (B) only improve the assert message and wait for a repeat. Recommendation: B now, A if it repeats.
-- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
+- Q14: the memory-bomb flake (Decisions log, 2026-10-01). **Recurred 2026-10-07 (third time, on battery, load 1)**, my earlier "A until it happens again" is used up: now I recommend B (3 s). **Recurred 2026-10-06, now named:** `test_memory_bomb[subprocess-memory_bomb_growing]`, timeout, total 7.4 s, on mains with load 0.98 (the next run passed). Options: (A) leave it and save full test output on every run, so a repeat names the test; (B) raise `MEMORY_TEST` from 2 s to 3 s. Trade-off of B: nothing is slower while the memory limit works, but if it ever broke, the bomb (~2.5 GB/s) would get more time to fill the 7.8 GB WSL machine before the timer stops it. Recommendation: A, until it happens again.
 - Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
 - Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
 
