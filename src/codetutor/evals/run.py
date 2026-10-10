@@ -83,6 +83,7 @@ class RunConfig(BaseModel):
     problems: list[str] | None = None  # problem ids; None = the whole bank
     sandbox: Literal["docker", "subprocess"] = "docker"
     grade_workers: Annotated[int, Field(ge=1)] = 2
+    adapter: str | None = None  # hf/ models only: a trained LoRA adapter folder (Week 6 Step 5)
 
     def seed_for(self, sample_index: int) -> int | None:
         """The seed for one sample, or None when the run sends no seeds."""
@@ -149,7 +150,10 @@ def make_responder(config: RunConfig) -> Responder:
         from codetutor.rl.hf import BatchedResponder, HFGenerator
 
         generator = HFGenerator(
-            config.model.removeprefix("hf/"), config.temperature, config.max_tokens
+            config.model.removeprefix("hf/"),
+            config.temperature,
+            config.max_tokens,
+            adapter=config.adapter,
         )
         batched = BatchedResponder(lambda messages, n: generator(messages, n), config.samples)
         _HF_DETAILS[config.model] = generator.details()

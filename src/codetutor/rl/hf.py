@@ -11,8 +11,10 @@ Sampling is plain: temperature only (no top-p, no top-k, no repetition penalty),
 
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from codetutor.evals.records import ModelReply
@@ -65,6 +67,7 @@ class HFGenerator:
         import transformers
 
         self._torch = torch
+        self.adapter = adapter
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
@@ -123,7 +126,13 @@ class HFGenerator:
         import transformers
 
         torch = self._torch
+        extra: dict[str, Any] = {}
+        if self.adapter is not None:  # which trained weights were tested
+            weights = Path(self.adapter) / "adapter_model.safetensors"
+            extra["adapter"] = str(self.adapter)
+            extra["adapter_sha256"] = hashlib.sha256(weights.read_bytes()).hexdigest()
         return {
+            **extra,
             "runtime": "huggingface-transformers",
             "torch": torch.__version__,
             "transformers": transformers.__version__,

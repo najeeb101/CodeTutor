@@ -8,7 +8,7 @@ import pytest
 
 from codetutor.rl.dataset import load_rows
 from codetutor.rl.train import (
-    SmokeConfig,
+    TrainConfig,
     read_step_log,
     run_dir,
     step_record,
@@ -18,18 +18,18 @@ from codetutor.rl.train import (
 
 
 def test_config_is_frozen_and_checked() -> None:
-    config = SmokeConfig(run_id="x")
+    config = TrainConfig(run_id="x")
     assert (config.fold, config.num_generations, config.reward_mode) == ("a", 8, "partial")
     with pytest.raises(ValueError, match="unknown fold"):
-        SmokeConfig(run_id="x", fold="z")
+        TrainConfig(run_id="x", fold="z")
     with pytest.raises(ValueError):
-        SmokeConfig(run_id="x", reward_mode="half")  # type: ignore[arg-type]
+        TrainConfig(run_id="x", reward_mode="half")  # type: ignore[arg-type]
     with pytest.raises(ValueError):
-        SmokeConfig(run_id="x", num_generations=1)  # a group of one has no "better than the rest"
+        TrainConfig(run_id="x", num_generations=1)  # a group of one has no "better than the rest"
 
 
 def test_run_dir_is_under_the_base(tmp_path) -> None:
-    assert run_dir(SmokeConfig(run_id="r1"), tmp_path) == tmp_path / "r1"
+    assert run_dir(TrainConfig(run_id="r1"), tmp_path) == tmp_path / "r1"
 
 
 def test_step_record_splits_model_time_from_grading_time() -> None:
@@ -63,7 +63,7 @@ def test_step_log_round_trip(tmp_path) -> None:
 
 
 def test_training_file_holds_only_train_problems_with_the_reward_columns() -> None:
-    path = train_file(SmokeConfig(run_id="x"))
+    path = train_file(TrainConfig(run_id="x"))
     if not path.exists():
         pytest.skip("run `make rl-data` first")
     rows = load_rows(path)

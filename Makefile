@@ -1,4 +1,4 @@
-.PHONY: rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-train-c rl-after-run rl-after-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -116,6 +116,15 @@ MODE ?= partial
 STEPS ?= 30
 rl-smoke:  ## GRPO smoke run on the 0.5B (GPU + Docker; make rl-smoke RUN=x MODE=partial|all_or_nothing STEPS=30)
 	uv run --group rl python scripts/rl_train.py --run-id $(RUN) --mode $(MODE) --steps $(STEPS)
+
+rl-train-c:  ## Step 5: the real GRPO run on fold c, 100 steps x 4 prompts (~2 h; GPU + Docker; add RESUME=--resume to continue)
+	uv run --group rl python scripts/rl_train.py --run-id fold-c --fold c --steps 100 --prompts-per-step 4 --only-mixed --save-steps 25 $(RESUME)
+
+rl-after-run:  ## Step 5: the 'after' eval of the trained adapter, same pipeline as the baseline (GPU + Docker, ~15 min, resumable)
+	uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-grpo-c-t0.8-n10.yaml
+
+rl-after-report:  ## Step 5: lab/rl/reports/fold-c.md from the committed results (no GPU)
+	uv run python scripts/rl_after.py report
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py
