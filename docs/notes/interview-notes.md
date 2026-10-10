@@ -591,3 +591,15 @@ groups in 24 of 33 problems) is the better student. Per fold the numbers swing a
 also measure how many prompts can produce a learning signal, because RL on a model that
 already passes everything teaches nothing."
 
+
+## GRPO in one step, and why a flat group teaches nothing (Week 6, Step 4)
+GRPO has no value model. For one prompt it samples a group of answers (we use 8), grades each,
+and scores every answer against its own group: advantage = (reward − group mean) / group std.
+Answers better than their siblings get pushed up, worse ones down. If all 8 get the same reward
+(all pass, or all fail), every advantage is 0 and the step changes nothing. In our smoke run
+23–30% of steps were like that, which is why we measured "problems with a mixed group" before
+choosing the 0.5B. The loop cost is mostly generation (~15 s) not grading (~2 s), and a
+LoRA adapter plus micro-batches of 4 kept it at 4.9 GiB on a shared 8 GiB laptop GPU.
+*How I'd say it:* "GRPO compares an answer with its own siblings, so a prompt only teaches
+when the model sometimes passes and sometimes fails. I measured that fraction first, then
+fitted the training into a small GPU with LoRA and micro-batches."

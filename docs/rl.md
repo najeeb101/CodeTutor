@@ -6,7 +6,7 @@ saw. Decided 2026-10-07: train **locally in WSL on the laptop GPU** (the real Do
 the reward), model **Qwen2.5-Coder-0.5B-Instruct first, 1.5B as a stretch**, hold out **whole
 modules** (33 problems only; no generated problems yet).
 
-Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) and **Step 2** (the reward, §3) and **Step 3** (the "before" baseline, §4) are done. Next: GRPO smoke run (Week 6), then the real runs and re-evaluation (Week 7).
+Status: **Step 0** (the training environment, §1) and **Step 1** (the dataset, §2) and **Step 2** (the reward, §3) and **Step 3** (the "before" baseline, §4) and **Step 4** (the GRPO smoke run, §5) are done. Next: the real runs and re-evaluation (Week 7).
 
 ## 1. The training environment (Step 0)
 
@@ -119,7 +119,47 @@ make rl-baseline-report   # lab/rl/reports/baseline.md from the committed result
 - **Limits:** one seed per run; 8-9 problems per held-out side; the all-or-nothing reward makes
   more groups all-equal for the 0.5B (27% vs 18%), so the reward mode is a real choice in Step 4.
 
-## 5. What is still open
-- A 0.5B baseline does not exist yet. If it is near 0, the signal would be mostly format, and
-  we would say so and start from 1.5B.
-- Generation speed may need vLLM (a large new dependency): decide after the smoke run.
+## 5. The GRPO smoke run (Step 4)
+
+```bash
+make rl-smoke RUN=smoke-partial MODE=partial STEPS=30      # ~10 min; GPU + Docker; Ollama idle
+make rl-smoke RUN=smoke-aon MODE=all_or_nothing STEPS=30
+```
+- **Setup** (`rl/train.py`, `scripts/rl_train.py`): Qwen2.5-Coder-0.5B-Instruct with a **LoRA
+  adapter** (rank 16, all linear layers, lr 1e-5), fold `a` training side (25 problems), **1 prompt
+  per step, 8 answers** (the GRPO group), 512 new tokens (the baseline used 1024), temperature
+  0.8, seed 0, TRL 1.14.2 defaults otherwise (`beta` 0, DAPO loss, group-scaled advantages), the
+  Docker grader as reward with 8 workers. The 8 answers are processed as 2 micro-batches of 4:
+  the group and the update are the same, only less memory is needed at once.
+- **It runs.** 30 steps each, 240 answers graded per run, **0 grading errors**, no leftover
+  containers. Logs: `lab/rl/results/smoke/*/steps.jsonl` (+ `meta.json`).
+- **Cost** (on mains): median **19.9 s per step** (partial) and 15.1 s (all-or-nothing; same
+  work, so the gap is machine noise), first step ~28 s; grading is **~2 s of each step**
+  (8 answers in parallel), so generating and updating the model is the cost. **Peak GPU memory
+  4.86 GiB** (torch's own count; the first try with one batch of 8 hit an out-of-memory error
+  at step 3 on the 6.9 GiB free). A 30-step run is ~10 min; 1,000 steps would be ~5.5 h.
+- **Two things had to be fixed to start:** TRL's fused kernel needs Triton to compile a helper
+  and that needs the C headers (`sudo apt install python3.12-dev`); and the memory fix above plus
+  `PYTORCH_ALLOC_CONF=expandable_segments:True`.
+- **Signal:** with one prompt per step, a step's group is all-equal in **7 of 30 steps (23%)**
+  with partial credit and **9 of 30 (30%)** with all-or-nothing. Mean reward (all steps)
+  0.81 vs 0.65; the all-or-nothing reward is lower because a 7-of-8-tests answer scores 0.
+  The reward of the last 10 steps was 0.88 (partial; first 10: 0.77) and 0.64 (all-or-nothing;
+  first 10: 0.65). **That is not learning evidence**: each step has a different problem, so
+  those numbers mostly measure which problems came up.
+- **Reward mode for the real runs: `partial`.** The rule written before the runs (fewer all-equal
+  groups, tie goes to partial) picks it: 23% vs 30% is 2 steps of 30, too close to call, so it
+  is a tie and the tie-break decides. Reason in words: partial gives a gradient inside groups
+  where nobody passes everything. Watch-out: a slow-but-right `is_prime` earns 0.93.
+- **Limits:** one seed, 30 steps, 30 prompts out of 25 problems (some repeat), different
+  problems per step, a LoRA (can learn less than full tuning), 512 tokens (0.4% of answers cut
+  off). Both runs started with the same first answers (same seed), then moved apart, so the two
+  modes are not a controlled comparison. The metas say `git_dirty: true`: the runs started
+  before the Step 4 code was committed (the code did not change during them).
+- **Not measured:** whether training helps. That is Week 7: more steps, several prompts per
+  step, all four folds, and the same eval as §4.
+
+## 6. What is still open
+- Generation takes most of a step (~15 s). vLLM would speed it up but is a large new dependency:
+  decide in Week 7 only if the real runs are too slow (1,000 steps ≈ 5.5 h is bearable).
+- `prefer_mode` in `rl/train.py` is Najeeb's TODO; the decision above was made by the written rule.

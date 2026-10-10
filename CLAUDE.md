@@ -500,7 +500,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   **Decision for Step 4: the 0.5B is the model to train.** 5 new tests. Suite 747 passed, 52 s
   on mains; **Q14 failed again on mains** (`test_memory_bomb[subprocess-memory_bomb_growing]`,
   first `make all` run, 69 s; the rerun was green).
-- **Open:** Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Done (2026-10-10): Week 6 Step 4** (GRPO smoke run on the 0.5B; plan approved).
+  `rl/train.py` (`SmokeConfig`, `build_trainer`: LoRA r16, 1 prompt x 8 answers, micro-batches
+  of 4, `TrlReward` with 8 Docker workers; step log; `summarize`; `prefer_mode` = **Najeeb's
+  TODO**), `scripts/rl_train.py`, `make rl-smoke`, 6 tests. Needed `sudo apt install
+  python3.12-dev` (Triton compiles a helper) and micro-batches + expandable segments (one batch
+  of 8 hit CUDA out-of-memory at step 3). Two 30-step runs on mains, 240 answers each, 0 grading
+  errors: median 19.9 s/step (partial) / 15.1 s (all-or-nothing), grading ~2 s of it, peak 4.86
+  GiB; all-equal steps 7/30 (partial) vs 9/30 (all-or-nothing). **Reward mode for Week 7:
+  partial** (the pre-written rule; a tie, so partial). No learning claim (different problem per
+  step). Logs in `lab/rl/results/smoke/`; metas say `git_dirty: true` (code was uncommitted
+  during the runs). docs/rl.md §5, 1 interview note. Suite 753 passed (53 s on mains); `make all` 77 s.
+- **Open:** Najeeb's TODO `prefer_mode` in `rl/train.py`; Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
@@ -595,9 +606,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the split is committed in lab/rl/splits.json; Q3 why one fold's result is not enough. Week 6 Step 0: Q1 why a GRPO reward must vary inside a group;
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
-  (137 in total; answer key in Claude's memory.)
+  Week 6 Step 4: Q1 why an all-equal group changes nothing in GRPO; Q2 why micro-batches of 4 do not change the update; Q3 why the last-10-steps reward is not evidence of learning.
+  (140 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
-  **Week 6 Step 4** (GRPO smoke run on the 0.5B: a few dozen steps, loss/reward logged, seconds per step and VRAM measured; plan mode first; not started, on Najeeb's request). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 5** (Week 7 prep: the real run design: steps, prompts per step, 4 folds, then the "after" eval with the Step 3 pipeline; plan mode first; not started). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1131,6 +1143,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   first draft said Rasch "should hold up better", the measured gain is 0.01-0.04. Report
   runtime 25 s (bootstrap + 20 refits per experiment).
 
+- 2026-10-10: Week 6 Step 4 decisions (plan approved). LoRA, not full tuning (memory; the
+  adapter loads in `HFGenerator`); 1 prompt x 8 answers per step; 512 tokens; no vLLM. Q16 and
+  Q17 closed with option A (Najeeb: "go for your recommendations"). Reward mode for Week 7 =
+  partial, by the rule written before the runs. Started Docker Desktop with Najeeb's OK (the exe
+  is `C:\Users\ACER\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`, daemon ready ~33 s).
+
 - 2026-10-07: Q14, Q19, Q20 resolved by Najeeb's "do your recommendations". **Q14 = B**:
   `MEMORY_TEST` per-test timer 2 s → 3 s (the growing memory bomb lost the race 4 times in ~60
   full runs, once also on mains; assertion unchanged, so a broken memory limit still fails;
@@ -1140,8 +1158,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   not a test-code problem. Revisit only if it exceeds 60 s on a quiet machine.
 
 ## Open questions
-- Q17: monaco-editor 0.57 bundles DOMPurify 3.4.15 (npm audit: 2 low, DOM XSS in `IN_PLACE` mode). Monaco never enables that mode, and the served files are prebuilt, so an npm override would change nothing. Options: (A) keep 0.57 and re-check when Monaco ships DOMPurify >= 3.4.16 (ideas.md); (B) pin monaco-editor 0.56.0 (DOMPurify 3.4.8, not in the advisory, but older). Recommendation: A.
-- Q16: Starlette 1.7 warns "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (one warning per test run). Options: (A) keep `httpx` (pinned in uv.lock, so nothing changes by itself) until a release really drops it; (B) switch the dev dependency to `httpx2` (a new dependency: needs Najeeb's OK). Recommendation: A.
+(none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)
 
 ## Known limitations
 - The Week 1 "no code in hints" check is a heuristic (``` fences and lines starting with a Python keyword). Code written inside a sentence is not caught: 9 hint 3s contain solution lines (kept as bottom-out hints, docs/tutor.md §1.4).

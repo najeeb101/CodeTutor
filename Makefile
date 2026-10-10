@@ -1,4 +1,4 @@
-.PHONY: rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -110,6 +110,12 @@ rl-baseline-run:  ## the 'before' baseline: 0.5B and 1.5B on all 33 problems, n=
 
 rl-baseline-report:  ## lab/rl/reports/baseline.md from the committed results (no GPU)
 	uv run python scripts/rl_baseline.py report
+
+RUN ?= smoke
+MODE ?= partial
+STEPS ?= 30
+rl-smoke:  ## GRPO smoke run on the 0.5B (GPU + Docker; make rl-smoke RUN=x MODE=partial|all_or_nothing STEPS=30)
+	uv run --group rl python scripts/rl_train.py --run-id $(RUN) --mode $(MODE) --steps $(STEPS)
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py

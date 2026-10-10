@@ -1,0 +1,23 @@
+{
+  "config": {
+    "fold": "a",
+    "learning_rate": 1e-05,
+    "lora_rank": 16,
+    "max_completion_length": 512,
+    "micro_batch": 4,
+    "model": "Qwen/Qwen2.5-Coder-0.5B-Instruct",
+    "num_generations": 8,
+    "reward_mode": "partial",
+    "reward_workers": 8,
+    "run_id": "smoke-partial",
+    "seed": 0,
+    "steps": 30,
+    "temperature": 0.8
+  },
+  "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "git_commit": "9d2dc7920a4fdc00159e5bf89239563f0dd688e0",
+  "git_dirty": true,
+  "torch": "2.14.1+cu130",
+  "transformers": "5.19.0",
+  "trl": "1.14.2"
+}
