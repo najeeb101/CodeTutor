@@ -145,10 +145,9 @@ def prefer_mode(partial: RunStats, all_or_nothing: RunStats) -> str:
     The rule was written before the runs (plan, Step 4): prefer the mode whose groups are
     all-equal less often, because an all-equal group teaches nothing; on a tie, "partial".
     """
-    # TODO(najeeb): write the rule above with the two `flat_share` numbers. Hint: a tie is
-    # `==`; and think about what a "tie" means when each run has only ~30 steps (is 0.20 vs
-    # 0.23 a real difference?). Keep it to a few lines; the docs will say how little 30 steps prove.
-    raise NotImplementedError("prefer_mode: Najeeb's TODO")
+    if all_or_nothing.flat_share < partial.flat_share:
+        return "all_or_nothing"
+    return "partial"  # also the tie: only a strictly lower flat share beats it
 
 
 def build_trainer(config: TrainConfig, bank: list[Problem], out_dir: Path) -> tuple[Any, TrlReward]:

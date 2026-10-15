@@ -502,8 +502,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   first `make all` run, 69 s; the rerun was green).
 - **Done (2026-10-10): Week 6 Step 4** (GRPO smoke run on the 0.5B; plan approved).
   `rl/train.py` (`SmokeConfig`, `build_trainer`: LoRA r16, 1 prompt x 8 answers, micro-batches
-  of 4, `TrlReward` with 8 Docker workers; step log; `summarize`; `prefer_mode` = **Najeeb's
-  TODO**), `scripts/rl_train.py`, `make rl-smoke`, 6 tests. Needed `sudo apt install
+  of 4, `TrlReward` with 8 Docker workers; step log; `summarize`; `prefer_mode` (written by Claude, 2026-10-15)
+  ), `scripts/rl_train.py`, `make rl-smoke`, 6 tests. Needed `sudo apt install
   python3.12-dev` (Triton compiles a helper) and micro-batches + expandable segments (one batch
   of 8 hit CUDA out-of-memory at step 3). Two 30-step runs on mains, 240 answers each, 0 grading
   errors: median 19.9 s/step (partial) / 15.1 s (all-or-nothing), grading ~2 s of it, peak 4.86
@@ -527,7 +527,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `lab/rl/adapters/fold-c` and `steps.jsonl` + `meta.json` to `lab/rl/results/fold-c` ->
   `make rl-after-run` (~15 min) -> `make rl-after-report` -> docs/rl.md §7, interview note,
   status, commit. Pre-decided: evaluate the final adapter only (checkpoints are for crashes).
-- **Open:** Najeeb's TODO `prefer_mode` in `rl/train.py`; Najeeb's TODO `fizzbuzz/buggy/stops_before_n.py`; `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
