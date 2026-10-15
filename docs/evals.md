@@ -39,7 +39,8 @@ does not fit an 8 GB GPU. So the 1.5B vs 7B comparison changes two things at onc
 precision. 4-bit usually costs a little accuracy, so the 7B's score is, if anything, a bit low.
 Its config (`qwen2.5-coder-7b-q4.yaml`) is otherwise identical to the 1.5B's.
 
-### Gemini (free tier)
+### Gemini (free tier) — not used for official runs
+Dropped on 2026-10-15 (Najeeb): the free quota is 20 requests/day, so no official Gemini run was made. The client still supports it; the steps below are for a one-off check.
 1. Google AI Studio → "Get API key", in a Google Cloud project **without billing**, so it can
    never cost money.
 2. Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY`. Git ignores `.env`; never commit
@@ -68,7 +69,6 @@ the **Docker sandbox by default**: model-written code is untrusted.
 ## 3. Run a model over the whole bank (`scripts/run_eval.py`)
 ```
 uv run --env-file .env python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-1.5b-fp16.yaml
-uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml
 ... --problems cs1.loops.fizzbuzz,cs1.strings.compress --samples 2     (a quick scratch run)
 ```
 - **One run = one config** (`lab/evals/configs/*.yaml`) = one results file

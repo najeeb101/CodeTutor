@@ -629,9 +629,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
-  `docs/notes/week1.md` ("review" when ready); Gemini n = 1 keep or drop (after 10:00 Qatar
-  time, `uv run --env-file .env python scripts/run_eval.py lab/evals/configs/gemini-2.5-flash.yaml`,
-  2 days; then add a README row).
+  `docs/notes/week1.md` ("review" when ready). Gemini was dropped on 2026-10-15 (Najeeb); its config was removed.
 
 ## Decisions log
 - 2026-09-28: Develop on WSL2 (Ubuntu 24.04) with Python 3.12, because the Week 1 sandbox needs POSIX features (setrlimit, setsid, killpg).
@@ -1172,6 +1170,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   list order stays (`created_at desc, id desc`) unless it repeats. **Q20** closed: the suite is
   ~52-58 s when the machine is quiet and 70+ s right after Docker-heavy work or on battery;
   not a test-code problem. Revisit only if it exceeds 60 s on a quiet machine.
+
+- 2026-10-15: Gemini dropped (Najeeb). Free quota 20 requests/day; the Qwen 1.5B and 7B runs are the official comparison. Config removed; the client and its tests stay. The 17-answer scratch run stays in scratch, quoted nowhere.
 
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)

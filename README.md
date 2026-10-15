@@ -142,7 +142,7 @@ uv run python scripts/run_eval.py lab/evals/configs/qwen2.5-coder-1.5b-fp16.yaml
     --problems cs1.loops.fizzbuzz,cs1.strings.compress --samples 2
 ```
 A full run (33 problems × 10 answers) takes about 15 minutes on an RTX 4060 laptop GPU. Runs are
-resumable, and a failed API call is retried, never graded as a wrong answer. Gemini needs an API
+resumable, and a failed API call is retried, never graded as a wrong answer. Gemini (client only, no official run) needs an API
 key in `.env` (run with `uv run --env-file .env ...`). Setup, the model client and the report:
 [docs/evals.md](docs/evals.md).
 
