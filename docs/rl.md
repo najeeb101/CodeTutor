@@ -162,4 +162,37 @@ make rl-smoke RUN=smoke-aon MODE=all_or_nothing STEPS=30
 ## 6. What is still open
 - Generation takes most of a step (~15 s). vLLM would speed it up but is a large new dependency:
   decide in Week 7 only if the real runs are too slow (1,000 steps ≈ 5.5 h is bearable).
-- `prefer_mode` in `rl/train.py` is Najeeb's TODO; the decision above was made by the written rule.
+- `prefer_mode` in `rl/train.py` was written by Claude at Najeeb's request (2026-10-15); the decision above was made by the written rule.
+
+## 7. The first real GRPO run, fold c (Step 5)
+Fold c holds out modules 3 and 7 (8 problems). Chosen before any result because it had the most
+room to improve (0.5B pass@1 0.41). Setup: Qwen2.5-Coder-0.5B + LoRA r16, 100 steps x 4 prompts
+x 8 answers, `partial` reward, learning rate 1e-5, seed 0, trained only on the 20 train problems
+whose baseline group was mixed. The report is `lab/rl/reports/fold-c.md`; the "before" and
+"after" runs use the same eval pipeline (33 problems, 10 answers, temperature 0.8, Docker).
+
+- **How it ran:** 1,600 answers graded, 1,245 accepted, 0 grading errors; train loss 0.026.
+  The run was done in two parts: steps 1-50 on 2026-10-10 (stopped on purpose), then resumed
+  from `checkpoint-50` on 2026-10-16 (the optimizer and random state are saved in the
+  checkpoint, but a resumed run is not guaranteed to equal an uninterrupted one). The first try
+  of the resume failed at once because Ollama still held a model in GPU memory; unloading it
+  fixed that. The adapter (`d2083c23ec9f`) is kept in `lab/rl/adapters/fold-c`; the weights file
+  is git-ignored, so only its config is committed.
+- **Held-out problems (8):** pass@1 0.41 -> 0.45, pass@5 0.68 -> 0.69, mean reward 0.63 -> 0.65.
+  Problem by problem: 3 better (+0.10 each), 0 worse, 5 the same; mean change +0.04.
+  `group_anagrams` and `word_frequency` stay at 0.0, `two_sum` at 0.1.
+- **Train problems (25):** pass@1 0.71 -> 0.81, mean reward 0.84 -> 0.92; 15 better, 3 worse,
+  7 the same; mean change +0.10 [+0.05, +0.16].
+- **Side effects:** answers got shorter (mean tokens 149 -> 121 on train, 146 -> 127 held out),
+  compile errors fell (train 15 -> 5), nothing is cut off. The crude hard-coding check did not
+  go up (train 36 -> 25 answers, held out 2 -> 1).
+- **Honest reading:** the model got better at the problems it trained on, and moved a little in
+  the right direction on problems it never saw. One held-out problem is 10 answers, so +0.10 is
+  one more passing answer; three such moves are small. The per-problem interval
+  [+0.01, +0.08] only resamples the 8 problems and does not include the noise of drawing 10
+  answers, so it is too narrow to call the held-out gain proven. The training curve (0.81 ->
+  0.92) is not a learning curve, because each step has different problems; the before/after
+  table is the evidence. This is one fold, one seed, one run.
+- **For Week 7:** the other three folds with the same settings, and a second seed on at least
+  one fold, before any claim about transfer. Reading the flagged "visible result written out"
+  answers by hand is still to do.

@@ -511,22 +511,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   partial** (the pre-written rule; a tie, so partial). No learning claim (different problem per
   step). Logs in `lab/rl/results/smoke/`; metas say `git_dirty: true` (code was uncommitted
   during the runs). docs/rl.md §5, 1 interview note. Suite 753 passed (53 s on mains); `make all` 77 s.
-- **In progress (2026-10-10): Week 6 Step 5** (the first real GRPO run, fold c; plan approved:
-  fold c = most room, 100 steps x 4 prompts, partial reward, train only on the 20 problems whose
-  baseline group was mixed). **Code done and committed (fcdc5f7)**: `TrainConfig`
-  (`prompts_per_step`, `save_steps`, `train_problems`), `mixed_problem_ids`, `--only-mixed` /
-  `--resume`, adapter field in the eval config (`RunConfig.adapter`, hash in the meta),
-  `rl/after.py` + `scripts/rl_after.py` (fold report with paired per-problem change, health
-  table, crude hard-coding check, training curve), `make rl-train-c` / `rl-after-run` /
-  `rl-after-report`, eval config `hf-qwen2.5-coder-0.5b-grpo-c-t0.8-n10.yaml`, 5 tests; suite
-  758 passed (50 s), `make all` OK. Gate run (3 steps x 4 prompts): 37-66 s/step, peak 4.4 GiB.
-  **NOT done: the training itself** (Najeeb stopped it on purpose to do it later; ~1 h 15 min;
-  `lab/rl/scratch/fold-c` holds a partial run, a fresh start deletes it). Still to do, in
-  order: `make rl-train-c` (mains power, GPU free, Docker up, Ollama idle) -> copy
-  `lab/rl/scratch/fold-c/adapter` (adapter_model.safetensors + adapter_config.json) to
-  `lab/rl/adapters/fold-c` and `steps.jsonl` + `meta.json` to `lab/rl/results/fold-c` ->
-  `make rl-after-run` (~15 min) -> `make rl-after-report` -> docs/rl.md §7, interview note,
-  status, commit. Pre-decided: evaluate the final adapter only (checkpoints are for crashes).
+- **Done (2026-10-16): Week 6 Step 5** (first real GRPO run, fold c; code fcdc5f7, plan approved).
+  Training 100 steps x 4 prompts, partial reward, train only on the 20 mixed-baseline problems;
+  run in two parts (steps 1-50 on 10-10, resumed from checkpoint-50 on 10-16; the first resume
+  try failed because Ollama held a model in GPU memory, unloaded through its HTTP API).
+  1,600 answers graded, 1,245 accepted, 0 grading errors. Adapter in `lab/rl/adapters/fold-c`
+  (weights git-ignored, sha256 d2083c23ec9f), logs in `lab/rl/results/fold-c`, after eval
+  committed in `lab/evals/results/`, report `lab/rl/reports/fold-c.md`, docs/rl.md §7, 1
+  interview note. Result: held-out (8 problems) pass@1 0.41 -> 0.45, per problem 3 better /
+  0 worse / 5 same (+0.04); train (25) 0.71 -> 0.81, mean reward 0.84 -> 0.92; answers shorter,
+  compile errors down, hard-coding check not up. One fold, one seed: no transfer claim yet.
+  Not run this session: `make all` (suite last measured 758 passed).
 - **Open:** (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -623,9 +618,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Q2 why `make rl-install` exists next to `make install`; Q3 why a bigger generation batch is
   cheaper per answer.
   Week 6 Step 4: Q1 why an all-equal group changes nothing in GRPO; Q2 why micro-batches of 4 do not change the update; Q3 why the last-10-steps reward is not evidence of learning.
-  (140 in total; answer key in Claude's memory.)
+  Week 6 Step 5: Q1 why the held-out interval [+0.01, +0.08] is too narrow to prove transfer; Q2 why the training-reward curve is not evidence; Q3 what resuming from checkpoint-50 can and cannot promise.
+  (143 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
-  **finish Week 6 Step 5** (run `make rl-train-c`, then the after eval and report; see the In progress entry; the plan is in the Status). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 6 Step 6 / Week 7** (the other three folds and a second seed, same settings; plan first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and

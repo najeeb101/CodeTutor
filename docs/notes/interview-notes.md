@@ -603,3 +603,15 @@ LoRA adapter plus micro-batches of 4 kept it at 4.9 GiB on a shared 8 GiB laptop
 *How I'd say it:* "GRPO compares an answer with its own siblings, so a prompt only teaches
 when the model sometimes passes and sometimes fails. I measured that fraction first, then
 fitted the training into a small GPU with LoRA and micro-batches."
+
+## Read a before/after table for what it can and cannot show (Week 6, Step 5)
+Our first real GRPO run (0.5B + LoRA, 100 steps) moved pass@1 on the problems it trained on from
+0.71 to 0.81 and on 8 held-out problems from 0.41 to 0.45. The train gain is expected: the model
+saw those problems many times. The held-out gain is three problems that each got one more passing
+answer out of ten. The interval from resampling problems is narrow only because it ignores the
+noise of drawing 10 answers. The training reward curve is not evidence either, since each step
+uses different problems. We also checked for side effects (answer length, compile errors,
+visible results written into code) and they did not get worse.
+*How I'd say it:* "I report held-out and train results separately, say that one fold and one
+seed is a first result, and plan more folds and a second seed before I claim the model
+generalises."
