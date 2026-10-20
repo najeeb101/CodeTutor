@@ -5,7 +5,15 @@ from __future__ import annotations
 import pytest
 
 from codetutor.problems import Problem, load_all
-from codetutor.rl.after import hardcoded_answers, paired, pass_rates, render_report
+from codetutor.rl.after import (
+    FoldRun,
+    hardcoded_answers,
+    held_out_changes,
+    paired,
+    pass_rates,
+    render_folds_report,
+    render_report,
+)
 from codetutor.rl.train import TrainConfig, mixed_problem_ids
 from test_rl_baseline import _record, _run  # the same fake-run builders
 
@@ -78,3 +86,36 @@ def test_hardcoding_check_finds_a_written_out_result(bank: list[Problem]) -> Non
         update={"code": f"def fizzbuzz(n):\n    return {visible.expected!r}"}
     )
     assert hardcoded_answers([honest, cheat], {problem.id: problem}) == [cheat]
+
+
+def _fold_run(bank: list[Problem], name: str, fold: str, seed: int, after_ok) -> FoldRun:  # type: ignore[no-untyped-def]
+    before = _run(bank, "before", lambda p, i: i < 3)
+    after = _run(bank, "after (GRPO)", after_ok)
+    return FoldRun(name, fold, seed, before, after)
+
+
+def test_held_out_changes_only_use_the_folds_held_out_problems(bank: list[Problem]) -> None:
+    run = _fold_run(bank, "c", "c", 0, lambda p, i: i < 6)
+    changes = held_out_changes(run, bank)
+    assert len(changes) == 8  # fold c holds out modules 3 and 7
+    assert all(after == pytest.approx(0.6) for _, after in changes.values())
+
+
+def test_folds_report_pools_each_problem_once_and_ignores_the_second_seed(
+    bank: list[Problem],
+) -> None:
+    runs = [
+        _fold_run(bank, name, fold, 0, lambda p, i: i < 6)
+        for name, fold in [("a", "a"), ("b", "b"), ("c", "c"), ("d", "d")]
+    ]
+    runs.append(_fold_run(bank, "c-s1", "c", 1, lambda p, i: i < 5))
+    report = render_folds_report(runs, bank)
+    assert report == render_folds_report(runs, bank)  # byte-identical
+    pooled = report.split("## 2.")[1].split("## 3.")[0]
+    assert f"| {len(bank)} |" in pooled  # 33 problems, not 33 + 8 from the second seed
+    assert "+0.30" in pooled and "None" not in report
+
+
+def test_unknown_fold_name_is_refused() -> None:
+    with pytest.raises(ValueError, match="unknown fold"):
+        TrainConfig(run_id="x", fold="z", seed=1)

@@ -2,7 +2,7 @@
 
 Usage:
     make rl-smoke RUN=smoke-partial MODE=partial STEPS=30          # Step 4: 1 prompt per step
-    make rl-train-c                                                # Step 5: the real run, fold c
+    make rl-train FOLD=c                                           # Steps 5-6: the real run
     uv run --group rl python scripts/rl_train.py --run-id x --steps 3 --prompts-per-step 4
 
 Needs the GPU (Ollama idle), Docker (the reward grades in Docker) and `make rl-data` first.
@@ -57,6 +57,7 @@ def main() -> int:
     parser.add_argument("--mode", choices=["partial", "all_or_nothing"], default="partial")
     parser.add_argument("--steps", type=int, default=30)
     parser.add_argument("--fold", default="a")
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--prompts-per-step", type=int, default=1)
     parser.add_argument("--save-steps", type=int, default=None)
     parser.add_argument(
@@ -72,6 +73,7 @@ def main() -> int:
         reward_mode=args.mode,
         steps=args.steps,
         fold=args.fold,
+        seed=args.seed,
         prompts_per_step=args.prompts_per_step,
         save_steps=args.save_steps,
         train_problems=None if train_problems is None else tuple(train_problems),

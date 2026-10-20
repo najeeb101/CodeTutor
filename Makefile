@@ -1,4 +1,4 @@
-.PHONY: rl-train-c rl-after-run rl-after-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -117,14 +117,23 @@ STEPS ?= 30
 rl-smoke:  ## GRPO smoke run on the 0.5B (GPU + Docker; make rl-smoke RUN=x MODE=partial|all_or_nothing STEPS=30)
 	uv run --group rl python scripts/rl_train.py --run-id $(RUN) --mode $(MODE) --steps $(STEPS)
 
-rl-train-c:  ## Step 5: the real GRPO run on fold c, 100 steps x 4 prompts (~2 h; GPU + Docker; add RESUME=--resume to continue)
-	uv run --group rl python scripts/rl_train.py --run-id fold-c --fold c --steps 100 --prompts-per-step 4 --only-mixed --save-steps 25 $(RESUME)
+FOLD ?= c
+SEED ?= 0
+RUN ?= $(FOLD)
+rl-train:  ## Steps 5-6: the real GRPO run, 100 steps x 4 prompts (~2 h; GPU + Docker; make rl-train FOLD=a|b|c|d [SEED=1] [RESUME=--resume])
+	uv run --group rl python scripts/rl_train.py --run-id fold-$(if $(filter-out 0,$(SEED)),$(FOLD)-s$(SEED),$(FOLD)) --fold $(FOLD) --seed $(SEED) --steps 100 --prompts-per-step 4 --only-mixed --save-steps 25 $(RESUME)
 
-rl-after-run:  ## Step 5: the 'after' eval of the trained adapter, same pipeline as the baseline (GPU + Docker, ~15 min, resumable)
-	uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-grpo-c-t0.8-n10.yaml
+rl-train-c:  ## Step 5 command, kept: same as make rl-train FOLD=c
+	$(MAKE) rl-train FOLD=c
 
-rl-after-report:  ## Step 5: lab/rl/reports/fold-c.md from the committed results (no GPU)
-	uv run python scripts/rl_after.py report
+rl-after-run:  ## Steps 5-6: the 'after' eval of one adapter (make rl-after-run RUN=a|b|c|d|c-s1; GPU + Docker, ~15 min, resumable)
+	uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-grpo-$(RUN)-t0.8-n10.yaml
+
+rl-after-report:  ## lab/rl/reports/fold-<FOLD>.md from the committed results (no GPU)
+	uv run python scripts/rl_after.py report --fold $(FOLD)
+
+rl-folds-report:  ## lab/rl/reports/folds.md: every trained run together (no GPU; needs all five runs)
+	uv run python scripts/rl_after.py report-all
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py
