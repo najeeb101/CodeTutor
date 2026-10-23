@@ -218,3 +218,34 @@ Fold d: 3,200 answers graded, 2,183 accepted, 0 grading errors, about 1 h 27 min
   between two folds can be luck of the run. `rl_after.py report-all` treats the `c-s1` run as
   optional, and the report says no second seed was run.
 - **Not done either:** reading the flagged "visible result written out" answers by hand.
+
+## 9. How big is eval luck? (Week 7, Step 1)
+
+```bash
+make rl-noise-run       # ~45 min; GPU + Docker: the baseline, adapter c and adapter b, draw 1000
+make rl-noise-report    # lab/rl/reports/noise.md (no GPU)
+```
+- **Method:** the same three models were evaluated again on all 33 problems (10 answers,
+  temperature 0.8, Docker); only `seed_base` changed from 0 to 1000, which shifts the batch seed
+  (`HF_SEED + seed_base`, `rl/hf.py`). With `seed_base: 0` the official runs are unchanged.
+  Every difference between two draws of one model is luck of the sampling. 990 answers, 0 failed.
+- **Result:** the untrained 0.5B moved from pass@1 0.636 to 0.667 (+0.03) with no training at all;
+  adapter c 0.724 -> 0.691, adapter b 0.721 -> 0.697. The per-problem differences have a spread
+  (SD) of 0.16 (baseline), 0.11 (c), 0.13 (b).
+- **Rule, written before the runs:** a fold's held-out change is "above noise" only if it is
+  larger than `1.96 x SD / sqrt(m)` in both draws. With SD 0.161 and m = 8 the band is **±0.11**.
+  Fold c: +0.04 (draw 0) and 0.00 (draw 1000); fold b: 0.00 and -0.01. **Both are within noise.**
+  Fold c's +0.04 was a luck-sized move: on the other draw it vanished.
+- **Pooled (33 problems), computed by hand, not in the report:** the same SD gives a band of
+  about ±0.055, so the Week 6 pooled +0.02 is inside it as well.
+- **Honest reading:** the Week 6 held-out numbers cannot be told apart from evaluation luck.
+  This does **not** show that GRPO does nothing; it shows our 8-problem folds cannot see an
+  effect of this size. Train-side gains (+0.05 to +0.11, 25 problems) are larger than the
+  pooled band's scale, but were not re-measured on another draw.
+- **Limits:** two draws only (the SD is uncertain); evaluation noise only, **training noise**
+  (another training seed) is still unmeasured and can be larger; the metas say
+  `git_dirty: true` because `Makefile` and `scripts/rl_after.py` were edited while the runs
+  went (the `seed_base` code itself was committed first, `c2c32db`).
+- **Consequence for Step 2:** a stronger recipe must be judged against ±0.11 per fold, so it
+  needs a much larger gain, or more held-out answers per problem (e.g. 30 instead of 10), to be
+  readable.

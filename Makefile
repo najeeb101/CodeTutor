@@ -1,4 +1,4 @@
-.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -134,6 +134,12 @@ rl-after-report:  ## lab/rl/reports/fold-<FOLD>.md from the committed results (n
 
 rl-folds-report:  ## lab/rl/reports/folds.md: every trained run together (no GPU; needs folds a-d, c-s1 is optional)
 	uv run python scripts/rl_after.py report-all
+
+rl-noise-run:  ## Week 7 Step 1: re-run the baseline and the c and b adapters with another sampling draw (GPU + Docker, ~45 min, resumable)
+	for n in bf16 grpo-c grpo-b; do uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-$$n-t0.8-n10-s1000.yaml || exit 1; done
+
+rl-noise-report:  ## lab/rl/reports/noise.md from the committed results (no GPU)
+	uv run python scripts/rl_after.py noise
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py

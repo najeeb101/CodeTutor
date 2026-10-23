@@ -627,3 +627,14 @@ We wrote this limit into the report instead of hiding it.
 *How I'd say it:* "I split by module so the test problems are a different topic, repeated it over
 four folds so every problem is tested once, and reported the pooled result as 'no clear
 transfer', with one seed as a stated limit."
+
+## Measure the noise of your evaluation before you believe an improvement (Week 7, Step 1)
+After GRPO training, a held-out score moved from 0.41 to 0.45. Before calling that learning, we
+evaluated the same model again with a different sampling seed. The untrained model alone moved
++0.03 overall, and the per-problem differences had a spread of 0.16, so an 8-problem fold needs
+a change of about ±0.11 before it stands out. The +0.04 disappeared on the second draw. The
+lesson: with sampled outputs and few test items, the evaluation itself is a random variable.
+Measure its spread first (re-run with another seed), write the "above noise" rule down before
+looking, then judge the training result against it.
+*How I'd say it:* "I re-ran the baseline with another seed to get an evaluation noise floor, and
+my RL gains were inside it, so I reported 'not distinguishable from noise' instead of a win."
