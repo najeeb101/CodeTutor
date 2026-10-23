@@ -282,8 +282,8 @@ def _curve_section(steps: Sequence[dict[str, Any]]) -> str:
 def _limits(fold: str, held_out: int, trained_on: int) -> str:
     return (
         "## 6. What this can and cannot say\n\n"
-        f"- **One fold, one seed, one run.** Fold {fold} was chosen before any result "
-        "(largest room to improve); the other folds follow in Week 7 with the same settings.\n"
+        f"- **One fold, one seed, one run.** This report covers fold {fold} alone. All folds "
+        "and the second seed are compared in folds.md; no single fold carries a conclusion.\n"
         f"- **{held_out} held-out problems.** One problem is a swing of "
         f"{fixed(100 / held_out, 0)} points of pass@1; read the intervals, not the point values.\n"
         f"- **Training used {trained_on} problems** (those whose baseline group was mixed), "

@@ -68,7 +68,7 @@ Each step has different problems, so the reward moves with which problems came u
 
 ## 6. What this can and cannot say
 
-- **One fold, one seed, one run.** Fold a was chosen before any result (largest room to improve); the other folds follow in Week 7 with the same settings.
+- **One fold, one seed, one run.** This report covers fold a alone. All folds and the second seed are compared in folds.md; no single fold carries a conclusion.
 - **8 held-out problems.** One problem is a swing of 13 points of pass@1; read the intervals, not the point values.
 - **Training used 21 problems** (those whose baseline group was mixed), each seen many times: the train rows show how much it was memorised.
 - **Held-out means a different topic, not an unrelated skill** (docs/rl.md §2).
