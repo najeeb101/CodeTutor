@@ -522,6 +522,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   0 worse / 5 same (+0.04); train (25) 0.71 -> 0.81, mean reward 0.84 -> 0.92; answers shorter,
   compile errors down, hard-coding check not up. One fold, one seed: no transfer claim yet.
   Not run this session: `make all` (suite last measured 758 passed).
+- **Done (2026-10-23): Week 6 Step 6 = Week 6 done** (folds a, b, d; commits cbf7ea0, 1e2582d,
+  733d40e, 08c3306; Najeeb skipped the second seed on fold c). Folds a and (from the earlier
+  session) c were already committed; this session finished fold b (logs copied from the gitignored
+  scratch folder), trained fold d (100 steps, 1 h 27 min, 3,200 answers, 2,183 accepted, 0 grading
+  errors) and ran its after-eval (330/330). Held-out pass@1 before -> after (mean per-problem
+  change): a 0.80 -> 0.81 (+0.01), b 0.73 -> 0.73 (0.00), c 0.41 -> 0.45 (+0.04), d 0.61 -> 0.64
+  (+0.03). **Pooled over all 33 problems (each held out once): +0.02 [-0.02, +0.06], 11 better / 9
+  worse / 13 same: no proof of transfer.** Train problems do improve (b +0.11, c +0.10, d +0.05).
+  `lab/rl/reports/folds.md` (`make rl-folds-report`; `c-s1` is optional in `report-all`, 2 new
+  tests), docs/rl.md §8, 1 interview note. Two report-text fixes: the "fold chosen before any
+  result" sentence (true only for fold c) and the hard-coded "8 held-out problems". Limit: one
+  seed per fold, so run-to-run training noise is unmeasured. `make all`: 763 passed, 33 valid,
+  92 s **on battery** (Discharging; not comparable).
 - **Open:** (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -619,9 +632,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   cheaper per answer.
   Week 6 Step 4: Q1 why an all-equal group changes nothing in GRPO; Q2 why micro-batches of 4 do not change the update; Q3 why the last-10-steps reward is not evidence of learning.
   Week 6 Step 5: Q1 why the held-out interval [+0.01, +0.08] is too narrow to prove transfer; Q2 why the training-reward curve is not evidence; Q3 what resuming from checkpoint-50 can and cannot promise.
-  (143 in total; answer key in Claude's memory.)
+  Week 6 Step 6: Q1 why fold b's train gain +0.11 next to held-out 0.00 points to memorising;
+  Q2 why the training-reward table is not a learning curve; Q3 why four folds and a second seed
+  matter with only 8 held-out problems; Q4 why a different pair of modules is hidden in each
+  fold; Q5 the reading of fold d's held-out interval [-0.03, +0.10]; Q6 why a second seed on the
+  same fold is useful; Q7 what two equal seeds would show; Q8 the fair sentence for the pooled
+  interval [-0.02, +0.06]; Q9 why "no second seed" limits comparing fold b with fold c; Q10 why
+  the interval is "too narrow".
+  (153 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
-  **Week 6 Step 6 / Week 7** (the other three folds and a second seed, same settings; plan first). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 7** (plan first; open choices: a second seed on at least one fold, a bigger or different
+  recipe since 4 folds show no clear transfer, DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
@@ -1169,6 +1190,15 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 
 - 2026-10-15: Gemini dropped (Najeeb). Free quota 20 requests/day; the Qwen 1.5B and 7B runs are the official comparison. Config removed; the client and its tests stay. The 17-answer scratch run stays in scratch, quoted nowhere.
 
+- 2026-10-23: Week 6 Step 6. Najeeb skipped the second seed on fold c (saves ~2.25 h of GPU; the
+  claim stays "one seed per fold" and the folds report says so). `scripts/rl_after.py report-all`
+  treats `c-s1` as optional (skipped with a note if absent; a missing fold a-d still fails).
+  Reports: the limits sentence about the fold being "chosen before any result" was fold-c
+  specific and is replaced by a text true for every fold; "8 held-out problems" is now the real
+  count (fold d has 9). The training weights stay git-ignored; adapter_config, logs, eval results
+  and reports are committed. Reading the flagged "visible result written out" answers by hand
+  is still undone.
+
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)
 
@@ -1203,3 +1233,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - `editor_stats` comes from the browser and can be faked (or left out by any other client);
   auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
+- GRPO on the 0.5B (Week 6): four folds, one training seed each. Pooled held-out change +0.02
+  [-0.02, +0.06] (interval resamples problems only), so no transfer is shown; run-to-run training
+  noise is unmeasured (second seed skipped); the "visible result written out" answers were not
+  read by hand.
