@@ -119,3 +119,34 @@ def test_folds_report_pools_each_problem_once_and_ignores_the_second_seed(
 def test_unknown_fold_name_is_refused() -> None:
     with pytest.raises(ValueError, match="unknown fold"):
         TrainConfig(run_id="x", fold="z", seed=1)
+
+
+def _load_script():
+    """Import scripts/rl_after.py (scripts is not a package)."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "rl_after.py"
+    spec = importlib.util.spec_from_file_location("rl_after_script", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_report_all_skips_a_missing_second_seed_but_not_a_missing_fold(monkeypatch) -> None:
+    script = _load_script()
+    present = {"a", "b", "c", "d"}
+    monkeypatch.setattr(script, "missing_files", lambda n: [] if n in present else [f"x/{n}"])
+    names, missing = script.runs_for_report_all()
+    assert names == ["a", "b", "c", "d"] and missing == []
+    present.discard("b")
+    names, missing = script.runs_for_report_all()
+    assert "b" in names and missing == ["x/b"]
+
+
+def test_folds_report_says_when_no_second_seed_was_run(bank: list[Problem]) -> None:
+    runs = [_fold_run(bank, n, n, 0, lambda p, i: i < 6) for n in "abcd"]
+    report = render_folds_report(runs, bank)
+    assert "No second seed was run" in report
+    runs.append(_fold_run(bank, "c-s1", "c", 1, lambda p, i: i < 5))
+    assert "No second seed was run" not in render_folds_report(runs, bank)

@@ -196,3 +196,25 @@ whose baseline group was mixed. The report is `lab/rl/reports/fold-c.md`; the "b
 - **For Week 7:** the other three folds with the same settings, and a second seed on at least
   one fold, before any claim about transfer. Reading the flagged "visible result written out"
   answers by hand is still to do.
+
+## 8. All four folds (Step 6)
+
+Same recipe as fold c (§7) for folds a, b and d: 100 steps x 4 prompts, partial reward, the 0.5B
+with a LoRA adapter, seed 0, trained only on the problems whose baseline group was mixed. Each
+adapter then got the same eval as the baseline (33 problems x 10 answers). Reports:
+`lab/rl/reports/fold-<a|b|c|d>.md` and `lab/rl/reports/folds.md` (made by `make rl-folds-report`).
+Fold d: 3,200 answers graded, 2,183 accepted, 0 grading errors, about 1 h 27 min.
+
+- **Held-out pass@1, before -> after (per-problem mean change):** a 0.80 -> 0.81 (+0.01),
+  b 0.73 -> 0.73 (0.00), c 0.41 -> 0.45 (+0.04), d 0.61 -> 0.64 (+0.03).
+- **Pooled:** every problem is held out in exactly one fold, so 33 changes. Mean change +0.02,
+  interval [-0.02, +0.06], 11 better / 9 worse / 13 the same.
+- **Honest reading:** the direction is slightly positive in three folds and flat in one, but the
+  pooled interval includes 0 and it only resamples problems (it leaves out the noise of 10
+  answers per problem). This is not evidence of transfer. The train problems do improve
+  (fold b +0.11, d +0.05, c +0.10).
+- **Not done:** a second seed (planned for fold c, skipped by Najeeb on 2026-10-23 to save about
+  2.25 h of GPU time). The run-to-run noise of training is therefore unmeasured, so a difference
+  between two folds can be luck of the run. `rl_after.py report-all` treats the `c-s1` run as
+  optional, and the report says no second seed was run.
+- **Not done either:** reading the flagged "visible result written out" answers by hand.

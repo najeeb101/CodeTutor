@@ -175,10 +175,11 @@ def _headline_section(
             n = _numbers(_records(run, ids))
             rows.append([side, run.label, n["problems"], n["pass1"], n["pass5"], n["reward"]])
     header = ["Side", "Run", "Problems", "pass@1 [95%]", "pass@5", "Mean reward"]
+    held_out = len(sides.get("held out", ()))
     return (
         "## 2. Before and after\n\n"
-        "The intervals resample the problems of that side; with 8 held-out problems they are "
-        "wide.\n\n" + _table(header, rows)
+        f"The intervals resample the problems of that side; with {held_out} held-out problems "
+        "they are wide.\n\n" + _table(header, rows)
     )
 
 
@@ -370,10 +371,24 @@ def render_folds_report(runs: Sequence[FoldRun], bank: Sequence[Problem]) -> str
         "## 4. Limits\n\n"
         "- The intervals resample the problems only. They leave out the noise of drawing 10 "
         "answers per problem (one answer = 0.1), so they are too narrow.\n"
-        "- A different training seed on the same fold gives a second number for the same "
-        "problems: compare it with the fold-to-fold spread before reading a fold as an effect.\n"
-        "- The model is the 0.5B with a LoRA adapter, reward `partial`; other models and "
+        + _seed_limit(runs)
+        + "- The model is the 0.5B with a LoRA adapter, reward `partial`; other models and "
         "settings are not tested.\n"
+    )
+
+
+def _seed_limit(runs: Sequence[FoldRun]) -> str:
+    """The limits bullet about training seeds: depends on whether a second seed was run."""
+    if any(run.seed > 0 for run in runs):
+        return (
+            "- A different training seed on the same fold gives a second number for the same "
+            "problems: compare it with the fold-to-fold spread before reading a fold as an "
+            "effect.\n"
+        )
+    return (
+        "- **One training seed per fold.** No second seed was run, so the run-to-run noise of "
+        "training is not measured: a difference between folds may be luck of the run, not the "
+        "fold.\n"
     )
 
 

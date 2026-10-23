@@ -615,3 +615,15 @@ visible results written into code) and they did not get worse.
 *How I'd say it:* "I report held-out and train results separately, say that one fold and one
 seed is a first result, and plan more folds and a second seed before I claim the model
 generalises."
+
+## Why you hold out whole modules in every fold, and why one seed is a limit (Week 6, Step 6)
+To test whether GRPO training helps on problems the model never practised, we trained four
+adapters. In each, two modules are hidden from training and used only for testing, so every one
+of the 33 problems is hidden exactly once (group k-fold by module). One hidden set of 8 problems
+is too small: one problem moves pass@1 by 13 points. Pooled over the four folds, the mean
+held-out change is +0.02 with an interval [-0.02, +0.06] that includes zero. We did not run a
+second training seed, so we cannot separate the effect of the fold from the luck of one run.
+We wrote this limit into the report instead of hiding it.
+*How I'd say it:* "I split by module so the test problems are a different topic, repeated it over
+four folds so every problem is tested once, and reported the pooled result as 'no clear
+transfer', with one seed as a stated limit."

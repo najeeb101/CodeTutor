@@ -132,7 +132,7 @@ rl-after-run:  ## Steps 5-6: the 'after' eval of one adapter (make rl-after-run 
 rl-after-report:  ## lab/rl/reports/fold-<FOLD>.md from the committed results (no GPU)
 	uv run python scripts/rl_after.py report --fold $(FOLD)
 
-rl-folds-report:  ## lab/rl/reports/folds.md: every trained run together (no GPU; needs all five runs)
+rl-folds-report:  ## lab/rl/reports/folds.md: every trained run together (no GPU; needs folds a-d, c-s1 is optional)
 	uv run python scripts/rl_after.py report-all
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)

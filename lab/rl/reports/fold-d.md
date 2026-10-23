@@ -11,7 +11,7 @@ Qwen2.5-Coder-0.5B-Instruct plus a LoRA adapter (rank 16), trained for 100 steps
 
 ## 2. Before and after
 
-The intervals resample the problems of that side; with 8 held-out problems they are wide.
+The intervals resample the problems of that side; with 9 held-out problems they are wide.
 
 | Side | Run | Problems | pass@1 [95%] | pass@5 | Mean reward |
 |---|---|---|---|---|---|
