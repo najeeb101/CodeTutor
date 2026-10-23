@@ -155,7 +155,11 @@ def make_responder(config: RunConfig) -> Responder:
             config.max_tokens,
             adapter=config.adapter,
         )
-        batched = BatchedResponder(lambda messages, n: generator(messages, n), config.samples)
+        batched = BatchedResponder(
+            lambda messages, n, offset: generator(messages, n, offset),
+            config.samples,
+            seed_base=config.seed_base or 0,
+        )
         _HF_DETAILS[config.model] = generator.details()
         return batched
 

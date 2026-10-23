@@ -22,8 +22,8 @@ from codetutor.problems import Problem
 
 HF_SEED = 0  # set before every batch: the same machine and software give the same answers
 
-# (chat messages, n) -> n replies
-Generate = Callable[[list[dict[str, str]], int], list[ModelReply]]
+# (chat messages, n, seed offset) -> n replies; the batch seed is HF_SEED + offset
+Generate = Callable[[list[dict[str, str]], int, int], list[ModelReply]]
 
 
 class BatchRequestError(ValueError):
@@ -33,28 +33,37 @@ class BatchRequestError(ValueError):
 class BatchedResponder:
     """A harness `Responder` that generates all n samples of a problem in one go."""
 
-    def __init__(self, generate: Generate, samples: int) -> None:
+    def __init__(self, generate: Generate, samples: int, seed_base: int = 0) -> None:
         self._generate = generate
         self._samples = samples
+        self._seed_base = seed_base
         self._cache: tuple[str, list[ModelReply]] | None = None
 
     def __call__(
         self, problem: Problem, messages: list[dict[str, str]], seed: int | None
     ) -> ModelReply:
-        """Sample number `seed` of `problem`.
+        """Sample number `seed - seed_base` of `problem`.
 
         The harness has no "sample index" argument, but it passes `seed_base + index` as the
-        seed; with `seed_base: 0` that is the index, so for these runs the record's `seed` field
-        means "position in the batch" (the batch itself is made with `HF_SEED`). Asking for a
-        sample that was saved already is the harness's business: it never does.
+        seed, so the position in the batch is `seed - seed_base`. With `seed_base: 0` (all
+        official runs so far) the record's `seed` field is that position and the batch is made
+        with `HF_SEED`; a larger `seed_base` shifts the batch seed to `HF_SEED + seed_base`, which
+        gives a different but still repeatable draw of answers (Week 7: how big is eval luck?).
+        Asking for a sample that was saved already is the harness's business: it never does.
         """
         if seed is None:
-            raise BatchRequestError("hf runs need `seed_base: 0` (the seed is the batch position)")
-        if not 0 <= seed < self._samples:
-            raise BatchRequestError(f"{problem.id}: sample {seed} of a batch of {self._samples}")
+            raise BatchRequestError("hf runs need a seed (set `seed_base` in the config)")
+        position = seed - self._seed_base
+        if not 0 <= position < self._samples:
+            raise BatchRequestError(
+                f"{problem.id}: sample {position} of a batch of {self._samples}"
+            )
         if self._cache is None or self._cache[0] != problem.id:
-            self._cache = (problem.id, self._generate(messages, self._samples))
-        return self._cache[1][seed]
+            self._cache = (
+                problem.id,
+                self._generate(messages, self._samples, self._seed_base),
+            )
+        return self._cache[1][position]
 
 
 class HFGenerator:
@@ -81,13 +90,15 @@ class HFGenerator:
             self.model = PeftModel.from_pretrained(self.model, adapter).to("cuda")
         self.model.eval()
 
-    def __call__(self, messages: list[dict[str, str]], n: int) -> list[ModelReply]:
+    def __call__(
+        self, messages: list[dict[str, str]], n: int, seed_offset: int = 0
+    ) -> list[ModelReply]:
         torch = self._torch
         prompt = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
         inputs = self.tokenizer([prompt], return_tensors="pt").to("cuda")
-        torch.manual_seed(HF_SEED)
+        torch.manual_seed(HF_SEED + seed_offset)
         start = time.perf_counter()
         with torch.no_grad():
             output = self.model.generate(

@@ -27,7 +27,7 @@ def _reply(text: str) -> ModelReply:
 def test_all_samples_of_a_problem_come_from_one_batch(bank: list[Problem]) -> None:
     calls: list[int] = []
 
-    def generate(messages: list[dict[str, str]], n: int) -> list[ModelReply]:
+    def generate(messages: list[dict[str, str]], n: int, offset: int) -> list[ModelReply]:
         calls.append(n)
         return [_reply(f"batch{len(calls)}-{i}") for i in range(n)]
 
@@ -40,16 +40,30 @@ def test_all_samples_of_a_problem_come_from_one_batch(bank: list[Problem]) -> No
 
 
 def test_a_resume_asks_only_for_the_missing_positions(bank: list[Problem]) -> None:
-    responder = BatchedResponder(lambda m, n: [_reply(str(i)) for i in range(n)], samples=10)
+    responder = BatchedResponder(lambda m, n, o: [_reply(str(i)) for i in range(n)], samples=10)
     assert [responder(bank[0], [], i).text for i in (4, 5, 9)] == ["4", "5", "9"]
 
 
 def test_a_bad_position_is_refused(bank: list[Problem]) -> None:
-    responder = BatchedResponder(lambda m, n: [_reply("x")] * n, samples=2)
+    responder = BatchedResponder(lambda m, n, o: [_reply("x")] * n, samples=2)
     with pytest.raises(BatchRequestError, match="sample 2 of a batch of 2"):
         responder(bank[0], [], 2)
-    with pytest.raises(BatchRequestError, match="seed_base: 0"):
+    with pytest.raises(BatchRequestError, match="need a seed"):
         responder(bank[0], [], None)
+
+
+def test_seed_base_moves_the_batch_seed_not_the_position(bank: list[Problem]) -> None:
+    offsets: list[int] = []
+
+    def generate(messages: list[dict[str, str]], n: int, offset: int) -> list[ModelReply]:
+        offsets.append(offset)
+        return [_reply(str(i)) for i in range(n)]
+
+    responder = BatchedResponder(generate, samples=3, seed_base=1000)
+    assert [responder(bank[0], [], 1000 + i).text for i in range(3)] == ["0", "1", "2"]
+    assert offsets == [1000]  # one batch, shifted seed
+    with pytest.raises(BatchRequestError, match="sample -1 of a batch of 3"):
+        responder(bank[0], [], 999)  # below seed_base: not a position of this run
 
 
 # --- the report ---
