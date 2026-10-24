@@ -1,4 +1,4 @@
-.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -140,6 +140,13 @@ rl-noise-run:  ## Week 7 Step 1: re-run the baseline and the c and b adapters wi
 
 rl-noise-report:  ## lab/rl/reports/noise.md from the committed results (no GPU)
 	uv run python scripts/rl_after.py noise
+
+POOL_RUNS = bf16-t0.8-n10-s2000 grpo-c-t0.8-n10-s2000 grpo-b-t0.8-n10-s2000 grpo-a-t0.8-n10-s1000 grpo-a-t0.8-n10-s2000 grpo-d-t0.8-n10-s1000 grpo-d-t0.8-n10-s2000
+rl-pool-run:  ## Week 7 Step 2a: the 7 missing sampling draws, so every model has draws 0, 1000, 2000 (GPU + Docker, ~1.75 h, resumable)
+	for n in $(POOL_RUNS); do uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-$$n.yaml || exit 1; done
+
+rl-pool-report:  ## lab/rl/reports/pooled.md: 30 answers per problem (no GPU)
+	uv run python scripts/rl_after.py pooled
 
 rl-env:  ## check the GPU, the model and the grader for training (needs rl-install, Docker, internet once)
 	uv run --group rl python scripts/rl_env_check.py

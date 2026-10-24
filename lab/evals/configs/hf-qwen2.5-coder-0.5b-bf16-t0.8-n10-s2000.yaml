@@ -1,0 +1,11 @@
+# Week 7 Step 2a (pooled draws): the SAME model as the file without -s2000, only the sampling draw differs.
+# Official "before" baseline for GRPO (Week 6 Step 3): the untrained model, Hugging Face weights.
+# Run: uv run --group rl python scripts/run_eval.py lab/evals/configs/hf-qwen2.5-coder-0.5b-bf16-t0.8-n10.yaml
+# Needs the `rl` packages, Ollama idle and the laptop on mains. Resumable.
+run_id: hf-qwen2.5-coder-0.5b-bf16-t0.8-n10-s2000
+model: hf/Qwen/Qwen2.5-Coder-0.5B-Instruct
+samples: 10          # n = 10 answers per problem, generated together in one batch
+temperature: 0.8     # plain sampling (no top-p / top-k), the same as in training
+max_tokens: 1024     # as in Week 2
+seed_base: 2000   # Week 7 Step 2a: batch seed HF_SEED + 2000
+sandbox: docker      # model code is untrusted

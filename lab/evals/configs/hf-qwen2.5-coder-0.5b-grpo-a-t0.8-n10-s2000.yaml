@@ -1,0 +1,12 @@
+# Week 7 Step 2a (pooled draws): the SAME model as the file without -s2000, only the sampling draw differs.
+# Official "after" run for GRPO fold a, training seed 0 (Week 6 Step 6): the 0.5B plus the adapter trained on fold a.
+# The same settings as the baseline (hf-qwen2.5-coder-0.5b-bf16-t0.8-n10.yaml); only `adapter` is new.
+# Run: make rl-after-run RUN=a   (needs the `rl` packages, Ollama idle, mains power; resumable)
+run_id: hf-qwen2.5-coder-0.5b-grpo-a-t0.8-n10-s2000
+model: hf/Qwen/Qwen2.5-Coder-0.5B-Instruct
+adapter: lab/rl/adapters/fold-a   # LoRA weights from `make rl-train FOLD=a`, copied here
+samples: 10
+temperature: 0.8
+max_tokens: 1024
+seed_base: 2000   # Week 7 Step 2a: batch seed HF_SEED + 2000
+sandbox: docker
