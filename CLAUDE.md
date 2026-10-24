@@ -535,6 +535,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   result" sentence (true only for fold c) and the hard-coded "8 held-out problems". Limit: one
   seed per fold, so run-to-run training noise is unmeasured. `make all`: 763 passed, 33 valid,
   92 s **on battery** (Discharging; not comparable).
+- **Done (2026-10-24): Week 7 Step 1** (eval noise; commits c2c32db code, 2aee402 data; docs/rl.md §9,
+  `lab/rl/reports/noise.md`, `make rl-noise-run` / `rl-noise-report`, `rl/noise.py`, 1 interview note).
+  `seed_base` shifts the Hugging Face batch seed; the baseline, adapter c and adapter b were evaluated
+  again (draw 1000, 990 answers, 0 failed). The untrained 0.5B moved 0.636 -> 0.667 with no training;
+  per-problem SD 0.16, so a fold of 8 problems has a noise band of ±0.11: folds c (+0.04 / 0.00) and
+  b (0.00 / -0.01) are **within noise**, and so is the pooled +0.02 (band ~±0.055, by hand). Training
+  noise (another seed) still unmeasured. Metas say `git_dirty: true`.
+- **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
+  (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
+  timer); rerun green (2 passed), `make validate` 33 valid.
 - **Open:** (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
@@ -641,8 +651,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the interval is "too narrow".
   (153 in total; answer key in Claude's memory.)
 - **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
-  **Week 7** (plan first; open choices: a second seed on at least one fold, a bigger or different
-  recipe since 4 folds show no clear transfer, DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
+  **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
+  new recipe needs a much larger gain or more answers per problem, e.g. 30; open choices: a second
+  training seed, a different recipe; DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
   for Najeeb: the UI click-through (README "Run the app") and his text in `docs/notes/week3.md`
   ("review" when ready). Still open for Najeeb: his text in `docs/notes/week2.md` and
