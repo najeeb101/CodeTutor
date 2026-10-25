@@ -163,3 +163,89 @@ def _limits(draw_count: int, sd: float) -> str:
         "- Held-out means a different topic, not an unrelated skill (docs/rl.md §2). The rule "
         "fixes what counts as above noise; it does not prove transfer.\n"
     )
+
+
+def seeds_agree(change_a: float, change_b: float, band: float) -> bool:
+    """The Step 2b rule (written before the second run): same direction, and no further apart
+    than the evaluation band. A change of exactly 0 is not "the other direction"."""
+    return change_a * change_b >= 0 and abs(change_a - change_b) < band
+
+
+def _seed_row(
+    label: str,
+    before: dict[str, float],
+    first: dict[str, float],
+    second: dict[str, float],
+    sd: float,
+) -> list[str]:
+    one, two, gap = paired(before, first), paired(before, second), paired(first, second)
+    band = noise_half_width(sd, len(gap["ids"]))
+    agree = seeds_agree(one["mean"], two["mean"], band)
+    return [
+        label,
+        str(len(gap["ids"])),
+        fixed(mean(before[i] for i in gap["ids"]), 3),
+        _signed(one["mean"]),
+        _signed(two["mean"]),
+        _signed(gap["mean"]),
+        _fmt_interval(gap["interval"]),
+        f"±{fixed(band, 3)}",
+        "seeds agree" if agree else "seeds disagree",
+    ]
+
+
+def render_seed_report(
+    fold: str,
+    baseline: Sequence[NamedRun],
+    seed0: Sequence[NamedRun],
+    seed1: Sequence[NamedRun],
+    bank: Sequence[Problem],
+) -> str:
+    """Two training seeds of one fold, each evaluated in the same pooled draws."""
+    every_id = {p.id for p in bank}
+    draw_count = len(baseline)
+    sd = pooled_difference_sd(draw_variance(baseline, every_id), draw_count)
+    train, held_out = split(bank, fold)
+    rows = []
+    for label, problems in (("held out", held_out), ("train", train)):
+        ids = {p.id for p in problems}
+        rows.append(
+            _seed_row(
+                f"fold {fold} {label}",
+                pooled_rates(baseline, ids),
+                pooled_rates(seed0, ids),
+                pooled_rates(seed1, ids),
+                sd,
+            )
+        )
+    header = [
+        "Problems",
+        "Count",
+        "pass@1 before",
+        "Change seed 0",
+        "Change seed 1",
+        "Seed 1 − seed 0",
+        "95% interval",
+        "Noise band",
+        "Verdict",
+    ]
+    answers = 10 * draw_count
+    return (
+        f"# Fold {fold}: two training seeds\n\n"
+        f"The same recipe (LoRA, 100 steps x 4 prompts, partial reward) trained twice, with "
+        f"`--seed 0` and `--seed 1`. Each adapter was evaluated in {draw_count} sampling "
+        f"draws, pooled to {answers} answers per problem, like the untrained model. Generated "
+        "by `scripts/rl_after.py seeds`.\n\n"
+        "## 1. Do the two seeds agree?\n\n"
+        "Rule (written before the second run): the seeds **agree** if both changes point the "
+        "same way and the two changes differ by less than the evaluation band "
+        "`1.96 x SD / sqrt(m)`; otherwise they **disagree**, and one training run cannot be "
+        "trusted on its own.\n\n" + _table(header, rows) + "\n\n"
+        "## 2. Limits\n\n"
+        f"- SD used: {fixed(sd, 3)} (untrained model, {draw_count} draws). Two seeds are the "
+        "minimum: the difference between them is itself one noisy number.\n"
+        "- The interval resamples problems only. Agreement of two seeds does not prove "
+        "transfer: it only says the result is repeatable. Whether a change is above noise is "
+        "decided by `pooled.md`.\n"
+        "- Same fold, same training problems, same data order seed rules as Week 6.\n"
+    )

@@ -271,3 +271,23 @@ make rl-pool-report     # lab/rl/reports/pooled.md (no GPU, byte-identical)
   do not claim transfer. This is a small possible effect, not a shown one.
 - **Limits:** SD from 3 draws is uncertain; evaluation noise only. **Training noise** (another
   training seed) is still unmeasured. The band treats problems as independent.
+
+## 11. A second training seed on fold c (Week 7, Step 2b)
+
+Same recipe as §7 (LoRA r16, 100 steps x 4 prompts x 8 answers, partial reward, lr 1e-5, only the
+mixed-baseline problems), only `--seed 1`. Question: is the training run itself repeatable?
+
+**Rule, written and committed before the run.** Fold c held-out change is measured on the pooled
+3 draws (30 answers per problem) for both seeds. The seeds **agree** if both changes point the
+same way (a change of 0 counts as neither) and differ by less than the evaluation band
+`1.96 x SD / sqrt(m)` (SD 0.092, m = 8: ±0.064). Otherwise they **disagree**, and a single
+training run cannot be trusted. Agreement shows repeatability, not transfer: "above noise" is still
+decided by the Step 2a rule. Code: `seeds_agree`, `render_seed_report` in `rl/pooled.py`.
+
+```bash
+make rl-train FOLD=c SEED=1   # ~1.5 h; copy the adapter to lab/rl/adapters/fold-c-s1
+make rl-seed-run              # ~45 min: three sampling draws of that adapter
+make rl-seed-report           # lab/rl/reports/seeds.md (no GPU)
+```
+
+Results: (to be filled after the run)

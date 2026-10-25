@@ -9,7 +9,10 @@ Usage:
     make rl-noise-report          # lab/rl/reports/noise.md: the same models, two draws (Week 7)
     make rl-pool-run              # ~1.75 h: the 7 missing draws (draws 0, 1000, 2000 each)
     make rl-pool-report           # lab/rl/reports/pooled.md: 30 answers per problem (Step 2a)
-    # optional second seed on fold c (not run): make rl-train FOLD=c SEED=1 (RUN=c-s1)
+    # second training seed on fold c (Week 7 Step 2b):
+    make rl-train FOLD=c SEED=1   # ~1.5 h; copy the adapter to lab/rl/adapters/fold-c-s1
+    make rl-seed-run              # ~45 min: the 3 sampling draws of that adapter
+    make rl-seed-report           # lab/rl/reports/seeds.md (no GPU)
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ from codetutor.problems import load_all
 from codetutor.rl.after import FoldRun, render_folds_report, render_report
 from codetutor.rl.baseline import NamedRun
 from codetutor.rl.noise import render_noise_report
-from codetutor.rl.pooled import render_pooled_report
+from codetutor.rl.pooled import render_pooled_report, render_seed_report
 from codetutor.rl.train import META_FILE, STEP_LOG, read_step_log
 
 REPO = Path(__file__).resolve().parents[1]
@@ -117,6 +120,36 @@ def write_pooled_report() -> Path:
     return target
 
 
+def seeds_missing() -> list[str]:
+    """Results files the seed report needs that are not there yet."""
+    names = [BEFORE_FILE, after_file("c"), after_file("c-s1")]
+    needed = [RESULTS / draw_file(name, d) for name in names for d in POOL_DRAWS]
+    return [str(p.relative_to(REPO)) for p in needed if not p.exists()]
+
+
+def write_seed_report() -> Path:
+    """Build lab/rl/reports/seeds.md: fold c trained with seed 0 and seed 1."""
+
+    def draws(filename: str, label: str) -> list[NamedRun]:
+        return [
+            NamedRun(f"{label} draw {d}", load_run(RESULTS / draw_file(filename, d)))
+            for d in POOL_DRAWS
+        ]
+
+    target = REPO / "lab" / "rl" / "reports" / "seeds.md"
+    target.write_text(
+        render_seed_report(
+            "c",
+            draws(BEFORE_FILE, "before"),
+            draws(after_file("c"), "seed 0"),
+            draws(after_file("c-s1"), "seed 1"),
+            load_all(),
+        ),
+        "utf-8",
+    )
+    return target
+
+
 def train_dir(name: str) -> Path:
     """The committed training log folder of run `name`."""
     return REPO / "lab" / "rl" / "results" / f"fold-{name}"
@@ -144,7 +177,7 @@ def load_fold_run(name: str) -> FoldRun:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["report", "report-all", "noise", "pooled"])
+    parser.add_argument("command", choices=["report", "report-all", "noise", "pooled", "seeds"])
     parser.add_argument("--fold", default="c", choices=[n for n in RUNS if "-" not in n])
     args = parser.parse_args()
     if args.command == "pooled":
@@ -153,6 +186,13 @@ def main() -> int:
             print(f"missing: {', '.join(missing)} (make rl-pool-run)", file=sys.stderr)
             return 1
         print(f"wrote {write_pooled_report().relative_to(REPO)}")
+        return 0
+    if args.command == "seeds":
+        missing = seeds_missing()
+        if missing:
+            print(f"missing: {', '.join(missing)} (make rl-seed-run)", file=sys.stderr)
+            return 1
+        print(f"wrote {write_seed_report().relative_to(REPO)}")
         return 0
     if args.command == "noise":
         missing = noise_missing([NOISE_FOLDS[0]])

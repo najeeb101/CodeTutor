@@ -10,6 +10,8 @@ from codetutor.rl.pooled import (
     pooled_difference_sd,
     pooled_rates,
     render_pooled_report,
+    render_seed_report,
+    seeds_agree,
 )
 from test_rl_baseline import _run
 
@@ -63,3 +65,30 @@ def test_pooled_report_is_byte_identical_and_names_its_limits(bank: list[Problem
     assert report == _report(bank, (6, 7, 8))
     assert "Training noise" in report
     assert "30 answers" in report
+
+
+def test_seeds_agree_needs_same_direction_and_a_small_gap() -> None:
+    assert seeds_agree(0.04, 0.03, 0.064)
+    assert not seeds_agree(0.10, 0.01, 0.064)  # same direction, gap 0.09 > band
+    assert not seeds_agree(0.04, -0.03, 0.064)  # small gap, opposite directions
+    assert seeds_agree(0.0, 0.03, 0.064)  # zero is not "the other direction"
+
+
+def _seed_report(bank: list[Problem], seed1_counts: tuple[int, ...]) -> str:
+    base = _draws(bank, "before", (4, 5, 6))
+    first = _draws(bank, "seed 0", (6, 7, 8))
+    second = _draws(bank, "seed 1", seed1_counts)
+    return render_seed_report("c", base, first, second, bank)
+
+
+def test_seed_report_says_agree_for_equal_seeds_and_disagree_for_opposite_ones(
+    bank: list[Problem],
+) -> None:
+    assert "seeds agree" in _seed_report(bank, (6, 7, 8))
+    assert "seeds disagree" in _seed_report(bank, (2, 3, 4))  # worse than before
+
+
+def test_seed_report_is_byte_identical_and_names_its_rule(bank: list[Problem]) -> None:
+    report = _seed_report(bank, (6, 7, 8))
+    assert report == _seed_report(bank, (6, 7, 8))
+    assert "written before the second run" in report
