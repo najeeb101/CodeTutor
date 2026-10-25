@@ -660,3 +660,15 @@ Two seeds answer "is the run repeatable?", not "is the gain real?".
 *How I'd say it:* "I repeated training with another seed against a rule written in advance.
 The runs agreed, so the result is repeatable, but it stayed inside the noise band, so I did not
 claim transfer."
+
+## Reward hacking: look for it, and let hidden tests be the guard (Week 7, Step 3)
+When the reward is "share of tests passed", a model can learn to write the visible answers into
+the code. We audited 5,940 answers: five trained adapters and the untrained model, 990 each. A first, simple
+check flagged 6–11% of answers, but reading them showed most were the model's own test lines,
+and 180 of the rest were a function that must return words like "equilateral". After excluding
+the model's own test code and reading the remaining 8 by hand, there was one real attempt
+(a fizzbuzz that wrote out the 5 visible results), and it failed the hidden tests. Two lessons:
+a detector is a pointer for a human, not a verdict, and hidden tests are the defence, because a
+copy of the visible answers cannot pass them.
+*How I'd say it:* "I audited for reward hacking with an AST check, read every flag, and found one
+failed attempt in 5,940 answers; hidden tests are why that kind of cheating doesn't pay."
