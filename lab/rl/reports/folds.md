@@ -10,6 +10,7 @@ Every fold trains on six modules' problems and is tested on the other two module
 | b (fold b, seed 0) | 8 | 0.73 | 0.73 | 0.00 | [−0.08, +0.10] | 2 / 4 / 2 |
 | c (fold c, seed 0) | 8 | 0.41 | 0.45 | +0.04 | [+0.01, +0.08] | 3 / 0 / 5 |
 | d (fold d, seed 0) | 9 | 0.61 | 0.64 | +0.03 | [−0.03, +0.10] | 3 / 2 / 4 |
+| c-s1 (fold c, seed 1) | 8 | 0.41 | 0.49 | +0.08 | [+0.01, +0.18] | 3 / 0 / 5 |
 
 ## 2. Pooled over the four seed-0 folds
 
@@ -21,44 +22,44 @@ Each of the 33 problems is held out in exactly one fold, so this is one change p
 
 ## 3. Problem by problem (pass@1 after - before)
 
-| Problem | a | b | c | d |
-|---|---|---|---|---|
-| `cs1.conditions.is_leap_year` |  | −0.10 |  |  |
-| `cs1.conditions.letter_grade` |  | −0.10 |  |  |
-| `cs1.conditions.max_of_three` |  | +0.10 |  |  |
-| `cs1.conditions.triangle_type` |  | 0.00 |  |  |
-| `cs1.dicts.first_unique_char` |  |  | +0.10 |  |
-| `cs1.dicts.group_anagrams` |  |  | 0.00 |  |
-| `cs1.dicts.two_sum` |  |  | 0.00 |  |
-| `cs1.dicts.word_frequency` |  |  | 0.00 |  |
-| `cs1.functions.gcd` |  | 0.00 |  |  |
-| `cs1.functions.is_prime` |  | −0.10 |  |  |
-| `cs1.functions.primes_up_to` |  | −0.10 |  |  |
-| `cs1.functions.running_total` |  | +0.30 |  |  |
-| `cs1.lists.merge_sorted` | 0.00 |  |  |  |
-| `cs1.lists.remove_duplicates` | +0.10 |  |  |  |
-| `cs1.lists.rotate_right` | −0.20 |  |  |  |
-| `cs1.lists.second_largest` | −0.10 |  |  |  |
-| `cs1.loops.count_digits` |  |  | +0.10 |  |
-| `cs1.loops.factorial` |  |  | +0.10 |  |
-| `cs1.loops.fizzbuzz` |  |  | 0.00 |  |
-| `cs1.loops.sum_of_evens` |  |  | 0.00 |  |
-| `cs1.recursion.binary_search` |  |  |  | +0.10 |
-| `cs1.recursion.fibonacci` |  |  |  | 0.00 |
-| `cs1.recursion.flatten` |  |  |  | −0.10 |
-| `cs1.recursion.recursive_sum` |  |  |  | 0.00 |
-| `cs1.recursion.valid_parentheses` |  |  |  | 0.00 |
-| `cs1.strings.compress` |  |  |  | 0.00 |
-| `cs1.strings.count_vowels` |  |  |  | +0.20 |
-| `cs1.strings.is_palindrome` |  |  |  | +0.20 |
-| `cs1.strings.reverse_words` |  |  |  | −0.10 |
-| `cs1.variables.average_of_three` | 0.00 |  |  |  |
-| `cs1.variables.celsius_to_fahrenheit` | +0.20 |  |  |  |
-| `cs1.variables.rectangle_stats` | −0.10 |  |  |  |
-| `cs1.variables.seconds_to_hms` | +0.20 |  |  |  |
+| Problem | a | b | c | d | c-s1 |
+|---|---|---|---|---|---|
+| `cs1.conditions.is_leap_year` |  | −0.10 |  |  |  |
+| `cs1.conditions.letter_grade` |  | −0.10 |  |  |  |
+| `cs1.conditions.max_of_three` |  | +0.10 |  |  |  |
+| `cs1.conditions.triangle_type` |  | 0.00 |  |  |  |
+| `cs1.dicts.first_unique_char` |  |  | +0.10 |  | +0.10 |
+| `cs1.dicts.group_anagrams` |  |  | 0.00 |  | 0.00 |
+| `cs1.dicts.two_sum` |  |  | 0.00 |  | 0.00 |
+| `cs1.dicts.word_frequency` |  |  | 0.00 |  | 0.00 |
+| `cs1.functions.gcd` |  | 0.00 |  |  |  |
+| `cs1.functions.is_prime` |  | −0.10 |  |  |  |
+| `cs1.functions.primes_up_to` |  | −0.10 |  |  |  |
+| `cs1.functions.running_total` |  | +0.30 |  |  |  |
+| `cs1.lists.merge_sorted` | 0.00 |  |  |  |  |
+| `cs1.lists.remove_duplicates` | +0.10 |  |  |  |  |
+| `cs1.lists.rotate_right` | −0.20 |  |  |  |  |
+| `cs1.lists.second_largest` | −0.10 |  |  |  |  |
+| `cs1.loops.count_digits` |  |  | +0.10 |  | +0.10 |
+| `cs1.loops.factorial` |  |  | +0.10 |  | +0.40 |
+| `cs1.loops.fizzbuzz` |  |  | 0.00 |  | 0.00 |
+| `cs1.loops.sum_of_evens` |  |  | 0.00 |  | 0.00 |
+| `cs1.recursion.binary_search` |  |  |  | +0.10 |  |
+| `cs1.recursion.fibonacci` |  |  |  | 0.00 |  |
+| `cs1.recursion.flatten` |  |  |  | −0.10 |  |
+| `cs1.recursion.recursive_sum` |  |  |  | 0.00 |  |
+| `cs1.recursion.valid_parentheses` |  |  |  | 0.00 |  |
+| `cs1.strings.compress` |  |  |  | 0.00 |  |
+| `cs1.strings.count_vowels` |  |  |  | +0.20 |  |
+| `cs1.strings.is_palindrome` |  |  |  | +0.20 |  |
+| `cs1.strings.reverse_words` |  |  |  | −0.10 |  |
+| `cs1.variables.average_of_three` | 0.00 |  |  |  |  |
+| `cs1.variables.celsius_to_fahrenheit` | +0.20 |  |  |  |  |
+| `cs1.variables.rectangle_stats` | −0.10 |  |  |  |  |
+| `cs1.variables.seconds_to_hms` | +0.20 |  |  |  |  |
 
 ## 4. Limits
 
 - The intervals resample the problems only. They leave out the noise of drawing 10 answers per problem (one answer = 0.1), so they are too narrow.
-- **One training seed per fold.** No second seed was run, so the run-to-run noise of training is not measured: a difference between folds may be luck of the run, not the fold.
+- A different training seed on the same fold gives a second number for the same problems: compare it with the fold-to-fold spread before reading a fold as an effect.
 - The model is the 0.5B with a LoRA adapter, reward `partial`; other models and settings are not tested.

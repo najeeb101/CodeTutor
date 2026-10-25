@@ -300,6 +300,8 @@ weights git-ignored like fold c; 100 steps):
 
 - **Reading:** the two training runs give almost the same result, on the held-out and on the train
   problems. So one training run is repeatable here: the first seed was not a lucky one.
+- `folds.md` now has a `c-s1` row with +0.08 [+0.01, +0.18]: that is one draw of 10 answers, the
+  pooled +0.04 above is the fair number.
 - **Not shown:** both held-out changes (+0.03, +0.04) are still under the Step 2a evaluation band
   for 8 problems, so this is repeatability, not proof of transfer. Two seeds on one fold only.
 

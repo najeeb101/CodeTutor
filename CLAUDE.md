@@ -542,6 +542,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   per-problem SD 0.16, so a fold of 8 problems has a noise band of ±0.11: folds c (+0.04 / 0.00) and
   b (0.00 / -0.01) are **within noise**, and so is the pooled +0.02 (band ~±0.055, by hand). Training
   noise (another seed) still unmeasured. Metas say `git_dirty: true`.
+- **Done (2026-10-25): Week 7 Step 2b** (second training seed on fold c; commits 68899ca data,
+  97587b4 docs). Seed 1 adapter `807e3d7d0c6d`; three draws pooled (30 answers per problem).
+  Held-out change +0.03 (seed 0) / +0.04 (seed 1), difference +0.02 [-0.02, +0.05] inside the
+  ±0.064 band: the rule written before the run says **seeds agree** (repeatable, not proof of
+  transfer). Train +0.07 / +0.08. `lab/rl/reports/seeds.md` byte-identical, docs/rl.md §11.
+- **Done (2026-10-25): Week 7 Step 3 = Week 7 done** (reward-hacking audit + wrap-up; plan
+  approved). `rl/hacking.py` (function bodies only, test helpers ignored; literal result or an
+  `if` on a visible input), `scripts/rl_hacking_audit.py`, `make rl-hacking`,
+  `lab/rl/reports/hacking.md`, 7 tests. 31-32 of 990 flagged per model (3.1-3.2%), untrained
+  model the same as every adapter; read by hand: 180 of 188 are `triangle_type` category words,
+  6 `if seconds == 0` base cases, 1 false alarm, **1 real attempt** (adapter c fizzbuzz, failed
+  hidden tests). docs/rl.md §12, 1 interview note. Wrap-up: README (Weeks 1-7, new "Training a
+  small model" section, 783 tests), lab/README, `docs/notes/week6.md` + `week7.md` skeletons.
+  Docker Desktop started with Najeeb's OK. `make all`: 783 passed, 33 valid, 85 s **on battery**.
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
@@ -650,7 +664,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   interval [-0.02, +0.06]; Q9 why "no second seed" limits comparing fold b with fold c; Q10 why
   the interval is "too narrow".
   (153 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3, then
+- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3 and writes `docs/notes/week6.md` and
+  `week7.md`; then **Week 8 Step 0 (plan first: instructor dashboard, early warning, final README,
+  diagram, demo video; DPO is an optional cut)**. (Old text kept for reference:
   **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
   new recipe needs a much larger gain or more answers per problem, e.g. 30; open choices: a second
   training seed, a different recipe; DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
@@ -1246,5 +1262,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
 - GRPO on the 0.5B (Week 6): four folds, one training seed each. Pooled held-out change +0.02
   [-0.02, +0.06] (interval resamples problems only), so no transfer is shown; run-to-run training
-  noise is unmeasured (second seed skipped); the "visible result written out" answers were not
-  read by hand.
+  noise is measured only once (fold c, seed 1 agrees with seed 0: +0.03 / +0.04); with 30
+  answers per problem the pooled change is +0.02 [0.00, +0.04] against a band of ±0.032, so still
+  "within noise". The hacking audit (docs/rl.md §12) sees only literals and `if` guards, and only
+  the stored eval answers, not the training-time answers.

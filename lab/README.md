@@ -52,9 +52,14 @@ is in `src/codetutor/integrity/`.
   byte-identical on every run). Run: `make skill`. How it works:
   [docs/integrity.md](../docs/integrity.md) §3. The code is in `src/codetutor/skill/`.
 
-## rl/ (Week 6)
-- `reports/baseline.md`: the untrained 0.5B and 1.5B per module fold, from the two committed
-  `hf-qwen2.5-coder-*-bf16-t0.8-n10` runs in `evals/results/` (do not edit by hand).
-  Run: `make rl-baseline-report`. `splits.json`: which problems are train and held-out in each
-  fold. How it works: [docs/rl.md](../docs/rl.md). The code is in `src/codetutor/rl/`.
+## rl/ (Weeks 6–7)
+- `splits.json`: which modules each fold hides (committed; `make rl-data` rebuilds the prompt
+  files in `dist/rl/`).
+- `adapters/fold-<x>/`: the trained LoRA adapters' config (the weights are gitignored; the sha256
+  is in docs/rl.md). `results/fold-<x>/`: the training logs (`steps.jsonl`, `meta.json`).
+- `reports/`: generated, never edited by hand: `baseline.md`, `fold-<x>.md`, `folds.md`,
+  `noise.md`, `pooled.md`, `seeds.md`, `hacking.md`. All are byte-identical for the same inputs.
+- The graded answers of every run are in `evals/results/` (`hf-qwen2.5-coder-0.5b-*`).
 
+Run: the `make rl-*` targets (see the README). How it works: [docs/rl.md](../docs/rl.md). The
+code is in `src/codetutor/rl/`.

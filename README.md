@@ -5,13 +5,15 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Weeks 1–5 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
+**Status:** Weeks 1–7 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
 language models through the grader, the app around them (Postgres, a grading queue, an HTTP API
 and a web UI with a code editor), and an AI tutor that gives hints, not answers (a local model,
 search over course notes, a guardrail, 👍/👎 ratings), measured offline with a simulated
 student. Week 5 added a simulated class of 60 students with known cheaters, four integrity
 signals measured on a held-out class, and difficulty and skill estimates (pass rates and a
-Rasch model). Next: GRPO training of a small Qwen model with the grader as reward (Weeks 6–7).
+Rasch model). Weeks 6–7 trained a small Qwen model (0.5B) with GRPO, using the grader as the
+reward, and measured honestly whether it helps: a small positive change that is **not** above
+the noise. Next: the instructor dashboard and the final write-up (Week 8).
 
 ## What is in it
 
@@ -20,11 +22,12 @@ Rasch model). Next: GRPO training of a small Qwen model with the grader as rewar
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 716 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 783 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
 | App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
 | AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
 | Simulated class | 2 classes of 60 students (seed 0: 3,145 submissions, seed 1: 3,076), each graded by the real workers in its own database; every row has a label (honest, copy, AI paste, how it was entered) that is kept out of the database |
+| RL training | GRPO with LoRA on Qwen2.5-Coder 0.5B, reward = the grader's share of tests passed (hidden tests included); 4 module folds + a second seed, 5 trained adapters, each measured on 30 answers per problem |
 | Integrity + skill | 4 signals (paste, fast typing, same as another student, same as a known AI answer), thresholds chosen on seed 0 and measured on seed 1; Rasch difficulty and skill estimates scored against the simulation's true values |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
@@ -297,6 +300,45 @@ How it works: [docs/integrity.md](docs/integrity.md). Reports:
 
 Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-problem).
 
+## Training a small model with the grader as reward
+The same `grade()` that marks students is the reward function: the share of tests an answer
+passes, hidden tests included. We trained Qwen2.5-Coder 0.5B with GRPO (LoRA, 100 steps × 4
+problems × 8 answers, on one RTX 4060). To see whether it learns something that transfers, each
+run **hides two whole modules** from training (4 folds, so every problem is hidden once) and is
+measured on those. Every model is evaluated on 3 sampling draws (30 answers per problem), because
+a first check showed the untrained model itself moves ±0.03 between two draws.
+
+| Held-out problems (pass@1, 30 answers each) | Before | After | Change [95% interval] | Noise band |
+|---|---|---|---|---|
+| fold a (8) | 0.808 | 0.833 | +0.03 [−0.01, +0.06] | ±0.064 |
+| fold b (8) | 0.738 | 0.742 | 0.00 [−0.04, +0.05] | ±0.064 |
+| fold c (8) | 0.446 | 0.471 | +0.03 [0.00, +0.05] | ±0.064 |
+| fold d (9) | 0.619 | 0.656 | +0.04 [0.00, +0.09] | ±0.060 |
+| **all 33, each held out once** | 0.652 | 0.675 | **+0.02 [0.00, +0.04]** | ±0.032 |
+
+Honest reading: the change is positive in all four folds, but it is smaller than the noise band
+we wrote down before the runs, so we **do not claim transfer**. It is a small possible effect.
+A second training seed on fold c gave +0.03 and +0.04, so the training run is repeatable; that is
+not the same as an effect. On the problems it trained on, the model does improve (+0.07 to +0.08
+on fold c). A **reward-hacking audit** read every answer that wrote a visible result into its
+function: 3.1% for the untrained model and for every adapter, and one real attempt (a fizzbuzz
+that wrote out the visible output, and failed the hidden tests) in 4,950 trained-model answers.
+Hidden tests are why copying the examples does not pay.
+
+```bash
+# Reports from the committed results (no GPU; each is byte-identical every time)
+make rl-folds-report     # lab/rl/reports/folds.md: the four folds
+make rl-pool-report      # lab/rl/reports/pooled.md: 30 answers per problem, the table above
+make rl-seed-report      # lab/rl/reports/seeds.md: fold c, two training seeds
+make rl-hacking          # lab/rl/reports/hacking.md: the reward-hacking audit
+
+# Training and evaluating need the GPU and Docker (hours; `make rl-install` is ~5.6 GB)
+make rl-install && make rl-env
+make rl-train FOLD=c SEED=0     # ~1.5 h; then make rl-after-run RUN=c
+```
+How it works and every measurement: [docs/rl.md](docs/rl.md). Limits: the 0.5B model, 33
+problems, one seed per fold except fold c, and a detector that only sees literals.
+
 ## Project layout
 - `problems/`: the problem bank (one folder per problem)
 - `src/codetutor/problems/`: problem schema and loader
@@ -310,15 +352,17 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 - `src/codetutor/sim/`: the simulated class: personas, code pools, disguises, editor summaries, loading
 - `src/codetutor/integrity/`: the four integrity signals, rename-proof comparison, threshold search, report
 - `src/codetutor/skill/`: first-attempt responses, Rasch fit, pass-rate baselines, scoring, report
+- `src/codetutor/rl/`: RL prompt folds, the reward, GRPO training (TRL + LoRA), the before/after, noise, pooled and seed reports, the reward-hacking audit
 - `course/notes/`: the course notes the tutor searches
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack (`make e2e`)
 - `web/`: the web UI (Next.js + Monaco), with its own README
 - `scripts/`: command-line wrappers for the above, plus the grading and eval CLIs
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `lab/tutor/`: the retrieval questions, the tutor's safety-run and eval results, and their reports
+- `lab/rl/`: the folds, trained adapters (config only), training logs and generated RL reports
 - `lab/sim/`: the two simulated classes with their labels; `lab/integrity/`, `lab/skill/`: generated reports
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`); `docs/notes/` holds weekly notes and interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`, `rl.md`); `docs/notes/` holds weekly notes and interview notes
 
 ## Roadmap
 | Week | Deliverable | |
@@ -328,5 +372,5 @@ Full checklist: [docs/problem-format.md](docs/problem-format.md#6-how-to-add-a-p
 | 3 | FastAPI + Postgres + job queue + minimal Next.js UI | ✅ done |
 | 4 | AI tutor that gives hints, not answers | ✅ done |
 | 5 | Simulated students, integrity checks, difficulty estimates | ✅ done |
-| 6–7 | GRPO training of a small Qwen model with the grader as reward | |
+| 6–7 | GRPO training of a small Qwen model with the grader as reward | ✅ done |
 | 8 | Instructor dashboard, final write-up, demo | |
