@@ -672,3 +672,14 @@ a detector is a pointer for a human, not a verdict, and hidden tests are the def
 copy of the visible answers cannot pass them.
 *How I'd say it:* "I audited for reward hacking with an AST check, read every flag, and found one
 failed attempt in 5,940 answers; hidden tests are why that kind of cheating doesn't pay."
+
+## A dashboard route is an access-control decision first (Week 8, Step 1)
+The instructor routes show other students' flags and skill estimates, so who may call them
+matters more than what they return. The app had only a spoofable dev login, so we added a
+separate shared token from the environment: no token set means the routes are off (503), not
+open; a wrong token is 403; a student's login is not enough (401). We compare tokens in constant
+time and no route returns code. It is not real authentication (one secret, no guess limit), and
+we wrote that in the docs. Estimates are computed per request instead of stored, so they can
+never be out of date with the submissions.
+*How I'd say it:* "I made the teacher view fail closed: without a configured token it is off,
+and I wrote down that a shared token is a stopgap until real accounts."

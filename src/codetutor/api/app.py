@@ -18,6 +18,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
 from codetutor import __version__
+from codetutor.api.instructor import router as instructor_router
 from codetutor.api.routes import router
 from codetutor.api.submissions import RateLimits
 from codetutor.db.engine import make_engine
@@ -93,6 +94,7 @@ def create_app(engine: Engine | None = None, limits: RateLimits | None = None) -
     app.state.engine = engine
     app.state.limits = limits or RateLimits()
     app.include_router(router)
+    app.include_router(instructor_router)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(OperationalError, _database_unavailable)
     return app

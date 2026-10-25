@@ -415,8 +415,13 @@ def _row(submission_id: int, **columns: Any) -> IntegrityFlagRow:
 
 
 def test_no_api_code_reads_the_flags() -> None:
-    # Students must never see flags; the Week 8 teacher screens will need their own route.
-    for path in sorted((SRC / "api").glob("*.py")):
+    # Students must never see flags. Only the instructor module (behind X-Instructor-Token,
+    # Week 8) reads them.
+    paths = sorted((SRC / "api").glob("*.py"))
+    assert "instructor.py" in {path.name for path in paths}
+    for path in paths:
+        if path.name == "instructor.py":
+            continue
         source = path.read_text(encoding="utf-8")
         assert "integrity_flags" not in source and "IntegrityFlagRow" not in source, path
 

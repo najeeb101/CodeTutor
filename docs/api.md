@@ -232,3 +232,34 @@ curl -s -X PUT http://127.0.0.1:8000/api/hints/<hint id>/rating -H 'X-User-Id: 1
 - The 422 `detail` is a list for request-format errors and a string for our own checks.
 - Connecting to a stopped local database takes the 5 s connect timeout before the 503 (WSL
   mirrored networking drops instead of refusing; measured 5.0 s).
+
+## 8. The instructor routes (Week 8 Step 1; dev token, NOT real authentication)
+
+For the dashboard (Step 2). Read-only. A teacher sends `X-Instructor-Token`, a shared secret from
+the `INSTRUCTOR_TOKEN` environment variable (16+ characters; a shorter or missing value switches
+the routes **off**: 503). Wrong token: 403. No token (a student's `X-User-Id` is not enough): 401.
+The token is compared in constant time. One token for all teachers, sent in a header, with no
+limit on wrong guesses: fine on `127.0.0.1`, to be replaced by real accounts before hosting.
+
+| Method + path | What it returns |
+|---|---|
+| `GET /api/instructor/overview` | students, problems, submissions, accepted share, first-try solve share, how many students/submissions need review, when the integrity job last wrote flags |
+| `GET /api/instructor/students` | per student: submissions, problems tried/solved, first-try share, last active, Rasch skill, submissions to review. Most to review first |
+| `GET /api/instructor/students/{id}` | the same, plus every problem they tried and every flag with its sentence for the teacher (404 if they have not submitted) |
+| `GET /api/instructor/problems` | per problem: declared difficulty, students who tried it, first-try share, Rasch difficulty |
+
+- **No code leaves these routes.** A test searches every answer for the solution's text.
+- Skill and difficulty are computed on every request from the first tries (the Week 5 rule,
+  `skill/load.py`), not stored: a class of tens of students takes 0.2-0.3 s per call (measured over HTTP on the
+  simulated class of 60 students and 3,145 submissions). "Higher skill = more skilled; higher
+  difficulty = harder"; the numbers say who may need help and are never a grade.
+- Flags are written by the batch job (`make integrity`, on the database you point the API at).
+  Before it has run, the lists are empty and `flags_computed_at` is null. `needs_review` follows
+  the frozen rule (one entry signal + one content signal on the same submission).
+- **Try it on the simulated class:**
+  ```bash
+  INSTRUCTOR_TOKEN=$(openssl rand -hex 16) make api-sim   # API on codetutor_sim (SIM_SEED=1: the held-out class)
+  curl -s http://127.0.0.1:8000/api/instructor/overview -H "X-Instructor-Token: <your token>"
+  ```
+  (`make sim` and `make integrity` must have run before, ~13 min.)
+- Only `api/instructor.py` reads `integrity_flags`; `test_no_api_code_reads_the_flags` pins that.

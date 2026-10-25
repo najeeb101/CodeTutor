@@ -1,4 +1,4 @@
-.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -36,6 +36,12 @@ tutor: db-sync notes-sync  ## answer queued hint requests with the local model u
 
 api: db-sync  ## run the HTTP API on http://127.0.0.1:8000 until Ctrl+C (docs/api.md; dev login, not secure)
 	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port 8000
+
+API_PORT ?= 8000
+api-sim:  ## the API on the simulated class's database, with the instructor dashboard on (INSTRUCTOR_TOKEN, 16+ characters)
+	@test -n "$$INSTRUCTOR_TOKEN" || { echo 'Set a token first: INSTRUCTOR_TOKEN=$$(openssl rand -hex 16) make api-sim'; exit 2; }
+	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url($(SIM_SEED)))')"; \
+	DATABASE_URL="$$url" uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
 
 web-install:  ## install the web UI's npm packages from package-lock.json (needs Node 24, nvm)
 	cd web && npm ci

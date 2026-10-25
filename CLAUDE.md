@@ -75,7 +75,7 @@ every line in an interview.
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
 - `src/codetutor/db/`: `engine.py`, `models.py` (8 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
-- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `instructor.py` (Week 8: 4 teacher routes behind a dev token), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
 - `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`), `evaluate.py` (Step 2c: labels join, `f_beta`, grid `search` via `FastFlags`, bootstrap over students), `report.py` (`render_report`)
@@ -556,6 +556,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   hidden tests). docs/rl.md §12, 1 interview note. Wrap-up: README (Weeks 1-7, new "Training a
   small model" section, 783 tests), lab/README, `docs/notes/week6.md` + `week7.md` skeletons.
   Docker Desktop started with Najeeb's OK. `make all`: 783 passed, 33 valid, 85 s **on battery**.
+- **Done (2026-10-25): Week 8 Step 1** (instructor API; plan approved: dev token, pure-Python
+  logistic early warning later). `api/instructor.py`: 4 read-only routes under `/api/instructor/`
+  (`overview`, `students`, `students/{id}`, `problems`) behind `X-Instructor-Token`
+  (`settings.instructor_token()`, env `INSTRUCTOR_TOKEN`, 16+ characters; unset or short = 503,
+  none = 401, wrong = 403, constant-time compare). Skill/difficulty (Rasch on first tries, the
+  Week 5 rule) and review counts (`needs_review`) computed per request, nothing stored, no code
+  returned; no schema change, no new package. `make api-sim` (API on the sim DB, `API_PORT`,
+  needs INSTRUCTOR_TOKEN), docs/api.md §8, 1 interview note, 7 new tests (route list updated;
+  `test_no_api_code_reads_the_flags` now allows only `instructor.py`). Live on the simulated
+  class: 60 students, 3,145 submissions, 265 to review (= the Week 5 count), 0.2-0.3 s per call.
+  Found: **port 8000 is held by another Windows-side service** that answers 404 (not CodeTutor),
+  so `make api` would fail to bind; use `API_PORT=8010 make api-sim` for now. `make all`: 790
+  passed, 33 valid, 62 s on mains right after starting Docker Desktop.
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
@@ -1259,6 +1272,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   teacher, never a punishment, and no route shows them yet (Week 8).
 - `editor_stats` comes from the browser and can be faked (or left out by any other client);
   auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
+- The instructor routes use one shared dev token from the environment (no accounts, no limit on wrong guesses); real auth is needed before hosting (docs/api.md §8).
 - The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
 - GRPO on the 0.5B (Week 6): four folds, one training seed each. Pooled held-out change +0.02
   [-0.02, +0.06] (interval resamples problems only), so no transfer is shown; run-to-run training

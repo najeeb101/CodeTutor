@@ -11,6 +11,8 @@ import os
 DATABASE_URL_ENV = "DATABASE_URL"
 TEST_DATABASE_URL_ENV = "TEST_DATABASE_URL"
 SIM_DATABASE_URL_ENV = "SIM_DATABASE_URL"
+INSTRUCTOR_TOKEN_ENV = "INSTRUCTOR_TOKEN"
+MIN_INSTRUCTOR_TOKEN_CHARS = 16
 # The local dev database from compose.yaml: reachable only from this machine, so its password
 # is not a secret. Never use it for a real deployment.
 DEV_DATABASE_URL = "postgresql://codetutor:codetutor@127.0.0.1:5432/codetutor"
@@ -49,3 +51,14 @@ def sim_database_url(seed: int = 0) -> str:
         return url
     base, _, query = url.partition("?")
     return f"{base}_s{seed}" + (f"?{query}" if query else "")
+
+
+def instructor_token() -> str | None:
+    """The shared dev token for /api/instructor/*, or None if the dashboard is switched off.
+
+    Read at every request, so tests and a restart need no special care. A token shorter than
+    MIN_INSTRUCTOR_TOKEN_CHARS counts as not set: a short dev token is the one that gets guessed.
+    NOT real authentication (docs/api.md §8): one token for all teachers, sent in a header.
+    """
+    token = os.environ.get(INSTRUCTOR_TOKEN_ENV, "")
+    return token if len(token) >= MIN_INSTRUCTOR_TOKEN_CHARS else None

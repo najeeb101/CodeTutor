@@ -18,7 +18,7 @@ from codetutor.api import create_app
 from codetutor.api.schemas import FAILED_MESSAGE, MAX_REPR_CHARS, py_repr
 from codetutor.api.submissions import RateLimitedError, RateLimits, create_submission
 from codetutor.db.engine import make_engine
-from codetutor.db.models import SubmissionRow, UserRow
+from codetutor.db.models import IntegrityFlagRow, SubmissionRow, UserRow
 from codetutor.db.sync import sync_problems
 from codetutor.grader import SubprocessSandbox
 from codetutor.problems import StudentProblem
@@ -568,6 +568,11 @@ EXPECTED_ROUTES = {
     ("GET", "/api/hints"),
     ("GET", "/api/hints/{hint_id}"),
     ("PUT", "/api/hints/{hint_id}/rating"),
+    # The instructor dashboard (Week 8): behind X-Instructor-Token
+    ("GET", "/api/instructor/overview"),
+    ("GET", "/api/instructor/students"),
+    ("GET", "/api/instructor/students/{student_id}"),
+    ("GET", "/api/instructor/problems"),
 }
 # Internal fields that must never be part of any request or response.
 FORBIDDEN_FIELDS = {
@@ -619,3 +624,147 @@ def test_the_api_code_never_names_the_table_with_hidden_tests() -> None:
     for path in files:
         source = path.read_text(encoding="utf-8")
         assert "problem_versions" not in source and "ProblemVersionRow" not in source, path
+
+
+# --- The instructor dashboard (Week 8 Step 1) ---
+
+TEACHER = {"X-Instructor-Token": "t" * 20}
+INSTRUCTOR_PATHS = (
+    "/api/instructor/overview",
+    "/api/instructor/students",
+    "/api/instructor/students/1",
+    "/api/instructor/problems",
+)
+
+
+@pytest.fixture
+def teacher_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the dashboard on with the token in TEACHER."""
+    monkeypatch.setenv("INSTRUCTOR_TOKEN", "t" * 20)
+
+
+def _flag(db_session: Session, submission_id: int, kind: str, reason: str) -> None:
+    db_session.add(
+        IntegrityFlagRow(
+            submission_id=submission_id,
+            kind=kind,
+            value=1.0,
+            reason=reason,
+            details={},
+            detector_version="test",
+        )
+    )
+
+
+def _small_class(client: TestClient, db_engine: Engine, db_session: Session) -> dict[str, int]:
+    """sara solves on her first try; bob fails first, then solves. Bob's first submission has
+    two flags (one entry signal + one content signal = needs review), sara's one (does not)."""
+    sara, bob = _login(client, "sara"), _login(client, "bob")
+    ids = {
+        "sara": _submit(client, sara, SOLUTION),
+        "bob_wrong": _submit(client, bob, BUGGY),
+    }
+    _grade_next(db_engine)
+    _grade_next(db_engine)
+    ids["bob_right"] = _submit(client, bob, SOLUTION)
+    _grade_next(db_engine)
+    _flag(db_session, ids["bob_wrong"], "paste", "One paste of 40 characters.")
+    _flag(db_session, ids["bob_wrong"], "same_as_ai", "Same structure as a known AI answer.")
+    _flag(db_session, ids["sara"], "paste", "One paste of 20 characters.")
+    db_session.commit()
+    ids["bob_user"] = int(bob["X-User-Id"])
+    return ids
+
+
+def test_the_dashboard_is_off_without_a_token(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("INSTRUCTOR_TOKEN", raising=False)
+    for path in INSTRUCTOR_PATHS:
+        assert client.get(path, headers=TEACHER).status_code == 503, path
+
+
+def test_a_short_token_counts_as_no_token(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("INSTRUCTOR_TOKEN", "short")
+    assert (
+        client.get(INSTRUCTOR_PATHS[0], headers={"X-Instructor-Token": "short"}).status_code == 503
+    )
+
+
+def test_a_missing_or_wrong_token_is_refused_and_a_student_login_is_not_enough(
+    client: TestClient, teacher_token: None
+) -> None:
+    student = _login(client)
+    for path in INSTRUCTOR_PATHS:
+        assert client.get(path).status_code == 401, path
+        assert client.get(path, headers=student).status_code == 401, path
+        assert client.get(path, headers={"X-Instructor-Token": "w" * 20}).status_code == 403, path
+        assert client.get(path, headers={"X-Instructor-Token": b"\xe9" * 20}).status_code == 403, (
+            path
+        )
+
+
+def test_the_class_numbers(
+    client: TestClient, db_engine: Engine, db_session: Session, teacher_token: None
+) -> None:
+    ids = _small_class(client, db_engine, db_session)
+    overview = client.get("/api/instructor/overview", headers=TEACHER).json()
+    assert (overview["students"], overview["problems"], overview["submissions"]) == (2, 1, 3)
+    assert overview["graded"] == 3 and overview["accepted_share"] == 0.67
+    assert overview["first_try_solve_share"] == 0.5
+    assert (overview["students_to_review"], overview["submissions_to_review"]) == (1, 1)
+    assert overview["flags_computed_at"] is not None
+
+    students = client.get("/api/instructor/students", headers=TEACHER).json()
+    assert [s["name"] for s in students] == ["bob", "sara"]  # the one to review comes first
+    bob, sara = students
+    assert (bob["submissions"], bob["problems_solved"], bob["first_try_solve_share"]) == (2, 1, 0.0)
+    assert (bob["submissions_to_review"], sara["submissions_to_review"]) == (1, 0)
+    assert sara["first_try_solve_share"] == 1.0 and sara["skill"] > bob["skill"]
+
+    problems = client.get("/api/instructor/problems", headers=TEACHER).json()
+    assert [(p["id"], p["students"], p["first_try_solve_share"]) for p in problems] == [
+        (PROBLEM_ID, 2, 0.5)
+    ]
+    assert problems[0]["estimated_difficulty"] is not None
+    assert ids["bob_user"] == bob["id"]
+
+
+def test_a_student_page_shows_the_reasons_and_never_the_code(
+    client: TestClient, db_engine: Engine, db_session: Session, teacher_token: None
+) -> None:
+    ids = _small_class(client, db_engine, db_session)
+    response = client.get(f"/api/instructor/students/{ids['bob_user']}", headers=TEACHER)
+    detail = response.json()
+    assert [(p["tries"], p["solved"], p["solved_on_first_try"]) for p in detail["problems"]] == [
+        (2, True, False)
+    ]
+    assert [(f["kind"], f["needs_review"], f["submission_id"]) for f in detail["flags"]] == [
+        ("paste", True, ids["bob_wrong"]),
+        ("same_as_ai", True, ids["bob_wrong"]),
+    ]
+    assert detail["flags"][0]["reason"] == "One paste of 40 characters."
+    everything = "".join(
+        client.get(path, headers=TEACHER).text
+        for path in (*INSTRUCTOR_PATHS[:2], INSTRUCTOR_PATHS[3], response.request.url.path)
+    )
+    assert "def sum_of_evens" not in everything and "return" not in everything
+
+
+def test_an_unknown_or_silent_student_is_404_and_a_bad_id_is_422(
+    client: TestClient, teacher_token: None
+) -> None:
+    _login(client, "quiet")  # exists, never submitted
+    assert client.get("/api/instructor/students/99999", headers=TEACHER).status_code == 404
+    assert client.get("/api/instructor/students/1", headers=TEACHER).status_code == 404
+    assert client.get("/api/instructor/students/0", headers=TEACHER).status_code == 422
+
+
+def test_an_empty_class_still_answers(client: TestClient, teacher_token: None) -> None:
+    overview = client.get("/api/instructor/overview", headers=TEACHER).json()
+    assert overview["students"] == 0 and overview["accepted_share"] is None
+    assert overview["skill_fit_settled"] is None
+    assert client.get("/api/instructor/students", headers=TEACHER).json() == []
+    assert client.get("/api/instructor/problems", headers=TEACHER).json()[0]["students"] == 0
