@@ -249,3 +249,25 @@ make rl-noise-report    # lab/rl/reports/noise.md (no GPU)
 - **Consequence for Step 2:** a stronger recipe must be judged against ±0.11 per fold, so it
   needs a much larger gain, or more held-out answers per problem (e.g. 30 instead of 10), to be
   readable.
+
+## 10. Thirty answers per problem (Week 7, Step 2a)
+
+```bash
+make rl-pool-run        # ~1.75 h; GPU + Docker: the 7 missing draws (resumable)
+make rl-pool-report     # lab/rl/reports/pooled.md (no GPU, byte-identical)
+```
+- **Method:** every model (untrained 0.5B, adapters a-d) now has three draws (`seed_base` 0,
+  1000, 2000) of 10 answers per problem, pooled to 30 answers per problem. 7 new runs, 330
+  answers each, metas `git_dirty: false` (commit 0782f6d). The rule was written in `rl/pooled.py`
+  before the runs: "above noise" only if the 95% interval over problems excludes 0 **and** the
+  change is larger than `1.96 x SD / sqrt(m)`; SD 0.092 comes from the untrained model's 3 draws.
+- **Result (held-out, before -> after):** a +0.03 [-0.01, +0.06], b 0.00 [-0.04, +0.05],
+  c +0.03 [0.00, +0.05], d +0.04 [0.00, +0.09]; **all 33 problems pooled +0.02 [0.00, +0.04],
+  15 better / 8 worse / 10 same, band ±0.032. Every row is "within noise".** Pooled pass@1 over
+  all problems: untrained 0.652; adapters 0.688 / 0.710 / 0.710 / 0.690 (these include
+  problems each adapter trained on).
+- **Honest reading:** the pooled interval now just touches 0 and the direction is positive in all
+  four folds, but the change (+0.023) is smaller than the band (0.032), so by our own rule we
+  do not claim transfer. This is a small possible effect, not a shown one.
+- **Limits:** SD from 3 draws is uncertain; evaluation noise only. **Training noise** (another
+  training seed) is still unmeasured. The band treats problems as independent.

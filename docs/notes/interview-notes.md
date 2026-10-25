@@ -638,3 +638,14 @@ Measure its spread first (re-run with another seed), write the "above noise" rul
 looking, then judge the training result against it.
 *How I'd say it:* "I re-ran the baseline with another seed to get an evaluation noise floor, and
 my RL gains were inside it, so I reported 'not distinguishable from noise' instead of a win."
+
+## More samples per item narrows the evaluation noise, not the training noise (Week 7, Step 2a)
+We evaluated each model in three sampling draws and pooled them, so each problem had 30 answers
+instead of 10. The noise band for all 33 problems shrank from about ±0.055 to ±0.032, and the
+pooled held-out change (+0.02, interval [0.00, +0.04]) was still smaller than the band, so we
+did not claim an improvement. More samples only reduce the luck of sampling. They do nothing
+about the luck of one training run: that needs another training seed. Decide the "above noise"
+rule before looking at the result, and keep it even when the number looks nearly good.
+*How I'd say it:* "I tripled the samples per problem to cut evaluation noise. The effect was
+positive in all four folds but under my pre-registered band, so I reported it as 'possible, not
+shown', and named training-seed noise as the next thing to measure."
