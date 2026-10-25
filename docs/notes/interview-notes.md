@@ -649,3 +649,14 @@ rule before looking at the result, and keep it even when the number looks nearly
 *How I'd say it:* "I tripled the samples per problem to cut evaluation noise. The effect was
 positive in all four folds but under my pre-registered band, so I reported it as 'possible, not
 shown', and named training-seed noise as the next thing to measure."
+
+## A second training seed tells you if the result is repeatable (Week 7, Step 2b)
+We trained the same GRPO recipe twice on fold c, changing only the random seed, and evaluated
+each adapter with 30 answers per problem. The held-out changes were +0.03 and +0.04, and the
+train changes +0.07 and +0.08. Before the second run we wrote the rule: the seeds agree if both
+point the same way and differ by less than the evaluation band (±0.064). They agreed. But
+agreement is not the same as an effect: both numbers are still under the band for 8 problems.
+Two seeds answer "is the run repeatable?", not "is the gain real?".
+*How I'd say it:* "I repeated training with another seed against a rule written in advance.
+The runs agreed, so the result is repeatable, but it stayed inside the noise band, so I did not
+claim transfer."

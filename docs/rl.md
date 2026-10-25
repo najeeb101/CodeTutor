@@ -290,4 +290,15 @@ make rl-seed-run              # ~45 min: three sampling draws of that adapter
 make rl-seed-report           # lab/rl/reports/seeds.md (no GPU)
 ```
 
-Results: (to be filled after the run)
+Results (`lab/rl/reports/seeds.md`, byte-identical on rebuild; seed 1 adapter `807e3d7d0c6d`,
+weights git-ignored like fold c; 100 steps):
+
+| Problems | Change seed 0 | Change seed 1 | Seed 1 − seed 0 | Noise band | Verdict |
+|---|---|---|---|---|---|
+| fold c held out (8) | +0.03 | +0.04 | +0.02 [−0.02, +0.05] | ±0.064 | seeds agree |
+| fold c train (25) | +0.07 | +0.08 | +0.01 [−0.01, +0.03] | ±0.036 | seeds agree |
+
+- **Reading:** the two training runs give almost the same result, on the held-out and on the train
+  problems. So one training run is repeatable here: the first seed was not a lucky one.
+- **Not shown:** both held-out changes (+0.03, +0.04) are still under the Step 2a evaluation band
+  for 8 problems, so this is repeatability, not proof of transfer. Two seeds on one fold only.
