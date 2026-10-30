@@ -1239,6 +1239,8 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   and reports are committed. Reading the flagged "visible result written out" answers by hand
   is still undone.
 
+- 2026-10-30: Q14 closed with option A (Najeeb): leave the test. Measured: 1 failure in 90 isolated runs (5.7 s; 0 in the last 60) plus 1 in `make all` the same evening. WSL had 6.4 of 7.8 GB used, 433 MB free, so the likely cause is memory reclaim stalls longer than any timer. Rerun the one test if it fails; a broken memory limit would fail every run.
+
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)
 
