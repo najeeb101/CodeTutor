@@ -148,3 +148,63 @@ export interface Hint {
   rating: 1 | -1 | null;
   message: string | null; // set when job_status is "failed"
 }
+
+// ---- Instructor dashboard (api/instructor.py). Dates are ISO strings; shares are 0..1. ----
+
+export interface InstructorOverview {
+  students: number;
+  problems: number;
+  submissions: number;
+  graded: number;
+  accepted_share: number | null;
+  first_try_solve_share: number | null;
+  students_to_review: number;
+  submissions_to_review: number;
+  flags_computed_at: string | null; // null: the integrity job never ran
+  skill_fit_settled: boolean | null;
+}
+
+export interface InstructorStudent {
+  id: number;
+  name: string;
+  submissions: number;
+  problems_tried: number;
+  problems_solved: number;
+  first_try_solve_share: number | null;
+  last_active: string | null;
+  skill: number | null; // Rasch estimate, higher = more skilled
+  submissions_to_review: number;
+}
+
+export interface InstructorStudentProblem {
+  problem_id: string;
+  title: string;
+  tries: number;
+  solved: boolean;
+  solved_on_first_try: boolean | null;
+}
+
+export interface InstructorFlag {
+  submission_id: number;
+  problem_id: string;
+  kind: string;
+  reason: string; // the sentence for the teacher
+  value: number;
+  needs_review: boolean;
+  created_at: string;
+}
+
+export interface InstructorStudentDetail extends InstructorStudent {
+  problems: InstructorStudentProblem[];
+  flags: InstructorFlag[];
+}
+
+export interface InstructorProblem {
+  id: string;
+  title: string;
+  module: number;
+  declared_difficulty: string;
+  students: number;
+  first_try_solve_share: number | null;
+  estimated_difficulty: number | null; // Rasch, higher = harder
+}

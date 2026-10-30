@@ -569,10 +569,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Found: **port 8000 is held by another Windows-side service** that answers 404 (not CodeTutor),
   so `make api` would fail to bind; use `API_PORT=8010 make api-sim` for now. `make all`: 790
   passed, 33 valid, 62 s on mains right after starting Docker Desktop.
+- **Done (2026-10-30): Week 8 Step 2** (instructor dashboard UI; plan approved). `web/app/instructor/`
+  (overview cards, sortable student table, problem table, one-student page with marks),
+  `components/instructor/`, `lib/instructorToken.tsx` (token in `sessionStorage`; a 401/403 forgets
+  it), `apiFetch` option `instructorToken`, hand-written types, dashboard steps in `web/scripts/e2e.mjs`
+  (`E2E_ONLY=instructor`; skipped when `INSTRUCTOR_TOKEN` is unset). One open
+  `TODO(najeeb)`: `compareValues` in `StudentTable.tsx` (null skill must sort last). Checked live
+  on the simulated class (API :8010, web :3101): 401 / 403 / 200, 60 students, 265 to review, 116
+  flags for sim-050, no `def `/`return ` in any response, `make web-check` OK. **The browser
+  checks did NOT run**: WSL could not start Windows programs (`cmd.exe` failed with
+  `UtilAcceptVsock accept4 failed 110`), so no screenshots yet. Q14 closed (option A).
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
-- **Open:** (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).

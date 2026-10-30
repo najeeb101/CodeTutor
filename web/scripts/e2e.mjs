@@ -265,12 +265,76 @@ function steps(page) {
   ];
 }
 
+// --- The instructor dashboard (needs INSTRUCTOR_TOKEN, the same value the API was started with) ---
+
+const TOKEN = process.env.INSTRUCTOR_TOKEN ?? "";
+
+// React ignores a plain `input.value = ...`; the native setter plus an input event works.
+function typeInto(selector, text) {
+  return `(() => {
+    const input = document.querySelector(${JSON.stringify(selector)});
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(text)});
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`;
+}
+
+function instructorSteps(page) {
+  const openDashboard = async (token) => {
+    await page.send("Page.navigate", { url: `${WEB}/instructor` });
+    await sleep(500);
+    await waitFor(() => page.js("!!document.querySelector('.login input[type=password]')"), "the token box");
+    await page.js(typeInto(".login input[type=password]", token));
+    await page.js("document.querySelector('.login button[type=submit]').click()");
+  };
+  return [
+    ["dashboard: a wrong token is refused", async () => {
+      await page.send("Page.navigate", { url: `${WEB}/instructor` });
+      await sleep(1000);
+      await page.js("sessionStorage.clear()");
+      await openDashboard("this-is-not-the-token");
+      const message = await waitFor(() => page.js("document.querySelector('[role=alert]')?.textContent"), "the error text");
+      expect(message.includes("Wrong teacher token"), `got "${message}"`);
+      await waitFor(() => page.js("!!document.querySelector('.login input[type=password]')"), "the token box to come back");
+      return message;
+    }],
+    ["dashboard: the right token shows the class", async () => {
+      await openDashboard(TOKEN);
+      await waitFor(() => page.js("document.querySelectorAll('.cards li').length >= 6"), "the overview cards");
+      const rows = await waitFor(() => page.js("document.querySelectorAll('table.data')[0]?.querySelectorAll('tbody tr').length"), "the student rows");
+      const problems = await page.js("document.querySelectorAll('table.data')[1]?.querySelectorAll('tbody tr').length ?? 0");
+      expect(problems > 0, "no problem rows");
+      const text = await page.js("document.body.textContent");
+      expect(!/def \w+\(/.test(text), "student code is shown on the dashboard");
+      return `${rows} students, ${problems} problems`;
+    }],
+    ["dashboard: a student page lists marks and problems", async () => {
+      await page.js("document.querySelector('table.data tbody a').click()");
+      await waitFor(() => page.js("document.body.textContent.includes('Marked submissions')"), "the student page");
+      const rows = await page.js("document.querySelectorAll('table.data tbody tr').length");
+      expect(rows > 0, "no problem rows on the student page");
+      return `${rows} problems listed`;
+    }],
+    ["dashboard: no errors in the browser console", async () => {
+      expect(page.consoleErrors.length === 0, JSON.stringify(page.consoleErrors));
+      return "none";
+    }],
+  ];
+}
+
 async function main() {
   const chrome = await startChrome();
   let failed = false;
   try {
-    const page = await openPage(`${WEB}/problems/${PROBLEM}`);
-    for (const [name, run] of steps(page)) {
+    // E2E_ONLY=instructor runs just the dashboard checks (no worker or tutor needed).
+    const onlyInstructor = process.env.E2E_ONLY === "instructor";
+    if (onlyInstructor && TOKEN === "") {
+      throw new Error("E2E_ONLY=instructor needs INSTRUCTOR_TOKEN (the value the API was started with)");
+    }
+    const page = await openPage(onlyInstructor ? `${WEB}/instructor` : `${WEB}/problems/${PROBLEM}`);
+    const all = onlyInstructor ? [] : steps(page);
+    if (TOKEN !== "") all.push(...instructorSteps(page));
+    else if (!onlyInstructor) console.log("(dashboard checks skipped: INSTRUCTOR_TOKEN is not set)");
+    for (const [name, run] of all) {
       const started = Date.now();
       try {
         const detail = await run();

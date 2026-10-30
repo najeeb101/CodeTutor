@@ -348,3 +348,80 @@ main {
 .error-page {
   max-width: 640px;
 }
+
+/* --- Instructor dashboard --- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cards li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.cards strong {
+  font-size: 1.25rem;
+}
+
+.data {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto; /* wide tables scroll inside themselves on a phone */
+}
+
+.data th,
+.data td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data th button {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.data th button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.bar {
+  position: relative;
+  display: inline-block;
+  width: 7rem;
+  height: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--code-bg);
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+.bar-text {
+  position: relative;
+  padding-left: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.flags {
+  padding-left: 1.2rem;
+}

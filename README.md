@@ -164,6 +164,10 @@ the whole chain:
 make e2e      # 11 checks over HTTP: API, workers, web pages, hidden tests stay hidden, a hint (~19 s)
 make web-e2e  # 9 checks in headless Chrome: log in, submit, results, a hint + 👍, limits, drafts (~27 s)
 ```
+The teacher dashboard is at http://localhost:3100/instructor. It needs a token the API was
+started with (`INSTRUCTOR_TOKEN`, 16+ characters), and it is most interesting on the simulated
+class: see [docs/api.md](docs/api.md) §8. Its browser checks:
+`INSTRUCTOR_TOKEN=... E2E_ONLY=instructor node web/scripts/e2e.mjs`.
 `make web-e2e` starts its own Chrome (in WSL, the Windows Chrome; `CHROME=/path` picks
 another one). Without the UI, `scripts/submit.py` sends a file to the queue:
 `uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait`.

@@ -262,4 +262,10 @@ limit on wrong guesses: fine on `127.0.0.1`, to be replaced by real accounts bef
   curl -s http://127.0.0.1:8000/api/instructor/overview -H "X-Instructor-Token: <your token>"
   ```
   (`make sim` and `make integrity` must have run before, ~13 min.)
+- **The dashboard (Week 8 Step 2)** is `/instructor` in the web UI. The teacher types the token
+  into a box; it is kept in `sessionStorage` (gone when the tab closes) and sent as
+  `X-Instructor-Token`. A wrong token (401/403) is forgotten and the box comes back. The pages are
+  client components, because the token exists only in the browser. To see it on the simulated
+  class: `INSTRUCTOR_TOKEN=... API_PORT=8010 make api-sim`, then
+  `CODETUTOR_API_URL=http://127.0.0.1:8010 make web`.
 - Only `api/instructor.py` reads `integrity_flags`; `test_no_api_code_reads_the_flags` pins that.

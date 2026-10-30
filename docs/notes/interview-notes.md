@@ -683,3 +683,14 @@ we wrote that in the docs. Estimates are computed per request instead of stored,
 never be out of date with the submissions.
 *How I'd say it:* "I made the teacher view fail closed: without a configured token it is off,
 and I wrote down that a shared token is a stopgap until real accounts."
+
+## A secret in the browser: where it may live (Week 8, Step 2)
+The teacher dashboard needs the shared token on every request, so the browser must hold it.
+We keep it in `sessionStorage`: it disappears when the tab closes, and other tabs of other
+sites can't read it. `localStorage` would keep a secret on the laptop for good. We did not put
+the token in the Next.js server instead, because then anyone who can open the page would see
+the class data. A wrong token clears itself, so the box comes back. This is still a stopgap:
+the token is one shared secret, and any script on the page could read it. Real accounts and
+short-lived sessions come before hosting.
+*How I'd say it:* "The dashboard token lives in session storage so it dies with the tab, and I
+wrote down that real login is the fix, because any script on the page could read it."

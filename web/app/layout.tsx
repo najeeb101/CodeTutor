@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LoginBox } from "@/components/LoginBox";
+import { InstructorTokenProvider } from "@/lib/instructorToken";
 import { UserProvider } from "@/lib/user";
 
 import "./globals.css";
@@ -17,13 +18,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <UserProvider>
-          <header className="site-header">
-            <Link href="/" className="brand">
-              CodeTutor
-            </Link>
-            <LoginBox />
-          </header>
-          <main>{children}</main>
+          <InstructorTokenProvider>
+            <header className="site-header">
+              <Link href="/" className="brand">
+                CodeTutor
+              </Link>
+              <Link href="/instructor">Instructor</Link>
+              <LoginBox />
+            </header>
+            <main>{children}</main>
+          </InstructorTokenProvider>
         </UserProvider>
       </body>
     </html>
