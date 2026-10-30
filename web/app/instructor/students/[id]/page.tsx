@@ -41,6 +41,10 @@ function Detail({ id }: { id: string }) {
           <strong>{formatNumber(data.skill)}</strong>
         </li>
         <li>
+          <span className="muted">Risk</span>
+          <Bar share={data.risk} />
+        </li>
+        <li>
           <span className="muted">Last active</span>
           <strong>{formatWhen(data.last_active)}</strong>
         </li>

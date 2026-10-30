@@ -14,6 +14,7 @@ type SortKey = keyof Pick<
   | "problems_solved"
   | "first_try_solve_share"
   | "skill"
+  | "risk"
   | "submissions_to_review"
   | "last_active"
 >;
@@ -23,6 +24,7 @@ const COLUMNS: [SortKey, string][] = [
   ["problems_solved", "Solved / tried"],
   ["first_try_solve_share", "First try"],
   ["skill", "Skill"],
+  ["risk", "Risk"],
   ["submissions_to_review", "To look at"],
   ["last_active", "Last active"],
 ];
@@ -79,6 +81,9 @@ export function StudentTable({ students }: { students: InstructorStudent[] }) {
               <Bar share={student.first_try_solve_share} />
             </td>
             <td>{formatNumber(student.skill)}</td>
+            <td>
+              <Bar share={student.risk} />
+            </td>
             <td>{student.submissions_to_review || <span className="muted">0</span>}</td>
             <td>{formatWhen(student.last_active)}</td>
           </tr>

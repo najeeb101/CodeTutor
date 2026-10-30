@@ -305,6 +305,14 @@ function instructorSteps(page) {
       expect(problems > 0, "no problem rows");
       const text = await page.js("document.body.textContent");
       expect(!/def \w+\(/.test(text), "student code is shown on the dashboard");
+      const riskHeader = await page.js(
+        "[...document.querySelectorAll('table.data')[0].querySelectorAll('thead button')].some((b) => b.textContent.startsWith('Risk'))",
+      );
+      expect(riskHeader, "no Risk column header");
+      expect(
+        text.includes("early-warning score") || text.includes("once the class has reached week 3"),
+        "no Risk explanation text",
+      );
       return `${rows} students, ${problems} problems`;
     }],
     ["dashboard: a student page lists marks and problems", async () => {

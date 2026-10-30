@@ -98,3 +98,29 @@ def predict(model: LogisticModel, row: Sequence[float]) -> float:
         for w, v, m, s in zip(model.weights, row, model.means, model.spreads, strict=True)
     )
     return sigmoid(model.bias + z)
+
+
+def model_to_json(model: LogisticModel) -> dict[str, object]:
+    """The model as plain lists and numbers, ready for `json.dumps`."""
+    return {
+        "means": model.means,
+        "spreads": model.spreads,
+        "weights": model.weights,
+        "bias": model.bias,
+        "iterations": model.iterations,
+    }
+
+
+def model_from_json(data: dict[str, object]) -> LogisticModel:
+    """The reverse of `model_to_json`; a missing or malformed field is a clear error."""
+    try:
+        means, spreads, weights = (
+            [float(v) for v in data[key]]  # type: ignore[union-attr]
+            for key in ("means", "spreads", "weights")
+        )
+        bias, iterations = float(data["bias"]), int(data["iterations"])  # type: ignore[arg-type]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"not a saved logistic model: {exc!r}") from exc
+    if not (len(means) == len(spreads) == len(weights)):
+        raise ValueError("not a saved logistic model: the lists have different lengths")
+    return LogisticModel(means, spreads, weights, bias, iterations)

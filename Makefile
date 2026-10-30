@@ -1,4 +1,4 @@
-.PHONY: early rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -90,8 +90,11 @@ integrity: db-up  ## run the integrity checks on both simulated classes + write 
 skill: db-up  ## write lab/skill/reports/skill.md from both graded simulated classes (~25 s)
 	uv run python scripts/skill.py report
 
-early: db-up  ## write lab/early/reports/early_warning.md from both graded simulated classes (~10 s)
+early: db-up  ## write lab/early/reports/early_warning.md from both graded simulated classes; refuses if the model file the API serves differs from a fresh fit (~15 s)
 	uv run python scripts/early_warning.py report
+
+early-export: db-up  ## refit on the simulated class seed 0 and write src/codetutor/early/model_week3.json (the model the API serves)
+	uv run python scripts/early_warning.py export-model
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
 	uv run python scripts/e2e_check.py

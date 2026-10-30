@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from codetutor.api.deps import SessionDep
 from codetutor.api.schemas import MAX_ID
 from codetutor.db.models import IntegrityFlagRow, ProblemRow, SubmissionRow, UserRow
+from codetutor.early.served import risk_scores
 from codetutor.integrity.signals import FlagKind, SubmissionInfo, needs_review
 from codetutor.settings import instructor_token
 from codetutor.skill.load import first_attempts
@@ -61,6 +62,7 @@ class OverviewOut(BaseModel):
     submissions_to_review: int
     flags_computed_at: datetime | None  # None: the integrity job never ran
     skill_fit_settled: bool | None  # None: nothing to fit
+    risk_available: bool  # False until the class has a submission in week 3 or later
 
 
 class StudentRow(BaseModel):
@@ -73,6 +75,9 @@ class StudentRow(BaseModel):
     last_active: datetime | None
     skill: float | None  # Rasch, higher = more skilled; None: no graded first try
     submissions_to_review: int
+    # Early-warning score (0..1, higher = may struggle later), from weeks 1-3 only. A reason to
+    # check in, never a verdict. None: too early in the course, or no work in weeks 1-3.
+    risk: float | None
 
 
 class StudentProblemRow(BaseModel):
@@ -119,6 +124,7 @@ class ClassData:
     first_try: dict[tuple[str, str], bool] = field(default_factory=dict)  # (name, problem)
     fit: RaschFit | None = None
     review_ids: set[int] = field(default_factory=set)
+    risk: dict[str, float] | None = None  # by student name; None: too early
 
 
 def load_class(session: Session) -> ClassData:
@@ -151,6 +157,7 @@ def load_class(session: Session) -> ClassData:
         SubmissionInfo(sid, name, pid, "", created, "", None, status)
         for sid, _uid, name, pid, created, status in data.submissions
     ]
+    data.risk = risk_scores(infos)
     attempts = first_attempts(infos)
     data.first_try = {(r.student, r.problem): r.solved for r in attempts.responses}
     data.fit = fit_rasch(attempts.responses) if attempts.responses else None
@@ -187,6 +194,7 @@ def student_rows(data: ClassData) -> list[StudentRow]:
                 last_active=max(created for _sid, _pid, created, _s in subs),
                 skill=_rounded(data.fit.skill.get(name)) if data.fit else None,
                 submissions_to_review=sum(sid in data.review_ids for sid, *_ in subs),
+                risk=_rounded(data.risk.get(name)) if data.risk else None,
             )
         )
     return sorted(rows, key=lambda r: (-r.submissions_to_review, r.name))
@@ -209,6 +217,7 @@ def overview(data: ClassData) -> OverviewOut:
         submissions_to_review=len(data.review_ids),
         flags_computed_at=flags_at,
         skill_fit_settled=data.fit.converged if data.fit else None,
+        risk_available=data.risk is not None,
     )
 
 

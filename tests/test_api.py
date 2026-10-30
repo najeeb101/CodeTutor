@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -730,6 +731,29 @@ def test_the_class_numbers(
     ]
     assert problems[0]["estimated_difficulty"] is not None
     assert ids["bob_user"] == bob["id"]
+
+
+def test_risk_is_null_early_in_the_course_and_a_number_once_week_three_is_reached(
+    client: TestClient, db_engine: Engine, db_session: Session, teacher_token: None
+) -> None:
+    ids = _small_class(client, db_engine, db_session)  # everything happened in week 1
+    overview = client.get("/api/instructor/overview", headers=TEACHER).json()
+    students = client.get("/api/instructor/students", headers=TEACHER).json()
+    assert overview["risk_available"] is False
+    assert all(s["risk"] is None for s in students)
+
+    # Move bob's second try to day 15 after his first: the class now has a week-3 submission.
+    first = db_session.get(SubmissionRow, ids["bob_wrong"])
+    db_session.get(SubmissionRow, ids["bob_right"]).created_at = first.created_at + timedelta(
+        days=15
+    )
+    db_session.commit()
+    overview = client.get("/api/instructor/overview", headers=TEACHER).json()
+    students = client.get("/api/instructor/students", headers=TEACHER).json()
+    assert overview["risk_available"] is True
+    assert all(0.0 <= s["risk"] <= 1.0 for s in students)
+    detail = client.get(f"/api/instructor/students/{ids['bob_user']}", headers=TEACHER).json()
+    assert detail["risk"] is not None
 
 
 def test_a_student_page_shows_the_reasons_and_never_the_code(

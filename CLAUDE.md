@@ -588,6 +588,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   [0.86, 0.99] vs first-try rule 0.92, top 10: 8 of 10 both: **not shown to beat the simple
   rule**; model worse at week 2 (0.81 vs 0.94). Open `TODO(najeeb)` in `tests/test_early.py`
   (rank-formula AUC test). Step 3b (risk column in API + dashboard) not started: ideas.md.
+- **Done (2026-10-30): Week 8 Step 3b** (risk on the instructor dashboard; plan approved; web and
+  docs were written by two parallel agents, diffs reviewed). `early/served.py` + committed
+  `src/codetutor/early/model_week3.json` (version "1", fitted on sim seed 0; the API never
+  fits), `logistic.model_to_json/from_json`, `risk` (0..1 or null) per student and `risk_available`
+  in the overview (null until the class has a week-3 submission), `make early-export`, `make early`
+  refuses to run if the file differs from a fresh fit, Risk column + card + sentence in the web UI,
+  e2e asserts (not run: no Chrome from WSL). Live on held-out seed 1: 60 rows, risk 0.00-0.96, top 10
+  equal to `early_warning.py show`, no code in responses. The row order is unchanged. Q14 test
+  (stopping the other projects' containers): 1 of 3 `make all` runs failed (a 22 s stall),
+  inconclusive; the containers were restarted at Najeeb's request.
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.

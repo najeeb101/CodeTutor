@@ -3,10 +3,13 @@
 Usage:
     python scripts/early_warning.py report        # lab/early/reports/early_warning.md
     python scripts/early_warning.py show --dev    # the model's top students in the dev database
+    python scripts/early_warning.py export-model  # write the model file the API uses
 
 `report` reads the two graded simulated classes (`make sim`, `SIM_SEED=1 make sim`), fits the
 model on seed 0 and scores both. It never writes to a database and never reads the cohort
-files' labels. `show` fits on the simulated class seed 0 and scores the dev database.
+files' labels. `show` scores the dev database with the committed model file (made by `export-model`,
+which fits on the simulated class seed 0). `report` refuses to run if that file no longer
+matches a fresh fit.
 See docs/early-warning.md.
 """
 
@@ -29,8 +32,16 @@ from codetutor.early.evaluate import (
     stoppers,
 )
 from codetutor.early.features import course_start, features_at
-from codetutor.early.logistic import predict
+from codetutor.early.logistic import LogisticModel, predict
 from codetutor.early.report import EarlyClass, render_report
+from codetutor.early.served import (
+    EARLY_VERSION,
+    MODEL_FILE,
+    ServedModel,
+    load_served_model,
+    read_model,
+    save_model,
+)
 from codetutor.evals.report import fixed
 from codetutor.integrity.signals import SubmissionInfo
 from codetutor.integrity.store import load_submissions
@@ -51,9 +62,12 @@ def main() -> int:
     commands.add_parser("report", help=f"write {REPORT.relative_to(REPO)}")
     show = commands.add_parser("show", help="the top students of one database")
     show.add_argument("--dev", action="store_true", required=True)
+    commands.add_parser("export-model", help=f"write {MODEL_FILE.name}")
     args = parser.parse_args()
     try:
-        return _report() if args.command == "report" else _show()
+        if args.command == "report":
+            return _report()
+        return _export() if args.command == "export-model" else _show()
     except OperationalError as exc:
         print(
             f"can't reach the database: run `make db-up` (and `make sim`, "
@@ -83,6 +97,7 @@ def _report() -> int:
     data = {seed: _load(_sim_url(seed)) for seed in SEEDS}
     starts = {seed: course_start(rows) for seed, rows in data.items()}
     models = {c: fit_for(data[TRAIN_SEED], c, starts[TRAIN_SEED]) for c in CUTOFFS}
+    _check_committed_model(models[MAIN_CUTOFF])
     classes = []
     for seed in SEEDS:
         experiments = {c: score_class(models[c], data[seed], c, starts[seed]) for c in CUTOFFS}
@@ -105,9 +120,43 @@ def _report() -> int:
     return 0
 
 
-def _show() -> int:
+def _fitted_model() -> ServedModel:
     train = _load(_sim_url(TRAIN_SEED))
     model = fit_for(train, MAIN_CUTOFF, course_start(train))
+    return ServedModel(model, MAIN_CUTOFF, f"simulated class seed {TRAIN_SEED}", EARLY_VERSION)
+
+
+def _export() -> int:
+    save_model(MODEL_FILE, _fitted_model())
+    print(f"wrote {MODEL_FILE.relative_to(REPO)}")
+    return 0
+
+
+def _check_committed_model(fresh: LogisticModel) -> None:
+    """The file the API serves must be the model this report measures."""
+    try:
+        saved = read_model(MODEL_FILE).model
+    except (OSError, ValueError) as exc:
+        raise SystemExit(
+            f"{exc}\nrun `uv run python scripts/early_warning.py export-model`"
+        ) from exc
+    pairs = [
+        (saved.weights, fresh.weights),
+        (saved.means, fresh.means),
+        (saved.spreads, fresh.spreads),
+        ([saved.bias], [fresh.bias]),
+    ]
+    if any(abs(a - b) > 1e-9 for x, y in pairs for a, b in zip(x, y, strict=True)):
+        raise SystemExit(
+            f"{MODEL_FILE.name} differs from a fresh fit on the simulated class: the report "
+            "would not describe the model the API serves. If the change is intended, run "
+            "`uv run python scripts/early_warning.py export-model` and commit the file."
+        )
+
+
+def _show() -> int:
+    served = load_served_model()
+    model = served.model
     rows = _load(database_url())
     if not rows:
         print("no submissions yet")

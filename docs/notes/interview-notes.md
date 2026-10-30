@@ -706,3 +706,14 @@ top 10 students (what a teacher can read), not by a probability threshold. A sco
 to check in. It is not a verdict, and a warning changes the future it predicts.
 *How I'd say it:* "I cut the data at the cutoff before computing anything, compared against a
 one-line baseline, and reported that my model was not clearly better."
+
+## Shipping a model: freeze it, version it, refuse to drift (Week 8, Step 3b)
+The dashboard shows a risk score, so the model must be the same one the report measured. We did
+not refit on every request: the answer would change with the data and the page would be slow. We
+fitted once on simulated class seed 0 and committed the weights as a file with a version
+(`model_week3.json`, version "1"). The API only loads it. `make early-export` rewrites the file,
+and `make early` refuses to run if the file differs from a fresh fit, so the served model and the
+report cannot drift apart. The score is null when there is nothing to base it on (no week-3 data).
+It is still a simulated class: not shown to beat first-try share, and no fairness check yet.
+*How I'd say it:* "I froze the fitted model in a versioned file, and a check fails if it differs
+from a fresh fit, so what the dashboard serves is what the report measured."

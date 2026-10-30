@@ -32,6 +32,11 @@ function Dashboard() {
         Skill is a Rasch estimate from first tries only (higher = more skilled). Click a column
         to sort; the default order puts the most submissions to look at first.
       </p>
+      <p className="muted">
+        {overview.data.risk_available
+          ? "Risk is an early-warning score from weeks 1-3 (higher = may struggle later). It comes from a model fitted on a simulated class and is not shown to beat simply looking at first-try share. A reason to check in, never a verdict."
+          : "Risk appears once the class has reached week 3."}
+      </p>
       <StudentTable students={students.data} />
       <h2>Problems</h2>
       <p className="muted">

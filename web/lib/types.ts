@@ -162,6 +162,7 @@ export interface InstructorOverview {
   submissions_to_review: number;
   flags_computed_at: string | null; // null: the integrity job never ran
   skill_fit_settled: boolean | null;
+  risk_available: boolean; // false while the class is before week 3
 }
 
 export interface InstructorStudent {
@@ -174,6 +175,7 @@ export interface InstructorStudent {
   last_active: string | null;
   skill: number | null; // Rasch estimate, higher = more skilled
   submissions_to_review: number;
+  risk: number | null; // early-warning score 0..1 (higher = may struggle later); null = too early or no work in weeks 1-3
 }
 
 export interface InstructorStudentProblem {

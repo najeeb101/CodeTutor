@@ -34,7 +34,7 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
 | `lib/poll.ts` | `pollUntilFinished`: the polling loop shared by submissions and hints |
 | `lib/types.ts` | the API's answers as TypeScript types (written by hand) |
 | `lib/editorStats.ts` | `EditorTracker`: counts typed and pasted characters for the editor summary sent with each submit |
-| `app/instructor/page.tsx`, `app/instructor/students/[id]/page.tsx` | teacher dashboard: overview, students (sortable), problems; one student with marks (client components) |
+| `app/instructor/page.tsx`, `app/instructor/students/[id]/page.tsx` | teacher dashboard: overview, students (sortable), problems; one student with marks and a risk score (sortable Risk column, Risk card; client components) |
 | `components/instructor/` | `TokenGate` (teacher token box), `OverviewCards`, `StudentTable`, `ProblemTable`, `Bar` |
 | `lib/instructorToken.tsx` | the teacher dev token (sessionStorage, not localStorage) and `useInstructorData` |
 | `lib/user.tsx`, `lib/storage.ts` | the logged-in user (React context + localStorage) |

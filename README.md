@@ -166,7 +166,7 @@ make web-e2e  # 9 checks in headless Chrome: log in, submit, results, a hint + �
 ```
 The teacher dashboard is at http://localhost:3100/instructor. It needs a token the API was
 started with (`INSTRUCTOR_TOKEN`, 16+ characters), and it is most interesting on the simulated
-class: see [docs/api.md](docs/api.md) §8. Its browser checks:
+class (with an early-warning risk column, see below): see [docs/api.md](docs/api.md) §8. Its browser checks:
 `INSTRUCTOR_TOKEN=... E2E_ONLY=instructor node web/scripts/e2e.mjs`.
 `make web-e2e` starts its own Chrome (in WSL, the Windows Chrome; `CHROME=/path` picks
 another one). Without the UI, `scripts/submit.py` sends a file to the queue:
@@ -305,6 +305,8 @@ the simple rule**. It cannot see students who will quit (they look average until
 make early                                        # writes lab/early/reports/early_warning.md (~15 s)
 uv run python scripts/early_warning.py show --dev # top risk scores in the dev database
 ```
+`make early-export` rewrites the model file the dashboard serves
+(`src/codetutor/early/model_week3.json`); `make early` refuses to run if it differs from a fresh fit.
 How it works: [docs/early-warning.md](docs/early-warning.md). Report:
 [early warning](lab/early/reports/early_warning.md).
 

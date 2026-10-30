@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import math
 import random
 from datetime import UTC, datetime, timedelta
@@ -10,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from codetutor.early import evaluate, features, logistic
+from codetutor.early import evaluate, features, logistic, served
 from codetutor.early.evaluate import auc, labels, precision_recall, top_k
 from codetutor.early.features import FEATURE_NAMES, course_start, features_at, prefix, week_of
-from codetutor.early.logistic import fit_logistic, predict
+from codetutor.early.logistic import fit_logistic, model_from_json, model_to_json, predict
 from codetutor.integrity.signals import SubmissionInfo
 
 MONDAY = datetime(2026, 9, 7, tzinfo=UTC)
@@ -238,3 +239,57 @@ def test_no_early_warning_code_reads_labels_or_the_database_tables() -> None:
                 assert not any(node.module.startswith(f) for f in forbidden), path.name
             if isinstance(node, ast.Import):
                 assert not any(a.name.startswith(f) for a in node.names for f in forbidden)
+
+
+# --- the model the API serves -----------------------------------------------------
+
+
+def test_a_model_survives_a_round_trip_through_json() -> None:
+    model = fit_logistic(
+        [[0.0, 1.0], [1.0, 3.0], [2.0, 2.0], [3.0, 5.0]], [False, False, True, True]
+    )
+    again = model_from_json(json.loads(json.dumps(model_to_json(model))))
+    assert again == model
+    assert predict(again, [1.5, 2.5]) == predict(model, [1.5, 2.5])
+
+
+def test_a_broken_saved_model_is_a_clear_error() -> None:
+    with pytest.raises(ValueError, match="not a saved logistic model"):
+        model_from_json({"means": [0.0]})
+    with pytest.raises(ValueError, match="different lengths"):
+        model_from_json(
+            {"means": [0.0], "spreads": [1.0, 1.0], "weights": [0.0], "bias": 0, "iterations": 1}
+        )
+
+
+def test_the_committed_model_loads_and_scores_between_zero_and_one() -> None:
+    loaded = served.load_served_model()
+    assert loaded.cutoff == 3 and loaded.version == served.EARLY_VERSION
+    for row in ([0.0, 0.0, 0.0, 0.0, 0.0, -5.0], [1.0, 40.0, 9.0, 30.0, 20.0, 5.0]):
+        assert 0.0 <= predict(loaded.model, row) <= 1.0
+
+
+def test_a_model_file_made_for_other_inputs_is_refused(tmp_path: Path) -> None:
+    served.save_model(tmp_path / "m.json", served.load_served_model())
+    data = json.loads((tmp_path / "m.json").read_text(encoding="utf-8"))
+    data["feature_names"] = list(reversed(data["feature_names"]))
+    (tmp_path / "m.json").write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="export-model"):
+        served.read_model(tmp_path / "m.json")
+
+
+def test_risk_scores_wait_for_week_three_and_then_use_weeks_one_to_three_only() -> None:
+    early = [r for r in small_class() if week_of(r.created_at, MONDAY) <= 2]
+    assert served.risk_scores(early) is None
+    assert served.risk_scores([]) is None
+    rows = small_class()
+    scores = served.risk_scores(rows)
+    assert scores is not None and set(scores) == {"ann", "bob"}
+    # Changing everything after week 3 does not move the score.
+    later_changed = [
+        sub(r.id, r.student, r.problem_id, (r.created_at - MONDAY).days, "timeout")
+        if week_of(r.created_at, MONDAY) > 3
+        else r
+        for r in rows
+    ]
+    assert served.risk_scores(later_changed) == scores

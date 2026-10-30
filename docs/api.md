@@ -243,8 +243,8 @@ limit on wrong guesses: fine on `127.0.0.1`, to be replaced by real accounts bef
 
 | Method + path | What it returns |
 |---|---|
-| `GET /api/instructor/overview` | students, problems, submissions, accepted share, first-try solve share, how many students/submissions need review, when the integrity job last wrote flags |
-| `GET /api/instructor/students` | per student: submissions, problems tried/solved, first-try share, last active, Rasch skill, submissions to review. Most to review first |
+| `GET /api/instructor/overview` | students, problems, submissions, accepted share, first-try solve share, how many students/submissions need review, when the integrity job last wrote flags, `risk_available` (is any risk score shown) |
+| `GET /api/instructor/students` | per student: submissions, problems tried/solved, first-try share, last active, Rasch skill, `risk` (0..1 or null), submissions to review. Most to review first (not ordered by risk) |
 | `GET /api/instructor/students/{id}` | the same, plus every problem they tried and every flag with its sentence for the teacher (404 if they have not submitted) |
 | `GET /api/instructor/problems` | per problem: declared difficulty, students who tried it, first-try share, Rasch difficulty |
 
@@ -268,4 +268,12 @@ limit on wrong guesses: fine on `127.0.0.1`, to be replaced by real accounts bef
   client components, because the token exists only in the browser. To see it on the simulated
   class: `INSTRUCTOR_TOKEN=... API_PORT=8010 make api-sim`, then
   `CODETUTOR_API_URL=http://127.0.0.1:8010 make web`.
+- **Risk (Week 8 Step 3b).** `risk` is the early-warning model's probability that a student will
+  solve fewer than 40% of later problems on the first try, from weeks 1-3 only
+  (docs/early-warning.md). Computed on every request, nothing stored. It is null until the class has
+  a submission in week 3 or later (`risk_available` false), and for a student with no submission in
+  weeks 1-3. The model is not fitted per request: it is the committed file
+  `src/codetutor/early/model_week3.json` (version "1", fitted on simulated class seed 0), loaded by
+  `early/served.py`. `make early-export` rewrites it; `make early` refuses to run if the file
+  differs from a fresh fit.
 - Only `api/instructor.py` reads `integrity_flags`; `test_no_api_code_reads_the_flags` pins that.
