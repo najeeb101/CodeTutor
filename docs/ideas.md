@@ -136,6 +136,10 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   days. Scope: a practice quiz, not an exam (exams are out of scope in the brief); the brief's
   job map lists a "placement quiz" as Light.
 
+- **(Week 8, Step 3b) Show the risk score.** Add the early-warning score to the instructor API
+  and a column on the dashboard (with the cutoff week and "a reason to check in, never a
+  verdict"). Needs the model fitted on a class and stored with its version; real classes need
+  real labels first (docs/early-warning.md §5).
 - **(Week 8) Store and show the estimates.** Week 5 computes flags and Rasch estimates but only
   writes `integrity_flags`; skill and difficulty live in a report. For the instructor dashboard:
   a table for estimates (with the data version and date), screens for flags (reasons first,

@@ -295,6 +295,19 @@ uv run python scripts/sim_cohort.py generate --seed 1
 How it works: [docs/integrity.md](docs/integrity.md). Reports:
 [integrity](lab/integrity/reports/integrity.md), [skill](lab/skill/reports/skill.md).
 
+### Early warning (Week 8)
+A small logistic regression (pure Python) reads only the first three weeks and ranks who will
+solve fewer than 40% of their later problems on the first try. Fitted on one simulated class,
+scored on the other: AUC 0.94 [0.86, 0.99], 8 of the top 10 really at risk, but a plain
+"low first-try share" rule scores 0.92 and also 8 of 10, so the model is **not shown to beat
+the simple rule**. It cannot see students who will quit (they look average until they stop).
+```bash
+make early                                        # writes lab/early/reports/early_warning.md (~15 s)
+uv run python scripts/early_warning.py show --dev # top risk scores in the dev database
+```
+How it works: [docs/early-warning.md](docs/early-warning.md). Report:
+[early warning](lab/early/reports/early_warning.md).
+
 ## Add a problem
 1. Create `problems/cs1/<NN>_<module>/<slug>/` with `problem.yaml`, `starter.py`, `solution.py`,
    `tests.yaml` (inputs only) and 1–3 files in `buggy/`.
@@ -356,6 +369,7 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 - `src/codetutor/sim/`: the simulated class: personas, code pools, disguises, editor summaries, loading
 - `src/codetutor/integrity/`: the four integrity signals, rename-proof comparison, threshold search, report
 - `src/codetutor/skill/`: first-attempt responses, Rasch fit, pass-rate baselines, scoring, report
+- `src/codetutor/early/`: early warning: features up to a cutoff week, logistic regression, AUC and top-10 metrics, report
 - `src/codetutor/rl/`: RL prompt folds, the reward, GRPO training (TRL + LoRA), the before/after, noise, pooled and seed reports, the reward-hacking audit
 - `course/notes/`: the course notes the tutor searches
 - `src/codetutor/e2e.py`: end-to-end checks of a running stack (`make e2e`)
@@ -364,7 +378,7 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 - `lab/evals/`: run configs, committed results (one graded answer per line) and the report
 - `lab/tutor/`: the retrieval questions, the tutor's safety-run and eval results, and their reports
 - `lab/rl/`: the folds, trained adapters (config only), training logs and generated RL reports
-- `lab/sim/`: the two simulated classes with their labels; `lab/integrity/`, `lab/skill/`: generated reports
+- `lab/sim/`: the two simulated classes with their labels; `lab/integrity/`, `lab/skill/`, `lab/early/`: generated reports
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
 - `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`, `rl.md`); `docs/notes/` holds weekly notes and interview notes
 

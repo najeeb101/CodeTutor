@@ -694,3 +694,15 @@ the token is one shared secret, and any script on the page could read it. Real a
 short-lived sessions come before hosting.
 *How I'd say it:* "The dashboard token lives in session storage so it dies with the tab, and I
 wrote down that real login is the fix, because any script on the page could read it."
+
+## Early warning: leakage, baselines and what a score is (Week 8, Step 3a)
+An early-warning model must only see what a teacher would know on that day. Our features are
+computed from a list cut at the cutoff week first, and a test changes every later row and checks
+that nothing moves: the classic leak is a feature that quietly uses the future. The second rule
+is to score simple rules beside the model: "low first-try share" got AUC 0.92 and the logistic
+model 0.94, with overlapping intervals, so the honest sentence is "no proof the model is
+better". We fitted on one simulated class and scored the other, and judged a ranking by the
+top 10 students (what a teacher can read), not by a probability threshold. A score is a reason
+to check in. It is not a verdict, and a warning changes the future it predicts.
+*How I'd say it:* "I cut the data at the cutoff before computing anything, compared against a
+one-line baseline, and reported that my model was not clearly better."

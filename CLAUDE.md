@@ -579,10 +579,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   flags for sim-050, no `def `/`return ` in any response, `make web-check` OK. **The browser
   checks did NOT run**: WSL could not start Windows programs (`cmd.exe` failed with
   `UtilAcceptVsock accept4 failed 110`), so no screenshots yet. Q14 closed (option A).
+- **Done (2026-10-30): Week 8 Step 3a** (early-warning model, offline; plan approved; target =
+  "struggling later", chosen by Najeeb because only quitters fail to finish and nothing predicts
+  them). `src/codetutor/early/` (`features.py` cut at a week, `logistic.py` pure-Python Newton,
+  `evaluate.py`, `report.py`), `scripts/early_warning.py report|show --dev`, `make early` (~15 s),
+  `lab/early/reports/early_warning.md` (byte-identical), `docs/early-warning.md`, 19 tests
+  (leak test fails when the cut is removed). Result, held-out seed 1, week 3: model AUC 0.94
+  [0.86, 0.99] vs first-try rule 0.92, top 10: 8 of 10 both: **not shown to beat the simple
+  rule**; model worse at week 2 (0.81 vs 0.94). Open `TODO(najeeb)` in `tests/test_early.py`
+  (rank-formula AUC test). Step 3b (risk column in API + dashboard) not started: ideas.md.
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
-- **Open:** `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
