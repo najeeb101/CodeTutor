@@ -54,7 +54,7 @@ every line in an interview.
 - Week 5 steps: 0 editor summary per submit → 1 simulated class (own DB `codetutor_sim`, same
   migrations, personas, seeded, labels kept apart) → 2 integrity checks (AST similarity, known
   AI answers, paste/speed, banned calls; `integrity_flags`; precision/recall) → 3 difficulty +
-  skill (pass rates + Rasch in pure Python) → 4 wrap-up. Flags/skills screens wait for Week 8.
+  skill (pass rates + Rasch in pure Python) → 4 wrap-up. Since Week 8 Steps 1-2 the instructor routes and dashboard show flags and skills.
 - Lab half: eval harness (Wk 2), simulated students + integrity + quality estimates (Wk 5),
   dataset builder + GRPO with TRL on Qwen 0.5–1.5B (Wk 6–7).
 - Sandbox: behind a `Sandbox` protocol so backends swap. `SubprocessSandbox` = subprocess + rlimits
@@ -598,6 +598,16 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   equal to `early_warning.py show`, no code in responses. The row order is unchanged. Q14 test
   (stopping the other projects' containers): 1 of 3 `make all` runs failed (a 22 s stall),
   inconclusive; the containers were restarted at Najeeb's request.
+- **Done (2026-10-30): Week 8 Step 4 = Week 8 done = project done** (wrap-up; plan approved; parallel
+  agents wrote the stale-doc fixes and the demo script + `docs/notes/week8.md`, README by Claude).
+  README: "Results at a glance" table (8 rows, each with a caveat and a report link), two Mermaid
+  diagrams (product, lab with the one `grade()`), instructor dashboard rows and command block,
+  818 default tests (+33 Docker +1 slow, counted with `--collect-only`), "Limits and what I'd do
+  next". `docs/demo-script.md` (3 min storyline; commands grep-checked, never run end to end),
+  `lab/README.md`, `docs/integrity.md`, `docs/database.md` updated. Found: the tutor_safety
+  report's 'Copies a teacher's hint' share is of the model-written hints shown (1 of 7 = 14%
+  for the 1.5B), correct but the header does not say so (not changed). Mermaid not rendered
+  (no tool here). **Najeeb records the demo video.**
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
@@ -706,10 +716,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   interval [-0.02, +0.06]; Q9 why "no second seed" limits comparing fold b with fold c; Q10 why
   the interval is "too narrow".
   (153 in total; answer key in Claude's memory.)
-- **Next action:** Najeeb reviews Week 5 Steps 2b, 2c and 3 and writes `docs/notes/week6.md` and
-  `week7.md`; then **Week 8 Step 0 (plan first: instructor dashboard, early warning, final README,
-  diagram, demo video; DPO is an optional cut)**. (Old text kept for reference:
-  **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
+- **Next action:** the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+  video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
+  answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
+  8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
+  Chrome, a better wording of one column in tutor_safety.md (header 'Copies a teacher's hint' is
+  'of model hints shown'). (Old text kept for reference: **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
   new recipe needs a much larger gain or more answers per problem, e.g. 30; open choices: a second
   training seed, a different recipe; DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
@@ -1300,7 +1312,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   seed 1 precision 0.64 [0.32, 0.99] (8 cheating students: wide intervals). Each
   signal alone has honest explanations (`same_as_student` precision 0.05); exact structure
   matches miss a copy that changes the logic a little (similarity < 1.0). Flags are for a
-  teacher, never a punishment, and no route shows them yet (Week 8).
+  teacher, never a punishment; only the instructor routes show them (docs/api.md §8).
 - `editor_stats` comes from the browser and can be faked (or left out by any other client);
   auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
 - The instructor routes use one shared dev token from the environment (no accounts, no limit on wrong guesses); real auth is needed before hosting (docs/api.md §8).

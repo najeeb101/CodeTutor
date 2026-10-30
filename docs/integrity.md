@@ -275,4 +275,5 @@ other easy problems.
 
 Limits: the simulator follows Rasch, so this tests our fitting code, not whether real students
 do (§1.6); skill numbers are for a teacher to see who needs help, never a grade. No table
-stores the estimates yet and no route shows them (Week 8).
+stores the estimates. Since Week 8 the instructor routes compute skill and difficulty per request
+and show them (`src/codetutor/api/instructor.py`, [api.md](api.md) §8).

@@ -1,7 +1,8 @@
-# Lab (Weeks 2, 4, 5–7)
+# Lab (Weeks 2, 4–8)
 
 The AI-lab half of CodeTutor: model evals (Week 2) and the tutor's measurements (Week 4) now;
-simulated students and integrity checks (Week 5); the dataset builder and GRPO training later.
+simulated students and integrity checks (Week 5); the dataset builder and GRPO training
+(Weeks 6–7); the early-warning model (Week 8).
 
 ## evals/ (Week 2)
 - `configs/`: one YAML file per official run (model, samples, temperature, seeds, ...).
@@ -63,3 +64,8 @@ is in `src/codetutor/integrity/`.
 
 Run: the `make rl-*` targets (see the README). How it works: [docs/rl.md](../docs/rl.md). The
 code is in `src/codetutor/rl/`.
+
+## early/ (Week 8)
+- `reports/early_warning.md`: the early-warning model's report (generated, do not edit by hand).
+  How it works: [docs/early-warning.md](../docs/early-warning.md). The code is in
+  `src/codetutor/early/`.

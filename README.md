@@ -5,15 +5,23 @@ built on top of it. Every problem has automatic visible and hidden tests. The sa
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
 reinforcement-learning training of a small code model.
 
-**Status:** Weeks 1–7 of 8 are done: the problem bank, the auto-grader, an eval harness that runs
-language models through the grader, the app around them (Postgres, a grading queue, an HTTP API
-and a web UI with a code editor), and an AI tutor that gives hints, not answers (a local model,
-search over course notes, a guardrail, 👍/👎 ratings), measured offline with a simulated
-student. Week 5 added a simulated class of 60 students with known cheaters, four integrity
-signals measured on a held-out class, and difficulty and skill estimates (pass rates and a
-Rasch model). Weeks 6–7 trained a small Qwen model (0.5B) with GRPO, using the grader as the
-reward, and measured honestly whether it helps: a small positive change that is **not** above
-the noise. Next: the instructor dashboard and the final write-up (Week 8).
+**Status:** all 8 weeks are done. The numbers below come from reports that regenerate from the
+repository; each one has its caveat next to it.
+
+## Results at a glance
+
+| Part | Headline result | Caveat | Report |
+|---|---|---|---|
+| Problem bank + grader | 33 problems, 374 tests (242 hidden), 97 known-wrong solutions; the validator checks that each one fails a test | The default sandbox is not secure; Docker is required for strangers' code | [docs/grader.md](docs/grader.md) |
+| Model evals | Qwen2.5-Coder 1.5B pass@1 0.867 [0.779, 0.942]; 7B (4-bit) 0.945 [0.867, 1.000]; 330 answers each | Intervals resample problems only; one prompt, one temperature | [week2.md](lab/evals/reports/week2.md) |
+| AI tutor | Hybrid note search finds the right section in the top 3 for 40 of 40 questions (keyword 34); the guardrail blocks 3% / 10% of first hints (levels 1 / 2) | 40 questions written by the same author as the notes | [retrieval](lab/tutor/reports/retrieval.md), [safety](lab/tutor/reports/tutor_safety.md) |
+| Do hints help? | Teacher hint 1: +0.09 [+0.03, +0.15] more fixes; the tutor's hint 1: +0.04 [−0.02, +0.11] | **Not shown to help**: the tutor's intervals include 0; the student is a 1.5B model | [tutor_eval.md](lab/tutor/reports/tutor_eval.md) |
+| Integrity flags | Held-out class: precision 0.64 [0.32, 0.99], recall 0.86 [0.74, 0.97] | A simulated class with 8 cheating students; 76 of 79 false flags are honest students pasting from their own editor | [integrity.md](lab/integrity/reports/integrity.md) |
+| Difficulty + skill | Rasch difficulty r 0.89 vs 0.88 for plain pass rates | Barely better; the simulator itself follows the Rasch model | [skill.md](lab/skill/reports/skill.md) |
+| GRPO on the grader | Held-out change **+0.02 [0.00, +0.04]** against a noise band of ±0.032 | **Within noise**: no claim that training transfers; the run is repeatable (2 seeds agree) | [pooled.md](lab/rl/reports/pooled.md), [seeds.md](lab/rl/reports/seeds.md) |
+| Early warning | AUC 0.94 [0.86, 0.99] on the held-out class | **Not shown to beat** the one-line rule "low first-try share" (0.92); simulated students | [early_warning.md](lab/early/reports/early_warning.md) |
+
+Everything marked simulated has not been tried on real students.
 
 ## What is in it
 
@@ -22,12 +30,13 @@ the noise. Next: the instructor dashboard and the final write-up (Week 8).
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 783 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 818 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
-| App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 endpoints), a Next.js UI with the Monaco editor; checked end to end over HTTP and in a headless browser |
+| App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 student endpoints + 4 teacher endpoints), a Next.js UI with the Monaco editor and an instructor dashboard; checked end to end over HTTP and in a headless browser |
 | AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
 | Simulated class | 2 classes of 60 students (seed 0: 3,145 submissions, seed 1: 3,076), each graded by the real workers in its own database; every row has a label (honest, copy, AI paste, how it was entered) that is kept out of the database |
 | RL training | GRPO with LoRA on Qwen2.5-Coder 0.5B, reward = the grader's share of tests passed (hidden tests included); 4 module folds + a second seed, 5 trained adapters, each measured on 30 answers per problem |
+| Instructor dashboard | Teacher token, class overview, students (skill, early-warning risk, marks to look at), problems (declared vs measured difficulty); no code is ever shown |
 | Integrity + skill | 4 signals (paste, fast typing, same as another student, same as a known AI answer), thresholds chosen on seed 0 and measured on seed 1; Rasch difficulty and skill estimates scored against the simulation's true values |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
@@ -72,7 +81,10 @@ make all        # lint + tests + validate every problem (starts the database if 
 make build      # write dist/problems.jsonl and dist/problems_student.jsonl
 ```
 Other targets: `make test`, `make lint`, `make validate`, `make format`, and
-`make test-docker` (runs the hostile submissions in the Docker sandbox; needs Docker).
+`make test-docker` (runs the hostile submissions in the Docker sandbox; needs Docker),
+`make e2e` / `make web-e2e` (checks of the running stack), `make sim` / `make integrity` /
+`make skill` / `make early` (the simulated class and its reports), `make api-sim` (the API on the
+simulated class, for the dashboard) and `make web-check` (type check + production build).
 
 ## Grade a solution
 From the command line. This file checks `% 3` before `% 15`, a classic fizzbuzz bug:
@@ -166,7 +178,12 @@ make web-e2e  # 9 checks in headless Chrome: log in, submit, results, a hint + �
 ```
 The teacher dashboard is at http://localhost:3100/instructor. It needs a token the API was
 started with (`INSTRUCTOR_TOKEN`, 16+ characters), and it is most interesting on the simulated
-class (with an early-warning risk column, see below): see [docs/api.md](docs/api.md) §8. Its browser checks:
+class (`make sim` once, ~13 min). Port 8000 or 3100 may be taken on your machine; this uses 8010:
+```bash
+INSTRUCTOR_TOKEN=$(openssl rand -hex 16) API_PORT=8010 make api-sim
+CODETUTOR_API_URL=http://127.0.0.1:8010 make web   # then open /instructor and paste the token
+```
+It shows the class (with an early-warning risk column, see below): see [docs/api.md](docs/api.md) §8. Its browser checks:
 `INSTRUCTOR_TOKEN=... E2E_ONLY=instructor node web/scripts/e2e.mjs`.
 `make web-e2e` starts its own Chrome (in WSL, the Windows Chrome; `CHROME=/path` picks
 another one). Without the UI, `scripts/submit.py` sends a file to the queue:
@@ -175,20 +192,32 @@ How it works: [docs/worker.md](docs/worker.md) (queue), [docs/api.md](docs/api.m
 [docs/tutor.md](docs/tutor.md) (the tutor), [web/README.md](web/README.md) (UI).
 
 ### Architecture (as built)
+The product: a student's submit is one row in Postgres, which is also the job.
+```mermaid
+flowchart LR
+  B[Browser<br/>Next.js + Monaco] -->|/api rewrite| A[FastAPI<br/>student routes + teacher routes]
+  A <--> P[(Postgres + pgvector<br/>submissions = jobs, hints = jobs,<br/>sealed problem copies, integrity_flags)]
+  W[Grading worker] -->|claim: SKIP LOCKED + lease| P
+  W -->|grade problem, code| D[Docker sandbox]
+  T[Tutor worker] -->|claim hint job| P
+  T --> O[Ollama: Qwen 7B + embeddings]
+  T --> G[Guardrail: no code, no solution lines]
+  J[Batch jobs: integrity, skill] --> P
+  M[(Early-warning model file<br/>versioned, committed)] --> A
+  Te[Teacher dashboard] -->|X-Instructor-Token| A
+  B --- Te
 ```
-Browser ── http://localhost:3100 ──► Next.js (web/)
-                                       │  pages: problem list + problem text (rendered on the server)
-                                       │  /api/* is forwarded ──► FastAPI (src/codetutor/api/, :8000)
-                                                                   │ submit = one INSERT (the row is the job)
-                                                                   ▼
-                       Postgres: problems (student view), problem_versions (sealed, hidden tests),
-                                 submissions (job + result), test_results, users,
-                                 hints (job + hint + trace), note_chunks (pgvector)
-                                                                   ▲ claim: FOR UPDATE SKIP LOCKED + lease
-                                                                   │ save: fenced by a claim counter
-                                         Worker (make worker) ── grade(problem, code) ──► Docker sandbox
-                                         Tutor  (make tutor)  ── give_hint ──► notes search + Qwen 7B
-                                                                               (Ollama) + guardrail
+The lab: one `grade()` function serves every purpose, so the number a student sees, the number
+an eval reports and the reward in training can never disagree.
+```mermaid
+flowchart LR
+  G{{grade problem, code<br/>visible + hidden tests}}
+  S[Student submissions] --> G
+  E[Eval harness<br/>Qwen 1.5B / 7B, pass@k] --> G
+  R[GRPO training<br/>Qwen 0.5B + LoRA] -->|reward| G
+  C[Simulated class<br/>labels kept outside the DB] --> S
+  S --> I[Integrity flags,<br/>Rasch skill, early warning]
+  G --> RP[Reports in lab/*/reports<br/>regenerate byte-identical]
 ```
 The browser polls `GET /api/submissions/{id}` (and `GET /api/hints/{id}`) once per second until
 the job is done. There is no Redis: Postgres is the queue, so saving a request and queueing it
@@ -366,7 +395,7 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
 - `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
 - `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
-- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits, hint requests
+- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits, hint requests, the instructor routes (`instructor.py`)
 - `src/codetutor/tutor/`: the AI tutor: guardrail, course-note search, prompt, `give_hint`, the hint queue and worker
 - `src/codetutor/sim/`: the simulated class: personas, code pools, disguises, editor summaries, loading
 - `src/codetutor/integrity/`: the four integrity signals, rename-proof comparison, threshold search, report
@@ -382,7 +411,19 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 - `lab/rl/`: the folds, trained adapters (config only), training logs and generated RL reports
 - `lab/sim/`: the two simulated classes with their labels; `lab/integrity/`, `lab/skill/`, `lab/early/`: generated reports
 - `tests/`: test suite; `tests/submissions/` holds the hostile submissions
-- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`, `rl.md`); `docs/notes/` holds weekly notes and interview notes
+- `docs/`: design docs (`grader.md`, `problem-format.md`, `evals.md`, `database.md`, `worker.md`, `api.md`, `tutor.md`, `integrity.md`, `rl.md`, `early-warning.md`, `demo-script.md`, and `KICKOFF.md` = the original brief); `docs/notes/` holds weekly notes and interview notes
+
+## Limits and what I'd do next
+- Every student-side result (integrity, skill, early warning, hint help) comes from simulated
+  students or a small model standing in for one. Real classes, with consent, are the next step.
+- GRPO on a 0.5B model gave a small change that is within noise; a bigger model, more steps or a
+  better reward (efficiency tests) are the open experiments ([docs/rl.md](docs/rl.md)).
+- The dev login and the shared teacher token are not real authentication; real accounts, the
+  Docker sandbox for all grading and a request-size limit come before hosting
+  ([docs/api.md](docs/api.md) §7-8).
+- One test, `test_memory_bomb[subprocess-memory_bomb_growing]`, sometimes fails on a loaded
+  machine with little free memory (rerun it alone; see CLAUDE.md, Q14).
+- Ideas not built: [docs/ideas.md](docs/ideas.md).
 
 ## Roadmap
 | Week | Deliverable | |
@@ -393,4 +434,4 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 | 4 | AI tutor that gives hints, not answers | ✅ done |
 | 5 | Simulated students, integrity checks, difficulty estimates | ✅ done |
 | 6–7 | GRPO training of a small Qwen model with the grader as reward | ✅ done |
-| 8 | Instructor dashboard, final write-up, demo | |
+| 8 | Instructor dashboard, early-warning model, final write-up, demo script | ✅ done (the video is recorded by Najeeb) |
