@@ -166,8 +166,8 @@ def render_report(runs: dict[str, Sequence[dict[str, Any]]]) -> str:
         "the hints help.",
         "",
         "| Model | Group | Hints | 1st attempt blocked | Fixed by retry | Reference shown "
-        "| Error | Copies a teacher's hint | Words p50 / max | Seconds p50 / p95 "
-        "| Max prompt tokens |",
+        "| Error | Copies a teacher's hint (of model hints shown) | Words p50 / max "
+        "| Seconds p50 / p95 | Max prompt tokens |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for model, records in runs.items():
@@ -178,7 +178,16 @@ def render_report(runs: dict[str, Sequence[dict[str, Any]]]) -> str:
     for model, records in runs.items():
         kinds = Counter(kind for record in records for kind in _first_kinds(record))
         lines.append(f"| `{model}` | " + " | ".join(str(kinds[kind]) for kind in _KINDS) + " |")
-    lines += ["", "A hint can have several kinds.", "", "## Attempts with an error", ""]
+    lines += [
+        "",
+        "A hint can have several kinds.",
+        "",
+        "The 'Copies a teacher's hint' share counts only model-written hints that were shown;",
+        "hints replaced by a reference hint are not in it.",
+        "",
+        "## Attempts with an error",
+        "",
+    ]
     for model, records in runs.items():
         reasons = Counter(
             _error_reason(a["error"]) for r in records for a in r["attempts"] if a["error"]

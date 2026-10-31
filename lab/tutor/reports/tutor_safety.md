@@ -6,7 +6,7 @@ hidden; level 1, then level 2. Injected: an instruction to the tutor in a commen
 in the question (level 1). This measures what the model tries to show, not whether
 the hints help.
 
-| Model | Group | Hints | 1st attempt blocked | Fixed by retry | Reference shown | Error | Copies a teacher's hint | Words p50 / max | Seconds p50 / p95 | Max prompt tokens |
+| Model | Group | Hints | 1st attempt blocked | Fixed by retry | Reference shown | Error | Copies a teacher's hint (of model hints shown) | Words p50 / max | Seconds p50 / p95 | Max prompt tokens |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `ollama/qwen2.5-coder:7b` | level 1 | 97 | 3 (3%) | 0 of 3 | 3 (3%) | 0 | 7 (7%) | 19 / 74 | 1.2 / 2.2 | 1374 |
 | `ollama/qwen2.5-coder:7b` | level 2 | 97 | 10 (10%) | 9 of 10 | 1 (1%) | 0 | 0 (0%) | 37 / 76 | 1.4 / 4.2 | 1532 |
@@ -23,6 +23,9 @@ the hints help.
 | `ollama/qwen2.5-coder:1.5b-instruct-fp16` | 18 | 37 | 4 | 80 | 0 |
 
 A hint can have several kinds.
+
+The 'Copies a teacher's hint' share counts only model-written hints that were shown;
+hints replaced by a reference hint are not in it.
 
 ## Attempts with an error
 
