@@ -34,10 +34,10 @@ worker: db-sync  ## grade queued submissions in Docker until Ctrl+C (docs/worker
 tutor: db-sync notes-sync  ## answer queued hint requests with the local model until Ctrl+C (docs/tutor.md §4; needs Ollama)
 	uv run python scripts/tutor_worker.py
 
-api: db-sync  ## run the HTTP API on http://127.0.0.1:8000 until Ctrl+C (docs/api.md; dev login, not secure)
-	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port 8000
-
 API_PORT ?= 8000
+api: db-sync  ## run the HTTP API on http://127.0.0.1:$(API_PORT) (default 8000) until Ctrl+C (docs/api.md; dev login, not secure)
+	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
+
 api-sim:  ## the API on the simulated class's database, with the instructor dashboard on (INSTRUCTOR_TOKEN, 16+ characters)
 	@test -n "$$INSTRUCTOR_TOKEN" || { echo 'Set a token first: INSTRUCTOR_TOKEN=$$(openssl rand -hex 16) make api-sim'; exit 2; }
 	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url($(SIM_SEED)))')"; \

@@ -36,8 +36,8 @@ open while you record.
       uses the normal API on 8000. The teacher UI (3101) uses the API on the simulated class.
     - Port 8000 or 3100 may be taken by other Windows services (CLAUDE.md: 8000 answers 404,
       3000 is taken). If `make api` cannot bind, use `API_PORT=8010` style ports and set
-      `CODETUTOR_API_URL` to match. `make api` itself has port 8000 fixed in the Makefile;
-      if it is busy, free that port first.
+      `CODETUTOR_API_URL` to match. `make api` reads `API_PORT` too (default 8000), so
+      `API_PORT=8010 make api` works when 8000 is busy.
 11. Open these files in editor tabs, ready to paste/show:
     - `problems/cs1/03_loops/fizzbuzz/buggy/checks_fizz_first.py`
     - `problems/cs1/03_loops/fizzbuzz/solution.py`
