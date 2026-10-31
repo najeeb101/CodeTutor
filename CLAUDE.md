@@ -606,8 +606,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   next". `docs/demo-script.md` (3 min storyline; commands grep-checked, never run end to end),
   `lab/README.md`, `docs/integrity.md`, `docs/database.md` updated. Found: the tutor_safety
   report's 'Copies a teacher's hint' share is of the model-written hints shown (1 of 7 = 14%
-  for the 1.5B), correct but the header does not say so (not changed). Mermaid not rendered
+  for the 1.5B), correct but the header did not say so (fixed 2026-10-31, 321c4ce). Mermaid not rendered
   (no tool here). **Najeeb records the demo video.**
+- **Session check (2026-10-31):** `make all` 814 passed, 1 failed in 160 s: **Q14 again**
+  (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 10.5 s); rerun green (2 passed),
+  `make validate` 33 valid. Header fix 321c4ce (tutor_safety column).
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
@@ -720,8 +723,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
-  Chrome, a better wording of one column in tutor_safety.md (header 'Copies a teacher's hint' is
-  'of model hints shown'). (Old text kept for reference: **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
+  Chrome. (Old text kept for reference: **Week 7 Step 2** (plan first; Step 1 showed 8-problem folds cannot see effects below ±0.11, so a
   new recipe needs a much larger gain or more answers per problem, e.g. 30; open choices: a second
   training seed, a different recipe; DPO on hint ratings is optional). Najeeb: his text in `docs/notes/week5.md` ("review" when ready); his text in `docs/notes/week4.md`
   ("review" when ready); review the 8 notes in `course/notes/`. Also
