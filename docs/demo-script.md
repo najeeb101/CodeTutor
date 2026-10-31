@@ -43,7 +43,10 @@ open while you record.
     - `problems/cs1/03_loops/fizzbuzz/solution.py`
     - `lab/evals/reports/week2.md`
     - `lab/rl/reports/pooled.md`
-12. Quick check: `make e2e` (needs worker, tutor, api, web running) should print 11/11.
+12. Quick check: `make e2e` (needs worker, tutor, api, web running) should print 11/11. If the API runs on
+    another port, give the same port to all three: `API_PORT=8010 make api`,
+    `CODETUTOR_API_URL=http://127.0.0.1:8010 make web`, `API_PORT=8010 make e2e`.
+    Dry run on 2026-10-31 (API on 8010, fresh dev DB after `make db-reset`): 11/11.
     It uses its own `e2e-...` user, so it does not touch your demo user.
 
 Commands checked with `grep` in the Makefile: `db-up`, `tutor`, `worker`, `api`, `web`,

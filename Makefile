@@ -97,7 +97,7 @@ early-export: db-up  ## refit on the simulated class seed 0 and write src/codetu
 	uv run python scripts/early_warning.py export-model
 
 e2e:  ## check the running app end to end over HTTP (needs `make worker`, `make tutor`, `make api`, `make web`)
-	uv run python scripts/e2e_check.py
+	uv run python scripts/e2e_check.py --api http://127.0.0.1:$(API_PORT)
 
 web-e2e: web/node_modules  ## drive the running web UI in headless Chrome (needs the 4 servers; CHROME=... overrides)
 	cd web && npm run e2e
