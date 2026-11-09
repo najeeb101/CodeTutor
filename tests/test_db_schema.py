@@ -29,6 +29,7 @@ from conftest import alembic_config, recreate_database
 
 TABLES = {
     "users",
+    "sessions",
     "problem_versions",
     "problems",
     "submissions",

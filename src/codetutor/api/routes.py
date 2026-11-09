@@ -11,10 +11,19 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Cookie, HTTPException, Path, Query, Request, Response
 from sqlalchemy import select, text
 
+from codetutor.api.auth import (
+    SESSION_COOKIE,
+    SESSION_DAYS,
+    create_guest,
+    end_session,
+    guests_in_last_hour,
+    new_session,
+)
 from codetutor.api.deps import LimitsDep, SessionDep, UserDep
+from codetutor.api.guards import client_ip
 from codetutor.api.hints import (
     HintConflictError,
     NotFoundError,
@@ -41,7 +50,9 @@ from codetutor.api.schemas import (
     UserOut,
 )
 from codetutor.api.submissions import (
+    BUSY_RETRY_AFTER_S,
     RateLimitedError,
+    ServerBusyError,
     create_submission,
     get_own_submission,
     list_submissions,
@@ -69,11 +80,66 @@ def health(session: SessionDep) -> dict[str, str]:
 
 
 @router.post("/login")
-def login(body: LoginIn, session: SessionDep) -> UserOut:
-    """Dev login (NOT secure): find or create the user with this name."""
+def login(body: LoginIn, session: SessionDep, request: Request) -> UserOut:
+    """Dev login (NOT secure): find or create the user with this name. Only with dev login on."""
+    if not request.app.state.dev_login:
+        raise HTTPException(404, "Not Found")
     user_id = get_or_create_user(session, body.name)
     session.commit()
     return UserOut(id=user_id, name=body.name)
+
+
+@router.post("/guest")
+def start_guest(
+    session: SessionDep, request: Request, response: Response, limits: LimitsDep
+) -> UserOut:
+    """Start as a new guest: a new user and a session cookie (api/auth.py)."""
+    if guests_in_last_hour(session) >= limits.guests_per_hour:
+        raise HTTPException(
+            503,
+            "too many new guests right now; try again later",
+            headers={"Retry-After": str(BUSY_RETRY_AFTER_S)},
+        )
+    socket_host = request.client.host if request.client else "unknown"
+    ip = client_ip(request.headers, socket_host, request.app.state.trusted_proxy_hops)
+    wait_s = request.app.state.guest_ips.hit(ip)
+    if wait_s is not None:
+        raise HTTPException(
+            429, "too many new guests from your address", headers={"Retry-After": str(wait_s)}
+        )
+    user = create_guest(session)
+    token = new_session(session, user.id)
+    session.commit()
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=SESSION_DAYS * 24 * 3600,
+        path="/api",
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+    return UserOut(id=user.id, name=user.name)
+
+
+@router.get("/me")
+def me(user: UserDep) -> UserOut:
+    """Who is logged in (the page can't read the HttpOnly cookie itself)."""
+    return UserOut(id=user.id, name=user.name)
+
+
+@router.post("/logout")
+def logout(
+    session: SessionDep,
+    response: Response,
+    token: Annotated[str | None, Cookie(alias=SESSION_COOKIE, max_length=200)] = None,
+) -> dict[str, str]:
+    """End the session: its row is deleted, so an old copy of the cookie stops working too."""
+    if token is not None:
+        end_session(session, token)
+        session.commit()
+    response.delete_cookie(SESSION_COOKIE, path="/api", secure=True, httponly=True, samesite="lax")
+    return {"status": "logged out"}
 
 
 @router.get("/problems")
@@ -127,6 +193,8 @@ def submit(
         )
     except RateLimitedError as exc:
         raise HTTPException(429, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
+    except ServerBusyError as exc:
+        raise HTTPException(503, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
     except UnknownProblemError as exc:
         raise HTTPException(404, f"no problem {body.problem_id!r}") from exc
     except ProblemChangedError as exc:
@@ -198,6 +266,8 @@ def ask_for_hint(
         )
     except RateLimitedError as exc:
         raise HTTPException(429, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
+    except ServerBusyError as exc:
+        raise HTTPException(503, str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
     except NotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
     except UnknownProblemError as exc:

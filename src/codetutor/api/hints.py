@@ -16,6 +16,7 @@ from codetutor.api.submissions import (
     WAITING_RETRY_AFTER_S,
     RateLimitedError,
     RateLimits,
+    check_queue_room,
     find_limit_hit,
     get_own_submission,
     lock_user,
@@ -66,10 +67,12 @@ def create_hint(
     student sees; the hint is about its code and results. About `code`: not graded yet.
     The user's row is locked first, like create_submission (no check-then-act race).
 
-    Raises RateLimitedError, NotFoundError, HintConflictError, and enqueue_hint's errors.
+    Raises RateLimitedError, ServerBusyError, NotFoundError, HintConflictError, and
+    enqueue_hint's errors.
     """
     lock_user(session, user_id)
     _check_limits(session, user_id, limits)
+    check_queue_room(session, HintRow, limits.max_hint_queue)
     if submission_id is not None:
         code = _graded_code(session, user_id, submission_id, problem_id, problem_version)
     if code is None:

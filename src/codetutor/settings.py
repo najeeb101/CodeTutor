@@ -13,6 +13,9 @@ TEST_DATABASE_URL_ENV = "TEST_DATABASE_URL"
 SIM_DATABASE_URL_ENV = "SIM_DATABASE_URL"
 INSTRUCTOR_TOKEN_ENV = "INSTRUCTOR_TOKEN"
 SANDBOX_IMAGE_ENV = "SANDBOX_IMAGE"
+DEV_LOGIN_ENV = "CODETUTOR_DEV_LOGIN"
+TRUSTED_PROXY_HOPS_ENV = "TRUSTED_PROXY_HOPS"
+API_DB_PASSWORD_ENV = "API_DB_PASSWORD"
 MIN_INSTRUCTOR_TOKEN_CHARS = 16
 # The local dev database from compose.yaml: reachable only from this machine, so its password
 # is not a secret. Never use it for a real deployment.
@@ -72,3 +75,29 @@ def sandbox_image() -> str | None:
     Python image with runner.py bind-mounted from this machine, as in development and the tests.
     """
     return os.environ.get(SANDBOX_IMAGE_ENV) or None
+
+
+def dev_login() -> bool:
+    """True only if CODETUTOR_DEV_LOGIN=1: the API then also trusts X-User-Id and name logins.
+
+    Off unless switched on (secure by default): `make api` switches it on for local work, the
+    production containers never do. NOT secure: anyone can send any id (docs/api.md §2).
+    """
+    return os.environ.get(DEV_LOGIN_ENV) == "1"
+
+
+def trusted_proxy_hops() -> int:
+    """How many proxies in front of the API append to X-Forwarded-For (api/guards.py).
+
+    0 (the default) ignores the header and uses the socket's address. Set it to exactly the
+    number of our own proxies: one more lets a visitor pick their own IP address.
+    """
+    value = os.environ.get(TRUSTED_PROXY_HOPS_ENV, "0")
+    if not value.isdigit():
+        raise ValueError(f"{TRUSTED_PROXY_HOPS_ENV} must be a whole number >= 0, not {value!r}")
+    return int(value)
+
+
+def api_db_password() -> str | None:
+    """The password of the API's own database role (db/roles.py), or None if not set."""
+    return os.environ.get(API_DB_PASSWORD_ENV) or None

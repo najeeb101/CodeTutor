@@ -47,13 +47,13 @@ def bank_root(db_session: Session, write_problem: ProblemWriter) -> Path:
 @pytest.fixture
 def client(db_engine: Engine, db_session: Session, bank_root: Path) -> Iterator[TestClient]:
     """The API on the test database (default limits). db_session empties the tables after."""
-    with TestClient(create_app(engine=db_engine)) as client:
+    with TestClient(create_app(engine=db_engine, dev_login=True)) as client:
         yield client
 
 
 def _limited_client(db_engine: Engine, limits: RateLimits) -> TestClient:
     """An API with other limits (use it in a `with` block)."""
-    return TestClient(create_app(engine=db_engine, limits=limits))
+    return TestClient(create_app(engine=db_engine, limits=limits, dev_login=True))
 
 
 def _login(client: TestClient, name: str = "sara") -> dict[str, str]:
@@ -106,7 +106,7 @@ def test_an_unreachable_database_is_a_503() -> None:
     url = make_url(database_url_for_tests()).set(database="codetutor_missing_test")
     engine = make_engine(url.render_as_string(hide_password=False))
     try:
-        with TestClient(create_app(engine=engine)) as client:
+        with TestClient(create_app(engine=engine, dev_login=True)) as client:
             response = client.get("/api/health")
     finally:
         engine.dispose()
@@ -559,7 +559,10 @@ def test_submits_at_the_same_moment_never_pass_the_limit(
 
 EXPECTED_ROUTES = {
     ("GET", "/api/health"),
-    ("POST", "/api/login"),
+    ("POST", "/api/login"),  # dev login only (404 otherwise)
+    ("POST", "/api/guest"),
+    ("GET", "/api/me"),
+    ("POST", "/api/logout"),
     ("GET", "/api/problems"),
     ("GET", "/api/problems/{problem_id}"),
     ("POST", "/api/submissions"),

@@ -76,7 +76,7 @@ class LoginIn(BaseModel):
 
 
 class UserOut(BaseModel):
-    """The logged-in user. The client sends `id` back as the X-User-Id header."""
+    """The logged-in user (the session cookie identifies them; dev login: X-User-Id)."""
 
     id: int
     name: str

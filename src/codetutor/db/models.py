@@ -105,6 +105,24 @@ class UserRow(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+class SessionRow(Base):
+    """A login session (Deploy Step 2a): the browser holds a random token in a cookie.
+
+    Only the token's sha256 is stored, so a copy of this table can't be used to log in. Logging
+    out deletes the row; an expired row is refused (api/auth.py).
+    """
+
+    __tablename__ = "sessions"
+    __table_args__ = (CheckConstraint("length(token_hash) = 64", name="token_hash_is_sha256"),)
+
+    token_hash: Mapped[str] = mapped_column(primary_key=True)  # hex sha256 of the token
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    expires_at: Mapped[datetime]
+
+
 class ProblemVersionRow(Base):
     """A sealed copy of one problem version: everything, hidden tests and solution included.
 

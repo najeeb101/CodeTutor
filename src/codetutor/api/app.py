@@ -17,15 +17,16 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
-from codetutor import __version__
+from codetutor import __version__, settings
+from codetutor.api.guards import BodySizeLimit, IpWindow
 from codetutor.api.instructor import router as instructor_router
 from codetutor.api.routes import router
 from codetutor.api.submissions import RateLimits
 from codetutor.db.engine import make_engine
 
 DEV_LOGIN_WARNING = (
-    "dev login: users are identified by the X-User-Id header only (NOT secure: anyone can "
-    "send any id). Keep the API on 127.0.0.1; real authentication is needed before hosting."
+    "dev login is ON: X-User-Id and POST /api/login also identify users (NOT secure: anyone "
+    "can send any id). Keep the API on 127.0.0.1; production never sets CODETUTOR_DEV_LOGIN."
 )
 
 log = logging.getLogger(__name__)
@@ -34,7 +35,8 @@ log = logging.getLogger(__name__)
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup and shutdown: open the database pool, unless the caller gave an engine."""
-    log.warning(DEV_LOGIN_WARNING)
+    if app.state.dev_login:
+        log.warning(DEV_LOGIN_WARNING)
     if app.state.engine is not None:  # given to create_app (tests): the caller disposes it
         yield
         return
@@ -76,11 +78,18 @@ async def _database_unavailable(request: Request, exc: Exception) -> JSONRespons
     return JSONResponse({"detail": "database unavailable, try again soon"}, status_code=503)
 
 
-def create_app(engine: Engine | None = None, limits: RateLimits | None = None) -> FastAPI:
+def create_app(
+    engine: Engine | None = None,
+    limits: RateLimits | None = None,
+    *,
+    dev_login: bool | None = None,
+    trusted_proxy_hops: int | None = None,
+) -> FastAPI:
     """Build the API. Without `engine`, it connects to settings.database_url() at startup.
 
-    uvicorn calls this with no arguments (`--factory`); tests pass the test database's engine
-    and smaller limits.
+    uvicorn calls this with no arguments (`--factory`), so dev login and the trusted proxies
+    come from the environment (settings.py); tests pass the test database's engine, smaller
+    limits and the switches.
     """
     app = FastAPI(
         title="CodeTutor API",
@@ -92,7 +101,13 @@ def create_app(engine: Engine | None = None, limits: RateLimits | None = None) -
         telemetry={"auto_configure": False},
     )
     app.state.engine = engine
-    app.state.limits = limits or RateLimits()
+    app.state.limits = limits = limits or RateLimits()
+    app.state.dev_login = settings.dev_login() if dev_login is None else dev_login
+    app.state.trusted_proxy_hops = (
+        settings.trusted_proxy_hops() if trusted_proxy_hops is None else trusted_proxy_hops
+    )
+    app.state.guest_ips = IpWindow(limits.guests_per_ip, limits.guest_ip_window_s)
+    app.add_middleware(BodySizeLimit, max_bytes=limits.max_body_bytes)
     app.include_router(router)
     app.include_router(instructor_router)
     app.add_exception_handler(RequestValidationError, _invalid_request)

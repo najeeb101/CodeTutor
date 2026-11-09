@@ -61,7 +61,7 @@ def bank_root(db_session: Session, write_problem: ProblemWriter) -> Path:
 
 
 def _client(engine: Engine, limits: RateLimits | None = None) -> TestClient:
-    return TestClient(create_app(engine=engine, limits=limits))
+    return TestClient(create_app(engine=engine, limits=limits, dev_login=True))
 
 
 @pytest.fixture

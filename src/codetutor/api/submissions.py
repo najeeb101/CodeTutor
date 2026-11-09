@@ -21,6 +21,8 @@ WAITING = (JobStatus.QUEUED.value, JobStatus.RUNNING.value)
 # Retry-After when the user has too many waiting submissions: one grading takes ~1 s in Docker.
 # (A warm hint takes 1-5 s, so the same 2 s fits hints.)
 WAITING_RETRY_AFTER_S = 2
+# Retry-After when the whole site is busy (queue full, too many new guests): a short break.
+BUSY_RETRY_AFTER_S = 30
 # What "my submissions" returns per row. Not `code` or `stdout` (up to 64 KB each): a list of
 # 100 rows stays small. The full row is only read for one submission.
 SUMMARY_COLUMNS = (
@@ -49,6 +51,14 @@ class RateLimits:
     hint_max_waiting: int = 1
     hints_per_window: int = 10
     hint_window_s: float = 600.0
+    # Deploy Step 2a: limits for everyone together, so strangers can't swamp one server.
+    max_queue: int = 50  # queued or running submissions of all users (~1 graded per second)
+    max_hint_queue: int = 10  # waiting hints of all users (the tutor model is slow on a CPU)
+    guests_per_ip: int = 5  # new guests from one address ...
+    guest_ip_window_s: float = 3600.0  # ... per hour (kept in memory: api/guards.py)
+    guests_per_hour: int = 200  # new guests from all addresses together
+    # 50,000 characters of code is at most ~300 KB as JSON (\uXXXX escapes): 512 KiB fits it.
+    max_body_bytes: int = 512 * 1024
 
 
 class RateLimitedError(Exception):
@@ -57,6 +67,31 @@ class RateLimitedError(Exception):
     def __init__(self, message: str, retry_after_s: int) -> None:
         super().__init__(message)
         self.retry_after_s = retry_after_s
+
+
+class ServerBusyError(Exception):
+    """The whole site is at a limit (HTTP 503): not this user's fault, try again soon."""
+
+    def __init__(self, message: str, retry_after_s: int = BUSY_RETRY_AFTER_S) -> None:
+        super().__init__(message)
+        self.retry_after_s = retry_after_s
+
+
+def check_queue_room(
+    session: Session, table: type[SubmissionRow] | type[HintRow], max_waiting: int
+) -> None:
+    """Raise ServerBusyError if `max_waiting` rows of all users are already queued or running.
+
+    A soft cap: two requests at the same moment may both see room (no lock across users), so
+    the queue can go a little over. That is fine: it protects the server's wait times, it is
+    not a quota.
+    """
+    waiting = session.scalar(
+        select(func.count()).select_from(table).where(table.job_status.in_(WAITING))
+    )
+    if waiting >= max_waiting:
+        kind = "grading" if table is SubmissionRow else "tutor"
+        raise ServerBusyError(f"the {kind} queue is full right now; try again in a minute")
 
 
 @dataclass(frozen=True)
@@ -154,11 +189,12 @@ def create_submission(
     other. Without the lock, both could count 9 of 10 and both insert: a check-then-act race.
     Other users' submits never wait for this lock.
 
-    Raises RateLimitedError, and enqueue_submission's errors (UnknownProblemError,
-    ProblemChangedError, InvalidSubmissionError).
+    Raises RateLimitedError, ServerBusyError, and enqueue_submission's errors
+    (UnknownProblemError, ProblemChangedError, InvalidSubmissionError).
     """
     lock_user(session, user_id)
     _check_limits(session, user_id, limits)
+    check_queue_room(session, SubmissionRow, limits.max_queue)
     return enqueue_submission(
         session,
         user_id,

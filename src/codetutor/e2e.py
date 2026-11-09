@@ -20,8 +20,10 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from http.cookies import SimpleCookie
 from typing import Any
 
+from codetutor.api.auth import SESSION_COOKIE
 from codetutor.problems import Problem
 from codetutor.tutor.guardrail import solution_lines
 
@@ -225,10 +227,14 @@ class _Run:
         return "visible tests shown in Python style, no hints or solution lines"
 
     def login(self) -> str:
-        response = request("POST", f"{self.base}/api/login", body={"name": self.user_name})
-        _expect_status(response, 200, "POST /api/login")
-        self.user_headers = {"X-User-Id": str(response.json()["id"])}
-        return f"user {self.user_name!r}"
+        response = request("POST", f"{self.base}/api/guest")
+        _expect_status(response, 200, "POST /api/guest")
+        cookie = SimpleCookie(response.headers.get("set-cookie", ""))
+        _expect(SESSION_COOKIE in cookie, "POST /api/guest set no session cookie")
+        _expect("httponly" in response.headers["set-cookie"].lower(), "the cookie is not HttpOnly")
+        self.user_headers = {"Cookie": f"{SESSION_COOKIE}={cookie[SESSION_COOKIE].value}"}
+        self.user_name = response.json()["name"]
+        return f"guest {self.user_name!r} (session cookie)"
 
     def _submit_and_wait(self, code: str) -> dict[str, Any]:
         body = {
@@ -370,7 +376,7 @@ def run_checks(
             ("web: problem page", run.web_problem_page),
         ]
     steps += [
-        ("log in", run.login),
+        ("start a guest session", run.login),
         ("reference solution is accepted", run.solution_accepted),
         ("buggy solution fails, hidden tests stay hidden", run.buggy_fails_and_hidden_stays_hidden),
         ("my submissions", run.my_submissions),
