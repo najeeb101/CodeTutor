@@ -447,6 +447,14 @@ def test_process_limit_stops_fork_bombs(sum_problem: Problem, sandbox: Sandbox) 
     if isinstance(sandbox, SubprocessSandbox):
         pytest.skip("no process limit in the subprocess sandbox (decision Q6)")
     result = grade(sum_problem, submission("many_processes"), limits=FAST, sandbox=sandbox)
+    if docker_runtime() == "runsc":
+        # Measured in CI on amd64 and arm64 (Deploy Step 3): under gVisor, reaching the pids limit
+        # does not make fork() fail politely (EAGAIN, as in runc); gVisor ends the whole
+        # container. The bomb is still stopped at the limit, only the label differs: crashed,
+        # reward 0, which is what a fork bomb deserves. Ordinary code never forks.
+        assert result.status == GradeStatus.CRASHED, (result.status, result.error)
+        assert "without a result" in (result.error or "")
+        return
     assert result.status == GradeStatus.ACCEPTED, (result.status, result.error, result.stdout)
     match = re.search(r"STARTED=(\d+)", result.stdout)
     assert match, result.stdout
