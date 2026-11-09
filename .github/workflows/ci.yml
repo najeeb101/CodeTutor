@@ -1,0 +1,64 @@
+# CI: the same checks as on the laptop, on every push to main and on every pull request.
+# Actions are pinned by commit SHA (a tag can be moved to other code; a SHA can't). The comment
+# after each SHA names the release it belongs to.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.19"
+
+jobs:
+  python:
+    name: make all (lint, tests, bank validation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: make all # db-up starts the pinned Postgres + pgvector image from compose.yaml
+
+  docker-sandbox:
+    name: make test-docker (hostile code in the Docker sandbox)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Pull the grading image (pinned by digest in grader/sandbox.py)
+        run: docker pull "$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
+      - run: make test-docker
+
+  web:
+    name: make web-check (type check + production build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: make web-install
+      - run: make web-check
