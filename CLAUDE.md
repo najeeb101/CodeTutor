@@ -647,7 +647,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   run is marked failed: the `web` and `docker-sandbox` jobs did not appear at all (2 earlier
   runs also lost jobs at random, e.g. only `web` ran in the first). `gh run rerun` says "its
   workflow file may be broken"; ci.yml parses with 4 jobs. Not understood: looks like GitHub
-  dispatch flakiness, to be confirmed by the next push. Plan split: demo dashboard = 2c.
+  dispatch flakiness: **confirmed, run 42674987976 on the next push has all 5 jobs green** (browser checks included). Plan split: demo dashboard = 2c.
 - **Done (2026-11-09): Deploy Step 2a** (backend locks; plan approved). Guest sessions
   (`api/auth.py`, migration 0009 `sessions`, `POST /api/guest`, `GET /api/me`,
   `POST /api/logout`), dev login opt-in, DB role `codetutor_api` (`db/roles.py`,
