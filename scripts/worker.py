@@ -20,6 +20,7 @@ from sqlalchemy.exc import OperationalError
 
 from codetutor.db.engine import make_engine
 from codetutor.grader import DockerSandbox, SandboxUnavailableError
+from codetutor.settings import sandbox_image
 from codetutor.worker.loop import WorkerStoppedError, run_worker
 
 log = logging.getLogger("worker")
@@ -45,7 +46,8 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     try:
-        sandbox = DockerSandbox()
+        image = sandbox_image()  # set in compose.prod.yaml: the runner is inside that image
+        sandbox = DockerSandbox(image, runner_in_image=True) if image else DockerSandbox()
     except SandboxUnavailableError as exc:
         log.error("%s", exc)
         return 1

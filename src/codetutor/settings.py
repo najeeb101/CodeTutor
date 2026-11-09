@@ -12,6 +12,7 @@ DATABASE_URL_ENV = "DATABASE_URL"
 TEST_DATABASE_URL_ENV = "TEST_DATABASE_URL"
 SIM_DATABASE_URL_ENV = "SIM_DATABASE_URL"
 INSTRUCTOR_TOKEN_ENV = "INSTRUCTOR_TOKEN"
+SANDBOX_IMAGE_ENV = "SANDBOX_IMAGE"
 MIN_INSTRUCTOR_TOKEN_CHARS = 16
 # The local dev database from compose.yaml: reachable only from this machine, so its password
 # is not a secret. Never use it for a real deployment.
@@ -62,3 +63,12 @@ def instructor_token() -> str | None:
     """
     token = os.environ.get(INSTRUCTOR_TOKEN_ENV, "")
     return token if len(token) >= MIN_INSTRUCTOR_TOKEN_CHARS else None
+
+
+def sandbox_image() -> str | None:
+    """The grading image with the runner built in (deploy/sandbox.Dockerfile), or None.
+
+    Set only for a worker that runs in a container (compose.prod.yaml). None means: the pinned
+    Python image with runner.py bind-mounted from this machine, as in development and the tests.
+    """
+    return os.environ.get(SANDBOX_IMAGE_ENV) or None

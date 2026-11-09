@@ -229,6 +229,35 @@ def _signal_returncode(returncode: int | None) -> int | None:
         return returncode
 
 
+def docker_command(
+    image: str, job: SandboxJob, name: str, *, runner_in_image: bool = False
+) -> list[str]:
+    """The `docker run` command for one job. Each option blocks one kind of attack."""
+    memory = f"{job.memory_mb + DOCKER_MEMORY_MARGIN_MB}m"
+    scratch = f"/tmp:size={job.max_file_mb + DOCKER_TMPFS_MARGIN_MB}m"
+    argv = ["docker", "run", "--rm", "-i"]  # remove when done; the job arrives on stdin
+    # A tiny init process becomes PID 1. As PID 1 the runner would ignore signals it has no
+    # handler for, like SIGXCPU from its CPU limit (measured: the label then flipped between
+    # timeout and crashed from run to run).
+    argv += ["--init"]
+    argv += ["--name", name]  # so we can stop it: killing the docker client does not
+    argv += ["--label", DOCKER_LABEL]
+    argv += ["--network", "none"]  # no network at all
+    argv += ["--read-only", "--tmpfs", scratch]  # image files can't change; small /tmp only
+    argv += ["--workdir", "/tmp"]
+    argv += ["--user", DOCKER_NOBODY]  # not root inside the container
+    argv += ["--cap-drop", "ALL"]  # no special kernel permissions
+    argv += ["--security-opt", "no-new-privileges"]  # can't gain any later (setuid files)
+    argv += ["--pids-limit", str(DOCKER_PIDS_LIMIT)]  # stops fork bombs
+    argv += ["--memory", memory, "--memory-swap", memory]  # hard memory limit, no swap
+    argv += ["--cpus", "1"]
+    argv += ["--env", f"PYTHONHASHSEED={CHILD_ENV['PYTHONHASHSEED']}"]
+    if not runner_in_image:
+        # Only the runner is shared with the container, read-only. No other host file is visible.
+        argv += ["--mount", f"type=bind,src={RUNNER_PATH},dst={DOCKER_RUNNER_PATH},readonly"]
+    return [*argv, image, "python", *PYTHON_FLAGS, DOCKER_RUNNER_PATH]
+
+
 class DockerSandbox:
     """Runs the same runner inside a locked-down Docker container.
 
@@ -237,9 +266,15 @@ class DockerSandbox:
     kernel (docs/grader.md, threat model).
     """
 
-    def __init__(self, image: str = DOCKER_IMAGE) -> None:
+    def __init__(self, image: str = DOCKER_IMAGE, *, runner_in_image: bool = False) -> None:
+        """`runner_in_image=True`: the image already holds runner.py (deploy/sandbox.Dockerfile),
+        so nothing is mounted. A worker inside a container needs this: the Docker daemon looks
+        up a bind-mount path on the host's disk, not inside the worker's container."""
         self.image = image
+        self.runner_in_image = runner_in_image
         self._check_available()
+        if runner_in_image:
+            self._check_runner_in_image()
 
     def _check_available(self) -> None:
         """Fail early and clearly if Docker or the image is missing, instead of letting every
@@ -260,30 +295,24 @@ class DockerSandbox:
                 f"in the docker group? Then run: docker pull {self.image}"
             )
 
+    def _check_runner_in_image(self) -> None:
+        """The image's runner must be byte-identical to ours: an image built from an older
+        runner.py would otherwise keep grading with it, and nothing would look wrong."""
+        argv = ["docker", "run", "--rm", "--network", "none", "--user", DOCKER_NOBODY]
+        argv += ["--entrypoint", "cat", self.image, DOCKER_RUNNER_PATH]
+        try:
+            check = subprocess.run(argv, capture_output=True, timeout=DOCKER_CLI_TIMEOUT_S)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise SandboxUnavailableError(f"cannot run docker: {exc}") from exc
+        if check.returncode != 0 or check.stdout != RUNNER_PATH.read_bytes():
+            raise SandboxUnavailableError(
+                f"the sandbox image {self.image} is out of date: its {DOCKER_RUNNER_PATH} is not "
+                "this version of runner.py. Rebuild it: make prod-build"
+            )
+
     def command(self, job: SandboxJob, name: str) -> list[str]:
-        """The `docker run` command for one job. Each option blocks one kind of attack."""
-        memory = f"{job.memory_mb + DOCKER_MEMORY_MARGIN_MB}m"
-        scratch = f"/tmp:size={job.max_file_mb + DOCKER_TMPFS_MARGIN_MB}m"
-        argv = ["docker", "run", "--rm", "-i"]  # remove when done; the job arrives on stdin
-        # A tiny init process becomes PID 1. As PID 1 the runner would ignore signals it has no
-        # handler for, like SIGXCPU from its CPU limit (measured: the label then flipped between
-        # timeout and crashed from run to run).
-        argv += ["--init"]
-        argv += ["--name", name]  # so we can stop it: killing the docker client does not
-        argv += ["--label", DOCKER_LABEL]
-        argv += ["--network", "none"]  # no network at all
-        argv += ["--read-only", "--tmpfs", scratch]  # image files can't change; small /tmp only
-        argv += ["--workdir", "/tmp"]
-        argv += ["--user", DOCKER_NOBODY]  # not root inside the container
-        argv += ["--cap-drop", "ALL"]  # no special kernel permissions
-        argv += ["--security-opt", "no-new-privileges"]  # can't gain any later (setuid files)
-        argv += ["--pids-limit", str(DOCKER_PIDS_LIMIT)]  # stops fork bombs
-        argv += ["--memory", memory, "--memory-swap", memory]  # hard memory limit, no swap
-        argv += ["--cpus", "1"]
-        argv += ["--env", f"PYTHONHASHSEED={CHILD_ENV['PYTHONHASHSEED']}"]
-        # Only the runner is shared with the container, read-only. No other host file is visible.
-        argv += ["--mount", f"type=bind,src={RUNNER_PATH},dst={DOCKER_RUNNER_PATH},readonly"]
-        return [*argv, self.image, "python", *PYTHON_FLAGS, DOCKER_RUNNER_PATH]
+        """The `docker run` command for one job (see `docker_command`)."""
+        return docker_command(self.image, job, name, runner_in_image=self.runner_in_image)
 
     def run(self, job: SandboxJob) -> RawResult:
         """Run the job in a fresh container and return what happened."""
