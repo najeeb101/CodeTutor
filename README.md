@@ -1,5 +1,7 @@
 # CodeTutor
 
+[![CI](https://github.com/najeeb101/codetutor/actions/workflows/ci.yml/badge.svg)](https://github.com/najeeb101/codetutor/actions/workflows/ci.yml)
+
 A CS1 (intro to programming) Python practice platform with instant auto-grading, and an AI lab
 built on top of it. Every problem has automatic visible and hidden tests. The same grader scores
 student submissions, evaluates AI models (pass rates), and serves as the reward function for
@@ -85,6 +87,9 @@ Other targets: `make test`, `make lint`, `make validate`, `make format`, and
 `make e2e` / `make web-e2e` (checks of the running stack), `make sim` / `make integrity` /
 `make skill` / `make early` (the simulated class and its reports), `make api-sim` (the API on the
 simulated class, for the dashboard) and `make web-check` (type check + production build).
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs `make all`, `make test-docker` and
+`make web-check` on every push. Before pushing, run `uv run python scripts/check_secrets.py
+--history` (it looks for secrets in every commit, not only the staged changes).
 
 ## Grade a solution
 From the command line. This file checks `% 3` before `% 15`, a classic fizzbuzz bug:
