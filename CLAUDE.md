@@ -33,7 +33,10 @@ every line in an interview.
 - Git: work on `main`; commit at the end of every step; message format `<area>: <what changed>`;
   never force-push or rewrite history; never commit secrets.
   Before every commit, `uv run python scripts/check_secrets.py` must exit 0 (it looks for the
-  real values from `.env` in the staged changes); the commit must not run if it doesn't.
+  real values from the `.env*` files in the staged changes); the commit must not run if it doesn't.
+  Before every push, `uv run python scripts/check_secrets.py --history` must exit 0 (every commit).
+  Remote: public `https://github.com/najeeb101/codetutor` (since 2026-11-09); push only with
+  Najeeb's OK for that push or step.
 
 ## Architecture summary
 - **One grader for everything.** `grade(problem, code) -> GradeResult` is used by student submissions,
@@ -94,6 +97,8 @@ every line in an interview.
 - `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `components/HintPanel.tsx` (Week 4), `lib/` incl. `api.ts`, `poll.ts` (shared polling), `editorStats.ts` (Week 5 editor summary) + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
 - `api/`, `tutor/`: READMEs pointing to `src/codetutor/api/` + docs/api.md and `src/codetutor/tutor/` + docs/tutor.md
 - `dist/`: generated output (gitignored)
+- `.github/workflows/ci.yml`: CI (3 jobs: `make rl-data` + `make all`, `make test-docker`,
+  `make web-check`; actions pinned by SHA); `LICENSE` (MIT)
 
 ## Conventions
 - Linux via **WSL2 (Ubuntu 24.04)**, Python 3.12 (project requires >=3.11), **uv** (`uv sync`, `uv run`).
@@ -149,6 +154,15 @@ every line in an interview.
 | 6–7 | Dataset builder + GRPO on Qwen with grader reward + re-eval; optional DPO on hint ratings |
 | 8 | Instructor dashboard, light early-warning model, README, diagram, demo video |
 Safe cuts: dashboard polish, early warning, DPO. Never cut: grader, evals, GRPO.
+
+**Deploy phase (after Week 8, started 2026-11-09; budget $0).** Steps: 0 GitHub + CI → 1 containers
+(Dockerfiles + `compose.prod.yaml`) → 2 safety before strangers (guest login with a signed cookie,
+instructor password, a DB role for the API without `problem_versions`, request-size and per-IP /
+global limits) → 3 gVisor (`runsc`) for grading → 4 tutor in production (CPU model on the server or
+a free API, chosen by measurement) → 5 server (Oracle Cloud Always Free ARM, Caddy HTTPS, free
+DuckDNS name, backups, uptime check) → 6 launch checks (`make e2e` on the live URL, small load
+test, `docs/deploy.md`, README link). Visitors get the full demo incl. the dashboard on the
+simulated class.
 
 Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) → 2 grader →
 3 validator / fill_expected / CLI / dataset build → 4 full problem bank (one module per batch) →
@@ -608,13 +622,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   report's 'Copies a teacher's hint' share is of the model-written hints shown (1 of 7 = 14%
   for the 1.5B), correct but the header did not say so (fixed 2026-10-31, 321c4ce). Mermaid not rendered
   (no tool here). **Najeeb records the demo video.**
+- **Done (2026-11-09): Deploy Step 0** (GitHub + CI; plan approved). Public repo
+  https://github.com/najeeb101/codetutor (MIT, topics, description). `check_secrets.py --history`
+  (+5 tests; 1 `TODO(najeeb)`: the GitHub-token test), `.github/workflows/ci.yml`, CI badge.
+  Laptop `make all`: 819 passed, 33 valid, 76.8 s on mains; fresh clone 818 passed + 1 skip that
+  CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
+  `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
+  `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
 - **Session check (2026-10-31):** `make all` 814 passed, 1 failed in 160 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 10.5 s); rerun green (2 passed),
   `make validate` 33 valid. Header fix 321c4ce (tutor_safety column).
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
-- **Open:** `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** `TODO(najeeb)` GitHub-token test in `tests/test_check_secrets.py`; `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
@@ -719,7 +740,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   interval [-0.02, +0.06]; Q9 why "no second seed" limits comparing fold b with fold c; Q10 why
   the interval is "too narrow".
   (153 in total; answer key in Claude's memory.)
-- **Next action:** the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+- **Next action:** **Deploy Step 1** (containers: Dockerfiles for api / worker / tutor / web + `compose.prod.yaml`; plan first). Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
@@ -1283,6 +1304,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   is still undone.
 
 - 2026-10-30: Q14 closed with option A (Najeeb): leave the test. Measured: 1 failure in 90 isolated runs (5.7 s; 0 in the last 60) plus 1 in `make all` the same evening. WSL had 6.4 of 7.8 GB used, 433 MB free, so the likely cause is memory reclaim stalls longer than any timer. Rerun the one test if it fails; a broken memory limit would fail every run.
+
+- 2026-11-09: Deploy phase (Najeeb: "do whatever is optimal and free"): Oracle Cloud Always Free
+  + Docker Compose + Caddy + DuckDNS, guest accounts, full demo, tutor by measurement. Repo
+  **public as it is** (Najeeb's choice; history can't be rewritten, so CLAUDE.md, the brief, the
+  interview notes, his email and the Claude co-author lines are all public). History scan before
+  the first push: 144 commits, none of the env values, 0 key-pattern matches. MIT license.
+- 2026-11-09: Deploy Step 0. `check_secrets.py --history` (same `find_problems` over
+  `git log -p --all`; values from every `.env*` file; key shapes for OpenAI/OpenRouter, GitHub,
+  Hugging Face, private keys, `\b` so "task-..." is not "sk-..."). CI actions pinned by SHA,
+  versions older than two weeks (checkout v7.0.1, setup-uv v10.3.2, setup-node v7.1.0), uv 0.12.19
+  pinned, `uv sync --locked`, token `contents: read`. Found by a fresh clone: one
+  `test_rl_train` test skips without the git-ignored `dist/rl/` (3 skipped vs 2), so CI runs
+  `make rl-data` first and then `git diff --exit-code`. `gh` 2.45 from Ubuntu's apt, logged in by
+  Najeeb as `najeeb101` (token in `~/.config/gh/hosts.yml`, plain text).
 
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)

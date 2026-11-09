@@ -717,3 +717,17 @@ report cannot drift apart. The score is null when there is nothing to base it on
 It is still a simulated class: not shown to beat first-try share, and no fairness check yet.
 *How I'd say it:* "I froze the fitted model in a versioned file, and a check fails if it differs
 from a fresh fit, so what the dashboard serves is what the report measured."
+
+## CI you can trust: pinned actions, a read-only token, no silent skips (Deploy, Step 0)
+A CI file runs other people's code (the "actions") with access to your repo. A tag like `v7` is
+a pointer that its owner, or a thief, can move to other code: in March 2025 the tags of the
+popular `tj-actions/changed-files` action were moved to a malicious commit that printed CI
+secrets into the build logs. So every action is pinned by its full commit SHA, which cannot be
+moved; a comment names the release. The job token is read-only (`contents: read`), and
+`uv sync --locked` fails if the lock file is out of date instead of quietly resolving new
+versions. A fresh clone found a test that skipped because it needed a git-ignored folder, so CI
+would have shown it as "fine" forever; CI now builds that folder first and fails if a generated
+file differs from the committed one. Before going public, every commit was scanned for secrets,
+because deleting a file does not remove it from history.
+*How I'd say it:* "I pin CI actions by SHA, give the job a read-only token, and check that no
+test skips in CI that runs on my laptop, because a green badge is only worth what it runs."
