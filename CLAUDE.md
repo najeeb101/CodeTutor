@@ -646,6 +646,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   (`test_the_image_command_has_no_mount_but_keeps_every_guard`). `make all` **on battery**:
   821 passed, 1 failed = Q14 again (memory_bomb_growing), rerun green, 33 valid, 111 s;
   `make test-docker` 36 passed (78 s).
+  **CI run 42665727314 green, 5 jobs:** `make all` 822 passed, 2 skipped, 1 xfailed, 33 valid;
+  test-docker 36 passed; web-check; **containers on amd64 (77 s) and arm64 (69 s): build, start,
+  `prod-e2e` 9/9 on both** (graded 10/10 in 0.5 s on the runners).
 - **Session check (2026-10-31):** `make all` 814 passed, 1 failed in 160 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 10.5 s); rerun green (2 passed),
   `make validate` 33 valid. Header fix 321c4ce (tutor_safety column).
