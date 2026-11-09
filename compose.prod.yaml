@@ -137,6 +137,7 @@ services:
       - /web/.next/cache:uid=1000,gid=1000
     environment:
       CODETUTOR_API_URL: http://api:8000
+      CODETUTOR_DEMO_API_URL: http://demo-api:8000
     ports:
       - "127.0.0.1:${WEB_PORT:-3200}:3000"
     depends_on:
@@ -148,6 +149,91 @@ services:
         - node
         - -e
         - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # --- The public demo (Deploy Step 2c): the teacher view of a SIMULATED class -----------------
+  # Its own database (codetutor_sim_s1, 60 invented students), its own read-only role, its own
+  # process. `make prod-demo-data` builds and grades the class once (~13 min); `make
+  # prod-demo-up` then starts demo-api. None of this touches the real database.
+  demo-seed:
+    <<: *app
+    profiles: ["demo-data"]
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - >-
+        python scripts/sim_cohort.py reset-db --seed 1 &&
+        python scripts/sim_cohort.py load --seed 1 $${DEMO_LIMIT:+--limit $$DEMO_LIMIT} &&
+        python scripts/db_roles.py --demo
+    environment:
+      DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor_sim_s1
+      SIM_DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor_sim
+      DEMO_DB_PASSWORD: ${DEMO_DB_PASSWORD:?set it in .env.prod}
+      DEMO_LIMIT: ${DEMO_LIMIT:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  demo-grade:
+    <<: *app
+    profiles: ["demo-data"]
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - >-
+        pids=""; for i in 1 2 3 4; do python scripts/worker.py --drain & pids="$$pids $$!"; done;
+        status=0; for pid in $$pids; do wait $$pid || status=1; done; exit $$status
+    environment:
+      DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor_sim_s1
+      SANDBOX_IMAGE: codetutor-sandbox
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?run through make, which sets it}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  demo-flags:
+    <<: *app
+    profiles: ["demo-data"]
+    restart: "no"
+    command: ["python", "scripts/integrity.py", "run", "--seed", "1"]
+    environment:
+      SIM_DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor_sim
+    depends_on:
+      db:
+        condition: service_healthy
+
+  demo-api:
+    <<: *app
+    profiles: ["demo"]
+    command:
+      - uvicorn
+      - codetutor.api.demo:create_demo_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    environment:
+      # The read-only role, on the simulation database only (api/demo.py refuses any other name).
+      DATABASE_URL: postgresql://codetutor_demo:${DEMO_DB_PASSWORD:?set it in .env.prod}@db:5432/codetutor_sim_s1
+    ports:
+      - "127.0.0.1:${DEMO_API_PORT:-8011}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
       interval: 5s
       timeout: 5s
       retries: 12

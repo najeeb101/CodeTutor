@@ -35,6 +35,10 @@ RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
 COPY alembic.ini ./
 COPY problems ./problems
 COPY course ./course
+# The simulated classes (cohort files) for the public demo's seeding (docs/deploy.md).
+COPY lab/sim ./lab/sim
+# The 7B model's answers: the integrity job's "known AI answers" (integrity/known_ai.py).
+COPY lab/evals/results/qwen2.5-coder-7b-q4-t0.8-n10.jsonl ./lab/evals/results/
 COPY scripts ./scripts
 
 # Not root. The files above stay owned by root, so this user can't change the code.

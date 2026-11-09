@@ -76,9 +76,16 @@ jobs:
           echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env.prod
           echo "INSTRUCTOR_TOKEN=$(openssl rand -hex 24)" >> .env.prod
           echo "API_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.prod
+          echo "DEMO_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.prod
       - run: make prod-build
       - run: make prod-up
       - run: make prod-e2e
+      - name: Public demo (a tiny simulated class, graded in the stack)
+        run: |
+          make prod-demo-data DEMO_LIMIT=60
+          make prod-demo-up
+          curl -sf http://127.0.0.1:8011/api/instructor/overview
+          curl -s -o /dev/null -w "demo POST /api/guest: %{http_code}\n" -X POST http://127.0.0.1:8011/api/guest
       - name: Browser checks (Chrome is preinstalled on the amd64 runner)
         if: matrix.runner == 'ubuntu-24.04'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -86,7 +93,7 @@ jobs:
           node-version: "24"
       - name: Run the browser checks
         if: matrix.runner == 'ubuntu-24.04'
-        run: CHROME="$(command -v google-chrome)" CHROME_FLAGS="--no-sandbox" make prod-web-e2e
+        run: CHROME="$(command -v google-chrome)" CHROME_FLAGS="--no-sandbox" E2E_DEMO=1 make prod-web-e2e
       - name: Container logs (only when something failed)
         if: failure()
         run: |

@@ -13,7 +13,13 @@ venv
 .pytest_cache
 .ruff_cache
 dist
-lab
+lab/*
+!lab/sim
+!lab/evals
+lab/evals/*
+!lab/evals/results
+lab/evals/results/*
+!lab/evals/results/qwen2.5-coder-7b-q4-t0.8-n10.jsonl
 tests
 web/node_modules
 web/.next

@@ -1,4 +1,4 @@
-.PHONY: prod-web-e2e prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: prod-demo-data prod-demo-up prod-demo-down prod-web-e2e prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -215,4 +215,18 @@ prod-e2e:  ## end-to-end checks against the containerized app (no tutor yet: --s
 		--web http://127.0.0.1:$(PROD_WEB_PORT) --skip-hints
 
 prod-web-e2e: web/node_modules  ## drive the containerized web UI in headless Chrome (CHROME=... picks the browser; no tutor yet)
-	WEB_URL=http://127.0.0.1:$(PROD_WEB_PORT) E2E_SKIP_HINTS=1 node web/scripts/e2e.mjs
+	WEB_URL=http://127.0.0.1:$(PROD_WEB_PORT) E2E_SKIP_HINTS=1 E2E_DEMO=$(E2E_DEMO) node web/scripts/e2e.mjs
+
+# The public demo: the teacher view of a simulated class, on its own database (docs/deploy.md).
+# DEMO_LIMIT=60 builds a tiny class (CI); empty = the whole held-out class (~13 min, once).
+DEMO_LIMIT ?=
+prod-demo-data: prod-env  ## build + grade + flag the simulated class in the stack's own database (DEMO_LIMIT=60 for a tiny one)
+	DEMO_LIMIT=$(DEMO_LIMIT) $(PROD) --profile demo-data run --rm demo-seed
+	$(PROD) --profile demo-data run --rm demo-grade
+	$(PROD) --profile demo-data run --rm demo-flags
+
+prod-demo-up: prod-env  ## start the demo API (after prod-demo-data)
+	$(PROD) --profile demo up -d --wait demo-api
+
+prod-demo-down: prod-env  ## stop the demo API (its database is kept)
+	$(PROD) --profile demo stop demo-api

@@ -15,6 +15,8 @@ COPY web/ ./
 # inside the compose network is baked in here (and also set at run time for server components).
 ARG CODETUTOR_API_URL=http://api:8000
 ENV CODETUTOR_API_URL=$CODETUTOR_API_URL
+ARG CODETUTOR_DEMO_API_URL=http://demo-api:8000
+ENV CODETUTOR_DEMO_API_URL=$CODETUTOR_DEMO_API_URL
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24.22.0-slim@sha256:91acba91b842bec0bf7ea6f5e09c644c7ccad72c4996ed9616d861d1c7cd60d4
