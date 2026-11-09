@@ -63,6 +63,7 @@ DOCKER_LABEL = "codetutor.sandbox=1"  # lets tests check that no container is le
 DOCKER_RUNNER_PATH = "/sandbox/runner.py"
 DOCKER_NOBODY = "65534:65534"  # the "nobody" user and group
 DOCKER_CLI_TIMEOUT_S = 30.0  # for our own short docker commands (inspect, kill)
+DOCKER_RUNTIME_CHECK_TIMEOUT_S = 60.0  # the first container under a runtime can start slowly
 
 
 class SandboxUnavailableError(RuntimeError):
@@ -230,9 +231,19 @@ def _signal_returncode(returncode: int | None) -> int | None:
 
 
 def docker_command(
-    image: str, job: SandboxJob, name: str, *, runner_in_image: bool = False
+    image: str,
+    job: SandboxJob,
+    name: str,
+    *,
+    runner_in_image: bool = False,
+    runtime: str | None = None,
 ) -> list[str]:
-    """The `docker run` command for one job. Each option blocks one kind of attack."""
+    """The `docker run` command for one job. Each option blocks one kind of attack.
+
+    `runtime` picks the container runtime: None = Docker's default (runc, which shares the
+    host's kernel), "runsc" = gVisor (a second kernel in user space between the code and the
+    host's). It is the only option that differs; every lock below stays.
+    """
     memory = f"{job.memory_mb + DOCKER_MEMORY_MARGIN_MB}m"
     scratch = f"/tmp:size={job.max_file_mb + DOCKER_TMPFS_MARGIN_MB}m"
     argv = ["docker", "run", "--rm", "-i"]  # remove when done; the job arrives on stdin
@@ -240,6 +251,8 @@ def docker_command(
     # handler for, like SIGXCPU from its CPU limit (measured: the label then flipped between
     # timeout and crashed from run to run).
     argv += ["--init"]
+    if runtime is not None:
+        argv += ["--runtime", runtime]
     argv += ["--name", name]  # so we can stop it: killing the docker client does not
     argv += ["--label", DOCKER_LABEL]
     argv += ["--network", "none"]  # no network at all
@@ -266,13 +279,22 @@ class DockerSandbox:
     kernel (docs/grader.md, threat model).
     """
 
-    def __init__(self, image: str = DOCKER_IMAGE, *, runner_in_image: bool = False) -> None:
+    def __init__(
+        self,
+        image: str = DOCKER_IMAGE,
+        *,
+        runner_in_image: bool = False,
+        runtime: str | None = None,
+    ) -> None:
         """`runner_in_image=True`: the image already holds runner.py (deploy/sandbox.Dockerfile),
         so nothing is mounted. A worker inside a container needs this: the Docker daemon looks
         up a bind-mount path on the host's disk, not inside the worker's container."""
         self.image = image
         self.runner_in_image = runner_in_image
+        self.runtime = runtime
         self._check_available()
+        if runtime is not None:
+            self._check_runtime()
         if runner_in_image:
             self._check_runner_in_image()
 
@@ -295,6 +317,30 @@ class DockerSandbox:
                 f"in the docker group? Then run: docker pull {self.image}"
             )
 
+    def _check_runtime(self) -> None:
+        """Fail closed: one real container must start under the requested runtime.
+
+        A server that lost its gVisor would otherwise grade strangers' code on plain Docker
+        without anyone noticing, so the worker refuses to start instead.
+        """
+        argv = ["docker", "run", "--rm", "--runtime", str(self.runtime), "--network", "none"]
+        argv += ["--user", DOCKER_NOBODY, self.image, "python", "-c", "print('ok')"]
+        try:
+            check = subprocess.run(
+                argv, capture_output=True, text=True, timeout=DOCKER_RUNTIME_CHECK_TIMEOUT_S
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise SandboxUnavailableError(
+                f"cannot start a container under {self.runtime}: {exc}"
+            ) from exc
+        if check.returncode != 0 or check.stdout.strip() != "ok":
+            reason = check.stderr.strip().splitlines()[-1] if check.stderr.strip() else "no output"
+            raise SandboxUnavailableError(
+                f"the container runtime {self.runtime!r} is not registered with Docker or does "
+                f"not work ({reason}). For gVisor run deploy/install-gvisor.sh; or unset "
+                "SANDBOX_RUNTIME to use plain Docker (not for strangers' code)."
+            )
+
     def _check_runner_in_image(self) -> None:
         """The image's runner must be byte-identical to ours: an image built from an older
         runner.py would otherwise keep grading with it, and nothing would look wrong."""
@@ -312,7 +358,9 @@ class DockerSandbox:
 
     def command(self, job: SandboxJob, name: str) -> list[str]:
         """The `docker run` command for one job (see `docker_command`)."""
-        return docker_command(self.image, job, name, runner_in_image=self.runner_in_image)
+        return docker_command(
+            self.image, job, name, runner_in_image=self.runner_in_image, runtime=self.runtime
+        )
 
     def run(self, job: SandboxJob) -> RawResult:
         """Run the job in a fresh container and return what happened."""

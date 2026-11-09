@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import math
+import os
 import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -219,3 +220,9 @@ class ScriptedModel:
         if isinstance(reply, Exception):
             raise reply
         return reply if isinstance(reply, ModelReply) else ModelReply(text=reply, prompt_tokens=900)
+
+
+def docker_runtime() -> str | None:
+    """The container runtime the docker tests should use: $TEST_SANDBOX_RUNTIME (CI sets `runsc`
+    for the gVisor job), else None = Docker's default (runc)."""
+    return os.environ.get("TEST_SANDBOX_RUNTIME") or None

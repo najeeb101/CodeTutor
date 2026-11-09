@@ -34,7 +34,7 @@ from codetutor.worker.jobs import (
     save_result,
 )
 from codetutor.worker.loop import Outcome, WorkerStoppedError, process_job, run_worker
-from conftest import BUGGY, SOLUTION, ProblemWriter
+from conftest import BUGGY, SOLUTION, ProblemWriter, docker_runtime
 
 PROBLEM_ID = "cs1.loops.sum_of_evens"  # the conftest problem: 8 tests, 4 visible, 4 hidden
 # Our own trusted test code, so the fast subprocess sandbox is fine here. The worker script
@@ -382,7 +382,9 @@ def test_worker_grades_in_docker(
 ) -> None:
     ids = _enqueue(db_session, user_id, SOLUTION, BUGGY)
 
-    stats = run_worker(db_engine, DockerSandbox(), threading.Event(), drain=True)
+    stats = run_worker(
+        db_engine, DockerSandbox(runtime=docker_runtime()), threading.Event(), drain=True
+    )
 
     assert stats.done == 2
     assert [_submission(db_engine, i).result_status for i in ids] == ["accepted", "wrong_answer"]

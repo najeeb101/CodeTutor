@@ -52,6 +52,33 @@ jobs:
         run: docker pull "$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
       - run: make test-docker
 
+  gvisor:
+    # The hostile-code suite again, with the grading containers under gVisor (runsc), on both CPU
+    # types. The laptop's Docker Desktop can't host it, so this job is the proof (Deploy Step 3).
+    name: gVisor on ${{ matrix.runner }} (hostile code under runsc)
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Install gVisor (pinned release and hash)
+        run: sudo deploy/install-gvisor.sh
+      - name: Pull the grading image (pinned by digest in grader/sandbox.py)
+        run: docker pull "$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
+      - name: The hostile-code suite under gVisor
+        run: TEST_SANDBOX_RUNTIME=runsc REQUIRE_RUNSC=1 make test-docker
+      - name: What gVisor costs (CI runner, not a laptop)
+        run: uv run python scripts/bench_sandbox.py --runtime runsc
+
   prod-images:
     # Build the 3 images and run the whole containerized app, on both CPU types. The server is
     # ARM (Oracle Always Free), so arm64 must work before we rent it.
@@ -70,6 +97,8 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked # for the end-to-end checker
+      - name: Install gVisor (the whole stack grades under it)
+        run: sudo deploy/install-gvisor.sh
       - name: Throw-away secrets for this run only
         run: |
           umask 077
@@ -77,6 +106,7 @@ jobs:
           echo "INSTRUCTOR_TOKEN=$(openssl rand -hex 24)" >> .env.prod
           echo "API_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.prod
           echo "DEMO_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.prod
+          echo "SANDBOX_RUNTIME=runsc" >> .env.prod
       - run: make prod-build
       - run: make prod-up
       - run: make prod-e2e

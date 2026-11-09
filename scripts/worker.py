@@ -20,7 +20,7 @@ from sqlalchemy.exc import OperationalError
 
 from codetutor.db.engine import make_engine
 from codetutor.grader import DockerSandbox, SandboxUnavailableError
-from codetutor.settings import sandbox_image
+from codetutor.settings import sandbox_image, sandbox_runtime
 from codetutor.worker.loop import WorkerStoppedError, run_worker
 
 log = logging.getLogger("worker")
@@ -47,7 +47,11 @@ def main() -> int:
 
     try:
         image = sandbox_image()  # set in compose.prod.yaml: the runner is inside that image
-        sandbox = DockerSandbox(image, runner_in_image=True) if image else DockerSandbox()
+        runtime = sandbox_runtime()  # "runsc" on the server: grade inside gVisor
+        if image:
+            sandbox = DockerSandbox(image, runner_in_image=True, runtime=runtime)
+        else:
+            sandbox = DockerSandbox(runtime=runtime)
     except SandboxUnavailableError as exc:
         log.error("%s", exc)
         return 1

@@ -36,7 +36,7 @@ from codetutor.grader.sandbox import (
     _signal_returncode,
 )
 from codetutor.problems import Problem
-from conftest import valid_problem_data
+from conftest import docker_runtime, valid_problem_data
 
 SUBMISSIONS = Path(__file__).parent / "submissions"
 
@@ -113,7 +113,9 @@ def _leftover_containers() -> list[str]:
 
 @pytest.fixture(scope="module")
 def docker_sandbox() -> DockerSandbox:
-    return DockerSandbox()  # fails loudly without Docker: you asked for the docker tests
+    # Fails loudly without Docker: you asked for the docker tests. CI runs them a second time
+    # under gVisor (TEST_SANDBOX_RUNTIME=runsc, Deploy Step 3): the same statuses must come out.
+    return DockerSandbox(runtime=docker_runtime())
 
 
 @pytest.fixture(params=BACKENDS)

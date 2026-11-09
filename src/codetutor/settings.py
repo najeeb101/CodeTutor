@@ -13,6 +13,7 @@ TEST_DATABASE_URL_ENV = "TEST_DATABASE_URL"
 SIM_DATABASE_URL_ENV = "SIM_DATABASE_URL"
 INSTRUCTOR_TOKEN_ENV = "INSTRUCTOR_TOKEN"
 SANDBOX_IMAGE_ENV = "SANDBOX_IMAGE"
+SANDBOX_RUNTIME_ENV = "SANDBOX_RUNTIME"
 DEV_LOGIN_ENV = "CODETUTOR_DEV_LOGIN"
 TRUSTED_PROXY_HOPS_ENV = "TRUSTED_PROXY_HOPS"
 API_DB_PASSWORD_ENV = "API_DB_PASSWORD"
@@ -107,3 +108,12 @@ def api_db_password() -> str | None:
 def demo_db_password() -> str | None:
     """The password of the read-only demo role (db/roles.py), or None if not set."""
     return os.environ.get(DEMO_DB_PASSWORD_ENV) or None
+
+
+def sandbox_runtime() -> str | None:
+    """The container runtime for grading ("runsc" = gVisor), or None for Docker's default.
+
+    Set on the server (docs/deploy.md): a runtime that Docker does not know makes the worker
+    refuse to start instead of falling back to plain Docker (grader/sandbox.py).
+    """
+    return os.environ.get(SANDBOX_RUNTIME_ENV) or None

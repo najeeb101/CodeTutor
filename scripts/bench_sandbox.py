@@ -37,12 +37,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--problem", default="cs1.loops.fizzbuzz", help="problem id")
     parser.add_argument("--runs", type=int, default=20, help="timed runs per sandbox")
+    parser.add_argument(
+        "--runtime", default=None, help='also measure Docker under this runtime, e.g. "runsc"'
+    )
     args = parser.parse_args()
 
     try:
         problem = get_problem(args.problem)
         docker = DockerSandbox()
         sandboxes: dict[str, Sandbox] = {"subprocess": SubprocessSandbox(), "docker": docker}
+        if args.runtime:
+            sandboxes[args.runtime] = DockerSandbox(runtime=args.runtime)
     except (ProblemError, SandboxUnavailableError) as exc:
         parser.error(str(exc))
 
@@ -60,6 +65,9 @@ def main() -> int:
     extra = medians["docker"] - medians["subprocess"]
     ratio = medians["docker"] / medians["subprocess"]
     print(f"Docker adds {extra:.0f} ms per submission (median), {ratio:.0f}x slower.")
+    if args.runtime:
+        more = medians[args.runtime] - medians["docker"]
+        print(f"{args.runtime} adds another {more:.0f} ms on top of plain Docker (median).")
     return 0
 
 
