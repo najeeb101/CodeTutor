@@ -31,7 +31,10 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked
+      - run: make rl-data # dist/rl/ is git-ignored; without it one test_rl_train test skips
       - run: make all # db-up starts the pinned Postgres + pgvector image from compose.yaml
+      - name: Generated files must match the committed ones
+        run: git diff --exit-code
 
   docker-sandbox:
     name: make test-docker (hostile code in the Docker sandbox)
