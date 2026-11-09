@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.orm import Session
 
 from codetutor.db.models import HintRow, JobStatus
@@ -105,18 +105,21 @@ def enqueue_hint(
     if question is not None and (len(question) > MAX_QUESTION_CHARS or "\x00" in question):
         raise ValueError(f"a question has at most {MAX_QUESTION_CHARS} characters and no NUL")
     version = current_problem_version(session, problem_id, expected_version)
-    row = HintRow(
-        user_id=user_id,
-        problem_id=problem_id,
-        problem_version=version,
-        submission_id=submission_id,
-        level=level,
-        question=question,
-        student_code=code,
+    # A plain INSERT that sends back only the id: an ORM insert would also ask for the server
+    # defaults (`claims`, ...), columns the API's database role may not read (db/roles.py).
+    return session.scalar(
+        insert(HintRow)
+        .values(
+            user_id=user_id,
+            problem_id=problem_id,
+            problem_version=version,
+            submission_id=submission_id,
+            level=level,
+            question=question,
+            student_code=code,
+        )
+        .returning(HintRow.id)
     )
-    session.add(row)
-    session.flush()  # assigns the id
-    return row.id
 
 
 def claim_next_hint(session: Session, *, lease_s: float = LEASE_S) -> HintJob | None:

@@ -36,12 +36,12 @@ tutor: db-sync notes-sync  ## answer queued hint requests with the local model u
 
 API_PORT ?= 8000
 api: db-sync  ## run the HTTP API on http://127.0.0.1:$(API_PORT) (default 8000) until Ctrl+C (docs/api.md; dev login, not secure)
-	uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
+	CODETUTOR_DEV_LOGIN=1 uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
 
 api-sim:  ## the API on the simulated class's database, with the instructor dashboard on (INSTRUCTOR_TOKEN, 16+ characters)
 	@test -n "$$INSTRUCTOR_TOKEN" || { echo 'Set a token first: INSTRUCTOR_TOKEN=$$(openssl rand -hex 16) make api-sim'; exit 2; }
 	@url="$$(uv run python -c 'from codetutor.settings import sim_database_url; print(sim_database_url($(SIM_SEED)))')"; \
-	DATABASE_URL="$$url" uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
+	DATABASE_URL="$$url" CODETUTOR_DEV_LOGIN=1 uv run uvicorn codetutor.api.app:create_app --factory --host 127.0.0.1 --port $(API_PORT)
 
 web-install:  ## install the web UI's npm packages from package-lock.json (needs Node 24, nvm)
 	cd web && npm ci

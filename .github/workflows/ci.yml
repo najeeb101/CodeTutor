@@ -75,6 +75,7 @@ jobs:
           umask 077
           echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env.prod
           echo "INSTRUCTOR_TOKEN=$(openssl rand -hex 24)" >> .env.prod
+          echo "API_DB_PASSWORD=$(openssl rand -hex 24)" >> .env.prod
       - run: make prod-build
       - run: make prod-up
       - run: make prod-e2e

@@ -3,8 +3,9 @@
 # DOCKER_GID. Ports are published on 127.0.0.1 only; on the server, a web server in front
 # (Deploy Step 5) is the only thing reachable from the internet.
 #
-# NOT safe for strangers yet: dev login, no size/IP limits, the API's DB user can read the
-# hidden tests (Deploy Step 2), and the grading sandbox shares the kernel (Step 3).
+# Since Deploy Step 2a: guest sessions only (no dev login), the API connects as its own
+# database role (no hidden tests), size and abuse limits. Still to come: the web UI's guest
+# login (2b) and a stronger grading sandbox (Step 3).
 
 name: codetutor-prod
 
@@ -46,12 +47,18 @@ services:
       timeout: 3s
       retries: 30
 
-  # Runs once and exits: create/upgrade the tables, then copy the problems in. The others wait
-  # for it, so only one sync ever runs at a time.
+  # Runs once and exits: create/upgrade the tables, (re)build the API's database role, then
+  # copy the problems in. The others wait for it, so only one sync ever runs at a time.
   migrate:
     <<: *app
     restart: "no"
-    command: ["sh", "-c", "alembic upgrade head && python scripts/sync_problems.py"]
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && python scripts/db_roles.py && python scripts/sync_problems.py
+    environment:
+      DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?set it in .env.prod}
     depends_on:
       db:
         condition: service_healthy
@@ -67,8 +74,11 @@ services:
       - --port
       - "8000"
     environment:
-      DATABASE_URL: postgresql://codetutor:${POSTGRES_PASSWORD:?set it in .env.prod}@db:5432/codetutor
+      # Its own role (db/roles.py): Postgres refuses the hidden tests and the hint trace.
+      DATABASE_URL: postgresql://codetutor_api:${API_DB_PASSWORD:?set it in .env.prod}@db:5432/codetutor
       INSTRUCTOR_TOKEN: ${INSTRUCTOR_TOKEN:-}
+      # Proxies in front of the API that append to X-Forwarded-For (api/guards.py).
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     ports:
       - "127.0.0.1:${API_PORT:-8010}:8000"
     depends_on:
