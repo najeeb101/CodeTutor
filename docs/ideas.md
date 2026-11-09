@@ -14,12 +14,6 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   test in Week 6: give efficiency tests more weight, or a bonus only when *all* tests pass.
   Measure first; don't change the reward blindly.
 
-- **(Hosting, before strangers use it) A database role for the API without access to
-  `problem_versions`.** The hidden tests live in that table (the worker grades from it). The API
-  never queries it, but only code review stops it today. With a separate Postgres role for the
-  API (`GRANT SELECT` on `problems`, `submissions`, `test_results`, … but not on
-  `problem_versions`), the database itself would refuse. The worker keeps its own role.
-
 - **(Week 3+, if sync runs automatically) Guard against two syncs at once.** Sync is run by
   hand today. If a deploy step ever runs it on several machines at the same time, take
   `pg_advisory_xact_lock(<fixed number>)` at the start of the sync transaction, so the second
@@ -48,15 +42,6 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   most 3 waiting submissions and 10 per minute per user (docs/api.md §4). The claim still takes
   the oldest job, so with many users a newcomer waits behind 3 × (number of users) jobs. A
   claim query that prefers users with fewer running jobs would share workers more evenly.
-
-- **(Before hosting) A request-size limit.** uvicorn reads the whole body into memory before
-  `enqueue_submission` checks the 50 000-character limit, so a 1 GB POST is read in full. The
-  reverse proxy in front of the API should cap it (nginx `client_max_body_size`, about 256 KB),
-  or an ASGI middleware could count the bytes as they arrive.
-
-- **(Before hosting) A per-IP limit on login.** The dev login creates a user for any new name,
-  so one person can get around the per-user rate limits with many names. Real authentication
-  fixes most of it; a per-IP limit on `POST /api/login` and on submits covers the rest.
 
 - **(Step 4+, UI) Queue position.** "2 submissions ahead of you": count the queued or running
   jobs with a smaller id (the partial claim index makes this cheap).

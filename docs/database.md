@@ -24,7 +24,8 @@ users ──────────────< submissions >─────�
 
 | Table | What it holds | Who reads it |
 |---|---|---|
-| `users` | one row per person (Week 3: name-only dev login, not secure) | API |
+| `users` | one row per person: a guest (`guest-<10 hex>`, Deploy Step 2a) or, in dev login mode, a typed name | API |
+| `sessions` (Deploy Step 2a) | one row per login session (migration 0009): `token_hash` (sha256 of the cookie's token, 64 hex characters, checked), `user_id` (deleted with the user), `created_at`, `expires_at` (30 days). Logout deletes the row ([api.md](api.md) §2) | API |
 | `problem_versions` | a sealed copy of **every** problem version ever synced, hidden tests and solution included; rows are never updated | the worker (Step 2) only |
 | `problems` | each problem's **current** version, student view only; `active = false` when its folder was removed | API |
 | `submissions` | one row per submission. The row is also the **grading job** (Postgres is the queue, [worker.md](worker.md)): job columns (`job_status`, `attempts`, `lease_expires_at`, `started_at`, `finished_at`, `last_error`) + result columns (the `GradeResult` summary, NULL until done) + `editor_stats` (Week 5, migration 0007: the web editor's times and typed/pasted counts, NULL for scripts, [api.md](api.md) §1) | API, worker; Week 5 integrity checks |
@@ -125,11 +126,14 @@ and the script commits only at the end, so a sync is all or nothing.
 - The queue and the claim index (migration 0002): see [worker.md](worker.md).
 - The API's per-user index `ix_submissions_user_id_created_at` (migration 0003, for the
   rate limits and "my submissions"): see [api.md](api.md) §4.
-- Two syncs at the same moment are not guarded (sync is run by hand). A fix would be
-  `pg_advisory_xact_lock` (docs/ideas.md).
-- The hidden tests are in the database (`problem_versions`). The API never queries that
-  table, but only a test stops it yet (`test_the_api_code_never_names_the_table_with_hidden_tests`
-  checks that no API file names it). When hosting: a separate database role for the API
-  without access to `problem_versions` (docs/ideas.md).
+- Two syncs at the same moment are not guarded when run by hand. In the containers only the
+  one-shot `migrate` service syncs (docs/deploy.md), so it can't happen there.
+- The hidden tests are in the database (`problem_versions`). **Database roles (Deploy Step 2a,
+  `db/roles.py`):** in the containers the API connects as `codetutor_api`, which may read and
+  write only what the API needs. It has no access to `problem_versions`, `note_chunks` or
+  `alembic_version`, and on `hints` only the 11 student-visible columns + `user_id` (SELECT)
+  and `rating` / `rated_at` (UPDATE). `scripts/db_roles.py` (run by `migrate`) creates the role
+  and rebuilds its grants from scratch every time. The workers keep the owner role. In local
+  development everything still runs as the owner, so the source-scan test stays as well.
 - Connecting to a stopped local database hangs instead of failing (WSL mirrored networking),
   so every engine has `DB_CONNECT_TIMEOUT_S = 5` (`settings.py`).

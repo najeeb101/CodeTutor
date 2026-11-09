@@ -747,3 +747,20 @@ would grade with old code silently). The worker holds the Docker socket, which i
 I wrote that down, kept the socket out of every other container, and the next step adds gVisor.
 *How I'd say it:* "One image, many roles; secrets only at run time; and the grading image is
 checked byte for byte against the worker's runner, because a stale grader is a silent bug."
+
+## Real sessions, least privilege in the database, and limits for everyone (Deploy, Step 2a)
+The old login trusted a header with a user id, so anyone could be anyone. Now a guest gets a
+256-bit random token in an HttpOnly, Secure, SameSite=Lax cookie, and Postgres stores only its
+sha256, so a leaked table can't log anyone in, and logout deletes the row, so an old cookie
+dies too. I chose server-side sessions over a signed cookie because they can be revoked and need
+no signing key. Dev login still exists for local work, but it is off unless an environment
+variable switches it on: secure by default. Second, least privilege: the API connects as its own
+database role that has no access to the hidden tests, and on the hints table may read only the
+student-visible columns. A test runs every API flow as that role, so a missing grant fails
+loudly; it found that an ORM insert asked Postgres to return a column the role can't read.
+Third, per-user limits mean nothing if users are free, so there are site-wide caps (queue
+length, new guests per hour) plus a per-IP cap. Measuring the proxy showed that Next.js passes a
+client's own X-Forwarded-For through unchanged, so the IP is only trustworthy behind a proxy
+that overwrites it; I wrote that down instead of assuming.
+*How I'd say it:* "Hash the session token, make the database enforce what the API may read, cap
+the whole site, and never trust X-Forwarded-For from a hop you haven't measured."

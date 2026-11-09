@@ -16,13 +16,16 @@ Tests: `tests/test_api.py`, `tests/test_api_hints.py`.
 | Method + path | Login | What it does | Answers |
 |---|---|---|---|
 | `GET /api/health` | no | `SELECT 1` on the database | 200 `{"status":"ok"}`; 503 if the DB is down |
-| `POST /api/login` `{"name"}` | no | find or create the user (dev login, §2) | 200 `{"id","name"}`; 422 bad name |
+| `POST /api/guest` | no | a new guest user + a session cookie (§2) | 200 `{"id","name"}` + `Set-Cookie`; 429 (per IP) / 503 (all guests) |
+| `GET /api/me` | yes | who is logged in | 200 `{"id","name"}`; 401 |
+| `POST /api/logout` | no | delete the session, clear the cookie | 200 |
+| `POST /api/login` `{"name"}` | no | **dev login only** (§2): find or create the user | 200 `{"id","name"}`; 422 bad name; **404 unless dev login is on** |
 | `GET /api/problems` | no | active problems, by module, then order | 200 `[{id,title,module,module_name,order,difficulty}]` |
 | `GET /api/problems/{id}` | no | the student view (`StudentProblem`) | 200; 404 unknown or retired |
-| `POST /api/submissions` `{"problem_id","problem_version","code","editor_stats"?}` | yes | rate limits (§4), then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
+| `POST /api/submissions` `{"problem_id","problem_version","code","editor_stats"?}` | yes | rate limits (§4), then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 / 503 |
 | `GET /api/submissions/{id}` | yes | status, code, and the result once done | 200; 404 missing **or someone else's** |
 | `GET /api/submissions?problem_id=&limit=20` | yes | my submissions, newest first (limit 1–100) | 200 list of summaries (no code) |
-| `POST /api/hints` `{"problem_id","problem_version","level", "submission_id" or "code", "question"?}` | yes | rate limits (§4), level order, then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 |
+| `POST /api/hints` `{"problem_id","problem_version","level", "submission_id" or "code", "question"?}` | yes | rate limits (§4), level order, then queue it | **202** `{"id","job_status":"queued"}` + `Location`; 404 / 409 / 422 / 429 / 503 |
 | `GET /api/hints/{id}` | yes | status, then the hint `text` and `source` | 200; 404 missing **or someone else's** |
 | `GET /api/hints?problem_id=&limit=20` | yes | my hints, newest first (limit 1–100) | 200 list |
 | `PUT /api/hints/{id}/rating` `{"rating": 1 or -1}` | yes | 👍 / 👎; a new rating replaces the old one | 200 the hint; 404; 409 not done yet; 422 |
@@ -105,27 +108,41 @@ The raw JSON values stay in the answer too. The eval prompt shows models the sam
 ### Error codes
 | Code | When | `detail` |
 |---|---|---|
-| 401 | no `X-User-Id` header, or an unknown user id | text |
+| 401 | no session cookie (or, in dev login mode, no `X-User-Id`), or an ended/unknown session | text |
 | 404 | unknown or retired problem; a submission or hint that is missing or not yours | text |
 | 409 | `problem_version` is not the current version (a sync ran after the student loaded it): reload the problem. Hints also: the previous level first; the submission isn't graded yet or is on an older version; rating a hint that isn't done | text |
 | 422 | the request doesn't match its model, or the code can't be accepted (too long, NUL) | list of `{type, loc, msg}`, or text |
+| 413 | the request body is over 512 KiB (§4) | text |
 | 429 | a rate limit (§4); the `Retry-After` header says how many seconds to wait | text |
-| 503 | the database can't be reached | text |
+| 503 | the database can't be reached, or a site-wide limit (§4: queue full, too many new guests; with `Retry-After`) | text |
 
 Our own 422 handler never copies the bad value back into the answer. FastAPI's default does,
 and with a lone surrogate (`"\ud800"`, valid JSON but not encodable as UTF-8) the server
 crashed with a 500 (found by `test_a_lone_surrogate_is_a_422_not_a_crash`). Errors are now
 written as ASCII-escaped JSON.
 
-## 2. Dev login (NOT secure)
-`POST /api/login {"name": "sara"}` finds or creates the user and returns `{"id", "name"}`. The
-client then sends `X-User-Id: <id>` with every request that needs a user. One dependency,
-`current_user` (`deps.py`), reads it. Real authentication replaces only that function.
-- **Anyone can send any id** and act as that user. Only for local development. The app logs a
-  warning at startup, and `make api` binds to 127.0.0.1.
-- Names: spaces around them are removed; 1–40 characters; any language; no control
-  characters or lone surrogates. Names are case-sensitive ("Sara" and "sara" are two users).
-- The id goes in the header, not the name, because header values must be ASCII.
+## 2. Sessions, and the dev login (Deploy Step 2a)
+**Sessions.** `POST /api/guest` creates a user named `guest-<10 hex>` and a session, and sets the
+cookie `codetutor_session` (`api/auth.py`). Every request that needs a user sends it back; one
+dependency, `current_user` (`deps.py`), reads it.
+- The token is `secrets.token_urlsafe(32)` (256 random bits). Postgres stores only its sha256
+  (`sessions.token_hash`), so a copy of the table can't be used to log in.
+- Cookie flags: `HttpOnly` (the page's scripts can't read it), `Secure` (sent only over HTTPS;
+  browsers count `localhost` / `127.0.0.1` as secure), `SameSite=Lax` (not sent with a POST
+  that another website starts: protection against CSRF), `Path=/api`, 30 days.
+- `POST /api/logout` deletes the row, so an old copy of the cookie stops working too.
+- A guest is always a **new** user. Nothing here finds an existing user by name, so nobody can
+  get into someone else's account (that was possible with the name login).
+- `GET /api/me` tells the page who is logged in, because the page can't read the cookie.
+
+**Dev login (NOT secure), only when switched on.** With `CODETUTOR_DEV_LOGIN=1` (`make api` and
+`make api-sim` set it; the tests pass `create_app(dev_login=True)`), the API also accepts
+`POST /api/login {"name": "sara"}` and the header `X-User-Id: <id>`. **Anyone can send any id.**
+Without the variable, both are refused (404 / 401): secure by default, and the production
+containers never set it (`test_dev_login_is_off_unless_switched_on`).
+- Names (dev login): spaces around them are removed; 1–40 characters; any language; no control
+  characters or lone surrogates; case-sensitive. The id goes in the header, not the name,
+  because header values must be ASCII.
 
 ## 3. What a client never sees
 - **Hidden tests:** problems come only from `problems.student_view`. Results come from a
@@ -146,8 +163,11 @@ client then sends `X-User-Id: <id>` with every request that needs a user. One de
   is dropped even if a query loaded it. `test_no_internal_field_is_part_of_the_api` checks
   the published OpenAPI schema for `last_error`, `attempts`, `hints`, `solution_code`,
   `buggy`, … And `test_the_api_code_never_names_the_table_with_hidden_tests` checks that no
-  file in `src/codetutor/api/` names the sealed-copy table. That is a cheap guard until the API
-  gets its own database role (ideas.md).
+  file in `src/codetutor/api/` names the sealed-copy table. **Since Deploy Step 2a the database
+  enforces it too:** in the containers the API connects as the role `codetutor_api`
+  (`db/roles.py`), which has no access to `problem_versions` or `note_chunks`, and on `hints`
+  may read only the 11 student-visible columns plus `user_id`. `tests/test_db_roles.py` runs
+  every API flow as such a role and checks that the closed tables answer "permission denied".
 - **Other users' submissions:** 404, the same as a missing one, so nobody can probe which ids
   exist (403 would say "it exists, but it's not yours").
 
@@ -163,6 +183,30 @@ smaller ones):
 - hints (Week 4): at most **1 waiting** hint request per user (`Retry-After: 2`; a warm hint
   takes 1–5 s of GPU time) and at most **10 per 10 minutes**. The same user-row lock;
   `test_requests_at_the_same_moment_never_pass_the_limit` (hints) lets exactly 5 of 12 in.
+
+**Site-wide limits (Deploy Step 2a).** Per-user limits only work if users aren't free, so:
+| Limit | Default | Answer |
+|---|---|---|
+| request body | 512 KiB (50,000 characters of code is at most ~300 KB of JSON) | 413 |
+| new guests from one IP address | 5 per hour | 429 + `Retry-After` |
+| new guests from all addresses | 200 per hour | 503 + `Retry-After: 30` |
+| queued or running submissions of all users | 50 | 503 + `Retry-After: 30` |
+| waiting hints of all users | 10 | 503 + `Retry-After: 30` |
+
+- The body limit is ASGI middleware (`api/guards.py` `BodySizeLimit`): a declared length over
+  the limit is refused before reading, and a streamed body is counted while it is read.
+- The site-wide counts are taken in Postgres when the request comes. They are soft caps: two
+  requests at the same moment may both see room (no lock across users), which is fine for
+  protecting wait times.
+- The per-IP count lives in memory (`IpWindow`): one API process serves the site, and a
+  restart that forgets the counts is harmless.
+- **Which IP?** `client_ip` trusts exactly `TRUSTED_PROXY_HOPS` entries from the right of
+  `X-Forwarded-For` (0 = the socket's address). **Measured 2026-11-09:** the Next.js rewrite
+  does *not* add the visitor's address; it sets the header only when it is missing
+  (`base-server.js`, `??=`), so a visitor's own header passes through. The compose value 1 is
+  only right behind a proxy that **replaces** the header with the real address (Caddy, Deploy
+  Step 5, which must check it with a spoofed header). Until then the containers are reachable
+  only from 127.0.0.1.
 
 **The race and the lock.** "Count, then insert" is a *check-then-act race*: two submits at the
 same moment can both count 9 and both insert. So `create_submission` first locks the user's
@@ -223,10 +267,11 @@ curl -s -X PUT http://127.0.0.1:8000/api/hints/<hint id>/rating -H 'X-User-Id: 1
 - No CORS: in Step 4, Next.js forwards `/api/*` to port 8000, so the browser sees one origin.
 
 ## 7. Limitations
-- The dev login is spoofable, and anyone can create many names, which gets around the
-  per-user limits. Real authentication and a per-IP limit are needed before hosting.
-- No request-size limit: uvicorn reads the whole body before the 50 000-character check. When
-  hosted, the reverse proxy must limit it (ideas.md).
+- Guests are anonymous: a lost cookie is a lost account (no email, no password). Fine for a
+  demo; real accounts would need email or an identity provider.
+- The dev login (only with `CODETUTOR_DEV_LOGIN=1`) is spoofable by design.
+- The per-IP limit is per process and resets on restart, and it depends on the proxy setting
+  above.
 - Polling costs one small query per second per waiting student (submissions and hints).
   Server push is in ideas.md.
 - The 422 `detail` is a list for request-format errors and a string for our own checks.

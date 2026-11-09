@@ -76,9 +76,9 @@ every line in an interview.
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
-- `src/codetutor/db/`: `engine.py`, `models.py` (8 tables as `…Row` classes), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/db/`: `engine.py`, `models.py` (9 tables as `…Row` classes; `sessions` since Deploy 2a), `roles.py` (the API's DB role `codetutor_api` and its grants; `scripts/db_roles.py`), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
-- `src/codetutor/api/`: `app.py` (`create_app`, error handlers), `routes.py` (11 endpoints), `instructor.py` (Week 8: 4 teacher routes behind a dev token), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/api/`: `app.py` (`create_app(dev_login=, trusted_proxy_hops=)`, error handlers), `auth.py` (Deploy 2a: guest sessions, sha256 of the token in `sessions`), `guards.py` (`BodySizeLimit`, `client_ip`, `IpWindow`), `routes.py` (14 endpoints incl. guest/me/logout), `instructor.py` (Week 8: 4 teacher routes behind a dev token), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
 - `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`), `evaluate.py` (Step 2c: labels join, `f_beta`, grid `search` via `FastFlags`, bootstrap over students), `report.py` (`render_report`)
@@ -634,6 +634,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
   `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
   `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
+- **Done (2026-11-09): Deploy Step 2a** (backend locks; plan approved). Guest sessions
+  (`api/auth.py`, migration 0009 `sessions`, `POST /api/guest`, `GET /api/me`,
+  `POST /api/logout`), dev login opt-in, DB role `codetutor_api` (`db/roles.py`,
+  `scripts/db_roles.py`, run by `migrate`), `api/guards.py` (413 over 512 KiB, per-IP guests),
+  site-wide limits (503), e2e logs in as a guest. Tests: `test_auth.py` 24, `test_db_roles.py`
+  14 (+1 `TODO(najeeb)`: expired session). Containers (upgrade 0008 → 0009 on the Step 1
+  volume): `prod-e2e` **9/9 via the guest cookie**; `psql` as `codetutor_api` →
+  `permission denied for table problem_versions`; `X-User-Id` → 401; 1 MB → 413; `/api/login`
+  → 404. **Measured:** Next.js passes a spoofed `X-Forwarded-For` through (6/6 guests passed);
+  Step 5 must test Caddy. `make all` on mains: 859 passed, 1 failed = **Q14 again** (2 of 3
+  `make all` runs today; 440 MB free in WSL), rerun 3/3 green, 33 valid; test-docker 36 passed.
+  **The web UI in the containers can't log in until 2b** (it still uses `/api/login`).
 - **Done (2026-11-09): Deploy Step 1** (containers; plan approved). 3 images (app 421 MB, web
   996 MB, sandbox 177 MB; build 2 min 34 s), `compose.prod.yaml` (db, migrate, api, worker, web;
   tutor behind profile `tutor`), `make prod-*`, `docs/deploy.md`, README "Where the code is" +
@@ -655,7 +667,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
-- **Open:** `TODO(najeeb)` image-command test in `tests/test_sandbox_image.py`; `TODO(najeeb)` GitHub-token test in `tests/test_check_secrets.py`; `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** `TODO(najeeb)` expired-session test in `tests/test_auth.py`; `TODO(najeeb)` image-command test in `tests/test_sandbox_image.py`; `TODO(najeeb)` GitHub-token test in `tests/test_check_secrets.py`; `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
@@ -764,8 +776,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Deploy Step 1: Q1 why the containerized worker needs the runner inside the grading image; Q2
   what happens when runner.py changes but nobody rebuilds codetutor-sandbox; Q3 why
   `CODETUTOR_API_URL` is a build argument but `POSTGRES_PASSWORD` is not.
-  (159 in total; answer key in Claude's memory.)
-- **Next action:** **Deploy Step 2** (safety before strangers: guest login with a signed cookie, instructor password, DB role for the API without `problem_versions`, request-size / per-IP / global limits, the sim class for the dashboard; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+  Deploy Step 2a: Q1 why the database stores the token's sha256 and not the token; Q2 why
+  per-user limits needed site-wide limits next to them; Q3 what a visitor could do with
+  `TRUSTED_PROXY_HOPS=1` and no proxy that replaces `X-Forwarded-For`.
+  (162 in total; answer key in Claude's memory.)
+- **Next action:** **Deploy Step 2b** (web: "Start as a guest", `/api/me`, logout, no `X-User-Id`, `web-e2e`; public read-only demo dashboard on the simulated class; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
@@ -1358,6 +1373,21 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `.gitignore` and `check_secrets.py`. `e2e_check.py --skip-hints` / `run_checks(hints=False)`.
   Web image 996 MB (standalone output idea in ideas.md).
 
+- 2026-11-09: Deploy Step 2a (plan approved; split 2a backend / 2b web). Server-side sessions
+  (table `sessions`, migration 0009, sha256 of a 256-bit token; cookie HttpOnly + Secure +
+  SameSite=Lax, Path=/api, 30 days) over signed cookies (revocable, no signing key). Guests are
+  always new users (never get-or-create by name). Dev login opt-in (`CODETUTOR_DEV_LOGIN=1`;
+  `create_app(dev_login=)`; default off). DB role `codetutor_api` via `scripts/db_roles.py`
+  (not a migration: roles are server-wide and need a password; password must be 16+
+  letters/digits because CREATE ROLE can't bind parameters). Column-level grants on `hints`.
+  Found by the role test: the ORM insert in `enqueue_hint` asked for RETURNING `claims`; it is
+  now a Core insert returning only `id`. Limits in `RateLimits`: body 512 KiB (ASGI middleware
+  counting bytes), guests 5/IP/hour (memory) and 200/hour (Postgres), queue 50, hint queue 10
+  (soft caps, 503 + Retry-After 30). **Measured:** the Next.js rewrite does not append to
+  `X-Forwarded-For` (`base-server.js:612` sets it only if missing): 6 guests via the web with
+  spoofed headers all passed. Compose keeps `TRUSTED_PROXY_HOPS=1`, correct only once Caddy
+  (Step 5) replaces the header; Step 5 must test with a spoofed header.
+
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)
 
@@ -1392,7 +1422,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
 - `editor_stats` comes from the browser and can be faked (or left out by any other client);
   auto-indent, auto-closed brackets and undo count as typing. A signal for a human, never proof.
 - The instructor routes use one shared dev token from the environment (no accounts, no limit on wrong guesses); real auth is needed before hosting (docs/api.md §8).
-- The API's dev login is spoofable (any `X-User-Id`) and new names are free, so the per-user rate limits can be bypassed. uvicorn has no request-size limit (the whole body is read before the 50 000-character check). All of this must be fixed before hosting (docs/api.md §7, ideas.md).
+- Since Deploy Step 2a: guest sessions (cookie), the dev login (`X-User-Id`, spoofable) only with `CODETUTOR_DEV_LOGIN=1` (`make api`, tests). Site-wide and per-IP limits exist, but the per-IP one is in memory and trusts `X-Forwarded-For` only as far as `TRUSTED_PROXY_HOPS`; Next.js passes a client's own header through, so the value 1 is correct only behind Caddy replacing it (Step 5 must test). Guests are anonymous (lost cookie = lost account).
 - GRPO on the 0.5B (Week 6): four folds, one training seed each. Pooled held-out change +0.02
   [-0.02, +0.06] (interval resamples problems only), so no transfer is shown; run-to-run training
   noise is measured only once (fold c, seed 1 agrees with seed 0: +0.03 / +0.04); with 30

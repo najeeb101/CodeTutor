@@ -1,6 +1,6 @@
 # Deploying CodeTutor
 
-Status: **Deploy Step 1 of 6.** The whole app runs in containers, on a laptop or a server, with
+Status: **Deploy Step 2a of 6** (containers; backend locks). The whole app runs in containers, on a laptop or a server, with
 the same images. It is **not ready for strangers yet**; see section 5.
 
 ## 1. The containers
@@ -10,8 +10,8 @@ the same images. It is **not ready for strangers yet**; see section 5.
 | Container | Image | What it does |
 |---|---|---|
 | `db` | `pgvector/pgvector:pg17` (pinned) | Postgres + pgvector. No port is published: only the other containers reach it |
-| `migrate` | `codetutor-app` | Runs once: `alembic upgrade head`, then copies the problems in. The others wait for it to finish, so only one problem sync ever runs |
-| `api` | `codetutor-app` | FastAPI on port 8000 inside the network (127.0.0.1:8010 on the machine) |
+| `migrate` | `codetutor-app` | Runs once: `alembic upgrade head`, then rebuilds the API's database role (`scripts/db_roles.py`), then copies the problems in. The others wait for it to finish, so only one problem sync ever runs |
+| `api` | `codetutor-app` | FastAPI on port 8000 inside the network (127.0.0.1:8010 on the machine); connects as the role `codetutor_api` (no hidden tests); guest sessions only |
 | `worker` | `codetutor-app` | Takes queued submissions and grades each one in a fresh `codetutor-sandbox` container |
 | `web` | `codetutor-web` | Next.js on port 3000 inside (127.0.0.1:3200 on the machine); forwards `/api/*` to `api` |
 | `tutor` | `codetutor-app` | Off by default (profile `tutor`) until Deploy Step 4 decides where the model runs |
@@ -26,7 +26,7 @@ command (migrate, api, worker, tutor), so all four always run the same code vers
 ## 2. Run it on your machine
 
 ```bash
-cp .env.prod.example .env.prod   # then fill in the two values (openssl rand -hex 24)
+cp .env.prod.example .env.prod   # then fill in the three values (openssl rand -hex 24)
 make prod-build                  # builds the 3 images (first time ~2.5 min)
 make prod-up                     # starts everything and waits until it is healthy
 make prod-e2e                    # 9 end-to-end checks over HTTP (no tutor yet)
@@ -70,13 +70,15 @@ including `make worker` on a laptop. What keeps it acceptable:
 Better isolation is Deploy Step 3: gVisor (`runsc`) runs each grading container on its own
 user-space kernel, so a kernel bug is much harder to reach.
 
-## 5. Not safe for strangers yet
+## 5. What is safe, and what is not yet
 
-| Gap | Fixed in |
+| Gap | Status |
 |---|---|
-| Dev login: any `X-User-Id` works; the instructor token is one shared secret | Step 2 |
-| The API's database user can read `problem_versions` (the hidden tests) | Step 2 |
-| No request-size, per-IP or global limits | Step 2 |
+| Login | **Done (2a):** guest sessions (random token in an HttpOnly, Secure, SameSite=Lax cookie; only its sha256 stored). Dev login (`X-User-Id`) is off unless `CODETUTOR_DEV_LOGIN=1`, which compose never sets. The web UI still uses the old login: **2b** |
+| The API's database user could read the hidden tests | **Done (2a):** role `codetutor_api`, enforced by Postgres (`db/roles.py`) |
+| Request size, per-IP and site-wide limits | **Done (2a):** 413 over 512 KiB; 5 guests/hour per IP; 200 guests/hour, 50 queued submissions, 10 waiting hints in total (docs/api.md §4) |
+| The visitor's IP behind the proxies | **Open until Step 5:** Next.js passes a visitor's own `X-Forwarded-For` through (measured), so `TRUSTED_PROXY_HOPS=1` is right only behind Caddy replacing that header. Step 5 must test it with a spoofed header |
+| The instructor token is one shared secret | 2b (public demo dashboard on the simulated class) |
 | Grading containers share the host kernel | Step 3 |
 | No tutor model on the server | Step 4 |
 | No HTTPS, no server, no backups | Step 5 |
