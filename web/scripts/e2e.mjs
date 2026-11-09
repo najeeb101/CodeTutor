@@ -332,6 +332,40 @@ function instructorSteps(page) {
   ];
 }
 
+// --- The public demo (Deploy Step 2c): needs no token; E2E_DEMO=1 after `make prod-demo-data` ---
+
+function demoSteps(page) {
+  return [
+    ["demo: the teacher view opens without a token, labelled as simulated", async () => {
+      await page.send("Page.navigate", { url: `${WEB}/demo` });
+      await sleep(500);
+      await waitFor(() => page.js("document.querySelectorAll('.cards li').length >= 6"), "the overview cards");
+      const rows = await waitFor(() => page.js("document.querySelectorAll('table.data')[0]?.querySelectorAll('tbody tr').length"), "the student rows");
+      const text = await page.js("document.body.textContent");
+      expect(text.includes("Simulated class"), "no simulated-class banner");
+      expect(!text.includes("Teacher token"), "a token box is shown on the public demo");
+      expect(!/def \w+\(/.test(text), "student code is shown on the demo");
+      return `${rows} invented students`;
+    }],
+    ["demo: a student page opens and keeps the banner", async () => {
+      await page.js("document.querySelector('table.data tbody a').click()");
+      await waitFor(() => page.js("document.body.textContent.includes('Marked submissions')"), "the student page");
+      expect(await page.js("!!document.querySelector('.demo-banner')"), "no banner on the student page");
+      expect((await page.js("location.pathname")).startsWith("/demo/students/"), "left the demo");
+      return await page.js("document.querySelector('h1').textContent");
+    }],
+    ["demo: the page reaches the demo API, never the real teacher route", async () => {
+      const real = await page.js("fetch('/api/instructor/overview').then((r) => r.status)");
+      expect(real === 401 || real === 503, `the real teacher route answered ${real} without a token`);
+      return `/api/instructor/overview without a token: ${real}`;
+    }],
+    ["demo: no errors in the browser console", async () => {
+      expect(page.consoleErrors.length === 0, JSON.stringify(page.consoleErrors));
+      return "none";
+    }],
+  ];
+}
+
 async function main() {
   const chrome = await startChrome();
   let failed = false;
@@ -341,8 +375,12 @@ async function main() {
     if (onlyInstructor && TOKEN === "") {
       throw new Error("E2E_ONLY=instructor needs INSTRUCTOR_TOKEN (the value the API was started with)");
     }
-    const page = await openPage(onlyInstructor ? `${WEB}/instructor` : `${WEB}/problems/${PROBLEM}`);
-    const all = onlyInstructor ? [] : steps(page);
+    const onlyDemo = process.env.E2E_ONLY === "demo";
+    const page = await openPage(
+      onlyInstructor ? `${WEB}/instructor` : onlyDemo ? `${WEB}/demo` : `${WEB}/problems/${PROBLEM}`,
+    );
+    const all = onlyInstructor || onlyDemo ? [] : steps(page);
+    if (onlyDemo || process.env.E2E_DEMO === "1") all.push(...demoSteps(page));
     if (TOKEN !== "") all.push(...instructorSteps(page));
     else if (!onlyInstructor) console.log("(dashboard checks skipped: INSTRUCTOR_TOKEN is not set)");
     for (const [name, run] of all) {

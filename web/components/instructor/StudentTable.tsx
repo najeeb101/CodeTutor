@@ -40,7 +40,13 @@ function compareValues(a: string | number | null, b: string | number | null): nu
   return Number(a) - Number(b);
 }
 
-export function StudentTable({ students }: { students: InstructorStudent[] }) {
+export function StudentTable({
+  students,
+  linkBase = "/instructor",
+}: {
+  students: InstructorStudent[];
+  linkBase?: string; // where a student's page lives: /instructor, or /demo for the public demo
+}) {
   // null = the order the API sent (most to look at first).
   const [sort, setSort] = useState<{ key: SortKey; down: boolean } | null>(null);
 
@@ -72,7 +78,7 @@ export function StudentTable({ students }: { students: InstructorStudent[] }) {
         {rows.map((student) => (
           <tr key={student.id}>
             <td>
-              <Link href={`/instructor/students/${student.id}`}>{student.name}</Link>
+              <Link href={`${linkBase}/students/${student.id}`}>{student.name}</Link>
             </td>
             <td>
               {student.problems_solved} / {student.problems_tried}

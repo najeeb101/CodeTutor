@@ -64,15 +64,16 @@ interface Loaded<T> {
 }
 
 // One GET with the token. A wrong token (401/403) is forgotten, so the token box comes back.
-export function useInstructorData<T>(path: string): Loaded<T> {
+export function useInstructorData<T>(path: string, needsToken = true): Loaded<T> {
   const { token, ready, setToken } = useInstructorToken();
   const [state, setState] = useState<Loaded<T>>({ data: null, error: null, loading: true });
 
   useEffect(() => {
-    if (!ready || token === null) return;
+    // The public demo (a simulated class) needs no token; the real dashboard waits for one.
+    if (needsToken && (!ready || token === null)) return;
     let current = true; // ignore an answer that arrives after the token or path changed
     setState({ data: null, error: null, loading: true });
-    apiFetch<T>(path, { instructorToken: token })
+    apiFetch<T>(path, { instructorToken: needsToken ? (token ?? undefined) : undefined })
       .then((data) => current && setState({ data, error: null, loading: false }))
       .catch((caught: unknown) => {
         if (!current) return;
@@ -85,7 +86,7 @@ export function useInstructorData<T>(path: string): Loaded<T> {
     return () => {
       current = false;
     };
-  }, [path, token, ready, setToken]);
+  }, [path, token, ready, setToken, needsToken]);
 
   return state;
 }

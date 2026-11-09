@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/" className="brand">
                 CodeTutor
               </Link>
+              <Link href="/demo">Teacher demo</Link>
               <Link href="/instructor">Instructor</Link>
               <LoginBox />
             </header>
