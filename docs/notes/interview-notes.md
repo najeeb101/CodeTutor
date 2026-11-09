@@ -779,3 +779,17 @@ built inside the stack with the same grader (a one-shot job), so the demo is the
 invented data, and a tiny class (60 rows) lets CI run the whole path in a minute.
 *How I'd say it:* "Open endpoints get their own process, database and read-only role, so the
 safety doesn't depend on my code being right."
+
+## gVisor: a second kernel, fail-closed, and tested where it can really run (Deploy, Step 3)
+Containers share the host's kernel, so a kernel bug is a way out for hostile code. gVisor answers
+the code's system calls in a user-space kernel and lets only a small filtered set through, which
+is how Google runs untrusted code. I added it as one `--runtime` option, kept every other lock,
+and made it **fail closed**: if the runtime is requested but Docker doesn't have it, the worker
+refuses to start, so a server that loses gVisor never silently falls back to plain Docker. My
+laptop's Docker Desktop can't host it, so the proof is CI on both CPU types: the same 38 hostile
+tests, plus a check that the container's kernel string is gVisor's. One test failed, and that was
+the useful result: a fork bomb is stopped by plain Docker with a polite error, but gVisor ends the
+whole container. The bomb is stopped either way, so I changed the test to expect each runtime's
+real behaviour and wrote the difference down. Cost: about 100 ms per submission.
+*How I'd say it:* "Add a stronger wall, make it fail closed, test it where it really runs, and
+when a test differs, measure and document it instead of loosening the assertion."

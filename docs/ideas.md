@@ -142,3 +142,8 @@ Ideas that come up during a week but belong to a later week. Add them here inste
   the browser needs (it is served from `public/monaco`). Standalone output copies only the
   files the server really loads (typically a few hundred MB less) and runs with
   `node server.js`. Measure the size before and after, and check that `make web-e2e` still passes.
+
+- **(Deploy, if grading load grows) A pool of warm gVisor containers.** Every submission starts a
+  fresh container (about 215 ms with runc, 315 ms with gVisor on a CI runner). A pool of idle,
+  single-use containers would hide most of that. Firecracker microVMs are the next isolation level
+  (a hardware boundary), at more setup cost.

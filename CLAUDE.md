@@ -634,6 +634,18 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
   `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
   `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
+- **Done (2026-11-09): Deploy Step 3** (gVisor; plan approved). `DockerSandbox(runtime=)` +
+  `docker_command(runtime=)`, fail-closed canary, `SANDBOX_RUNTIME` (settings, worker, compose
+  worker + demo-grade), `deploy/install-gvisor.sh` (release 20261019.0, SHA-512 per arch, checked
+  against my own download), `tests/test_sandbox_runtime.py`, `TEST_SANDBOX_RUNTIME` /
+  `REQUIRE_RUNSC`, `bench_sandbox.py --runtime`. **CI (run 42686854065, 7 jobs green):** new `gvisor`
+  job on amd64 + arm64: 38 hostile tests under runsc pass, inside kernel `4.19.0-gvisor`;
+  `prod-images` jobs install gVisor and grade the whole stack under it. First run: 37/38, the fork
+  bomb is `crashed` ("exited with code 2 without a result") under gVisor instead of accepted with
+  STARTED=62 (measured; test now expects each runtime's behaviour, difference in docs/grader.md).
+  Cost on CI runners: Docker 215 ms, gVisor 315 ms (+100 ms; 50 ms timer steps). **Not testable on the
+  laptop** (Docker Desktop has only runc/nvidia). `make all` on battery: 897 passed + Q14 again
+  (rerun green). Step 5 must run the install script and set `SANDBOX_RUNTIME=runsc`.
 - **Done (2026-11-09): Deploy Step 2c = Deploy Step 2 done** (public demo; plan approved).
   `api/demo.py` (+14 tests), `apply_demo_role` (+19 role tests), 3 one-shot seed containers,
   `make prod-demo-data` / `prod-demo-up`, `/demo` pages + banner + `/demo-api` rewrite, `sim_cohort
@@ -810,8 +822,10 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   reload after logout proves. Deploy Step 2c: Q1 why the public demo is a separate process with its
   own database and role instead of the token turned off; Q2 why `codetutor_demo` gets five columns of
   `submissions`, not the table; Q3 why a module-level router shared between two app instances was a bug.
-  (169 in total; answer key in Claude's memory.)
-- **Next action:** **Deploy Step 3** (gVisor / runsc for the grading containers; measure the cost; plan first). Najeeb: Oracle Cloud sign-up in parallel. Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+  Deploy Step 3: Q1 why `SANDBOX_RUNTIME` makes the worker refuse to start instead of falling back; Q2
+  what a fork bomb does under runc and under gVisor; Q3 why the gVisor tests run on CI and not on the laptop.
+  (172 in total; answer key in Claude's memory.)
+- **Next action:** **Deploy Step 4** (the tutor in production: a model that runs without a GPU, chosen by measurement; plan first). Najeeb: Oracle Cloud sign-up in parallel. Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start

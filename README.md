@@ -224,7 +224,7 @@ make prod-up                     # web on http://127.0.0.1:3200, API on 127.0.0.
 make prod-e2e                    # 9 end-to-end checks (the tutor is not containerized yet)
 make prod-down
 ```
-Guest sessions, a database role without the hidden tests and site-wide limits are in; the web UI's guest button and HTTPS are next (docs/deploy.md §5).
+Guest sessions, a database role without the hidden tests, site-wide limits, the public demo and gVisor for grading are in; HTTPS and a server are next (docs/deploy.md §5).
 
 ### Architecture (as built)
 The product: a student's submit is one row in Postgres, which is also the job.

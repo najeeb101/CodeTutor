@@ -68,8 +68,8 @@ including `make worker` on a laptop. What keeps it acceptable:
   containers, with no network and no host files;
 - the socket is mounted only into `worker`, never into `api`, `web` or `tutor`.
 
-Better isolation is Deploy Step 3: gVisor (`runsc`) runs each grading container on its own
-user-space kernel, so a kernel bug is much harder to reach.
+Deploy Step 3 added the stronger wall: gVisor (`runsc`) runs each grading container on its own
+user-space kernel (section 8).
 
 ## 5. What is safe, and what is not yet
 
@@ -80,7 +80,7 @@ user-space kernel, so a kernel bug is much harder to reach.
 | Request size, per-IP and site-wide limits | **Done (2a):** 413 over 512 KiB; 5 guests/hour per IP; 200 guests/hour, 50 queued submissions, 10 waiting hints in total (docs/api.md §4) |
 | The visitor's IP behind the proxies | **Open until Step 5:** Next.js passes a visitor's own `X-Forwarded-For` through (measured), so `TRUSTED_PROXY_HOPS=1` is right only behind Caddy replacing that header. Step 5 must test it with a spoofed header |
 | The instructor token is one shared secret | **Public demo done (2c):** a separate read-only API on a simulation database, no token needed because no real person is in it. The real teacher routes keep the shared token: fine for one private owner, not for several teachers |
-| Grading containers share the host kernel | Step 3 |
+| Grading containers share the host kernel | **Done (3):** gVisor (`SANDBOX_RUNTIME=runsc`, section 8); proven in CI on amd64 and arm64. The server must set it (Step 5) |
 | No tutor model on the server | Step 4 |
 | No HTTPS, no server, no backups | Step 5 |
 
@@ -119,3 +119,23 @@ make prod-demo-data DEMO_LIMIT=60   # a tiny class, ~1 min (CI uses this)
 `codetutor_sim_s1`, queue the cohort, create the role), `demo-grade` (four workers, the same
 sandbox as real submissions) and `demo-flags` (the integrity job). Labels (which student is a
 cheater) stay in the cohort files and never enter the database.
+
+## 8. gVisor for the grading containers (Deploy Step 3)
+
+Docker containers share the host's kernel. With `SANDBOX_RUNTIME=runsc` the worker starts every
+grading container under gVisor instead: a second kernel, in user space, between the code and the
+host (docs/grader.md §6). Only the **grading** containers use it; api, worker and db stay on
+runc (the worker needs the Docker socket and is our own code).
+
+```bash
+sudo deploy/install-gvisor.sh     # pinned release 20261019.0 + SHA-512 per CPU type; registers "runsc"
+echo "SANDBOX_RUNTIME=runsc" >> .env.prod
+```
+- **Fail closed:** if the variable is set and Docker lacks the runtime, the worker refuses to start.
+- **CI proof:** the `gvisor` job runs the 38 hostile-code tests under `runsc` on amd64 and arm64;
+  the `prod-images` jobs grade the whole stack (e2e, demo class, browser run) under it.
+- **Cost:** about +100 ms per submission (GitHub runner measurement). A fork bomb ends as
+  `crashed` instead of "accepted with STARTED=62".
+- **Not on the laptop:** Docker Desktop's VM has no `runsc`; leave `SANDBOX_RUNTIME` empty there
+  (plain Docker, fine for your own code, not for strangers').
+- **Step 5 must** run the install script on the server and set the variable.

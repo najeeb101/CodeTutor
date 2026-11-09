@@ -191,8 +191,10 @@ submission in Docker, plus three that only Docker blocks (`reads_host_file`, `ne
 proves the hole is real there (the secret is read), and it fails loudly if that ever changes.
 
 **Still open:**
-- A container shares the host's **kernel**. A kernel bug can let code out. Big platforms add a
-  stronger wall: gVisor (a kernel in user space) or Firecracker (tiny virtual machines).
+- A container shares the host's **kernel**. A kernel bug can let code out. **Since Deploy Step 3
+  this is closed on the server by gVisor** (below): the grading container then talks to gVisor's
+  own kernel. A bug in gVisor itself, or in the few host calls it still makes, remains possible;
+  Firecracker (tiny virtual machines) would be the next wall.
 - The Docker daemon runs as root: anyone who can run `docker` is effectively root. The grading
   worker (Week 3) must never let users talk to Docker directly.
 - The token can still be found in memory. Harmless for the same reason as before (section 4).
@@ -232,6 +234,31 @@ per run) and for RL training (thousands of gradings). Timings on this machine ar
 subprocess grading took 34 ms on 2026-09-30 and 67–93 ms on 2026-10-01 while Docker Desktop was
 running. An A/B test showed the Step 5 refactor did not change it (old and new code: median 67 vs
 68 ms).
+
+### gVisor (Deploy Step 3): `DockerSandbox(runtime="runsc")`
+
+`runsc` is gVisor's container runtime. Docker starts the same container with `--runtime runsc`,
+and everything the code asks the kernel to do is answered by gVisor, a kernel written in Go that
+runs in user space. Only a small, filtered set of calls reaches the host. All the options in the
+table above stay; the runtime is the only difference (`docker_command`, a unit test checks that).
+- **Fail closed.** With a runtime requested, the sandbox starts one real container under it when it
+  is created. If Docker doesn't have the runtime, `SandboxUnavailableError` is raised and the
+  worker refuses to start: a server that lost its gVisor never silently grades on plain Docker.
+  The setting is `SANDBOX_RUNTIME=runsc` (`settings.py`); `deploy/install-gvisor.sh` installs a
+  pinned release (SHA-512 per CPU type) and registers the runtime.
+- **Proof it is really another kernel:** inside the container `platform.release()` is
+  `4.19.0-gvisor`, not the host's (`test_the_grading_container_runs_under_gvisor_when_asked`).
+- **Tests:** the whole hostile suite (38 docker tests) runs a second time under `runsc` on
+  GitHub's amd64 **and arm64** runners (the laptop's Docker Desktop can't host it): 38/38 green.
+  The CI job fails if gVisor is not really there (`REQUIRE_RUNSC=1`).
+- **One measured difference:** a fork bomb. Under runc `fork()` fails politely at the pids limit
+  (EAGAIN, the program keeps running: `STARTED=62`, accepted). Under gVisor reaching the limit ends
+  the whole container (`crashed`, "exited with code 2 without a result", reward 0). The bomb is
+  stopped either way; the label differs, so the test expects each runtime's behaviour
+  (`test_process_limit_stops_fork_bombs`). Ordinary CS1 code never forks.
+- **Cost** (GitHub runners, fizzbuzz, 10 tests, 20 runs one at a time; **not the laptop**, and the
+  runner's timer has 50 ms steps): subprocess 33 ms, Docker (runc) 215 ms median, **gVisor 315 ms,
+  about 100 ms more**, the same on amd64 and arm64.
 
 **At scale** you would not start a cold container for every submission. You would keep a pool of
 warm containers (or microVMs), give each one a single job, and throw it away afterwards. That keeps
