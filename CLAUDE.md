@@ -76,9 +76,9 @@ every line in an interview.
 - `src/codetutor/bank/`: fill_expected, validator, dataset build (the logic behind `scripts/`)
 - `src/codetutor/evals/`: `prompt.py`, `extract.py`, `passk.py`, `records.py`, `score.py`, `fake_models.py`, `clients.py`, `run.py`, `metrics.py`, `report.py`
 - `src/codetutor/settings.py`: settings from the environment (`database_url()`, `database_url_for_tests()`, `DB_CONNECT_TIMEOUT_S`)
-- `src/codetutor/db/`: `engine.py`, `models.py` (9 tables as `…Row` classes; `sessions` since Deploy 2a), `roles.py` (the API's DB role `codetutor_api` and its grants; `scripts/db_roles.py`), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
+- `src/codetutor/db/`: `engine.py`, `models.py` (9 tables as `…Row` classes; `sessions` since Deploy 2a), `roles.py` (the API's DB role `codetutor_api` and the read-only demo role `codetutor_demo`; `scripts/db_roles.py [--demo]`), `vector.py` (pgvector column type), `sync.py`, `users.py`, `admin.py` (`recreate_database(url, must_contain=)`, `migrate_to_head`; used by tests and `make sim-db`), `migrations/` (Alembic; `alembic.ini` at the repo root)
 - `src/codetutor/worker/`: `jobs.py` (the queue in SQL: enqueue, claim, save, release, load result), `loop.py` (`process_job`, `run_worker`)
-- `src/codetutor/api/`: `app.py` (`create_app(dev_login=, trusted_proxy_hops=)`, error handlers), `auth.py` (Deploy 2a: guest sessions, sha256 of the token in `sessions`), `guards.py` (`BodySizeLimit`, `client_ip`, `IpWindow`), `routes.py` (14 endpoints incl. guest/me/logout), `instructor.py` (Week 8: 4 teacher routes behind a dev token), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
+- `src/codetutor/api/`: `app.py` (`create_app(dev_login=, trusted_proxy_hops=)`, error handlers), `auth.py` (Deploy 2a: guest sessions, sha256 of the token in `sessions`), `demo.py` (Deploy 2c: the public read-only teacher view of a simulated class, `create_demo_app`), `guards.py` (`BodySizeLimit`, `client_ip`, `IpWindow`), `routes.py` (14 endpoints incl. guest/me/logout), `instructor.py` (Week 8: 4 teacher routes behind a dev token), `submissions.py` (submit + rate limits, `find_limit_hit`, `lock_user`), `hints.py` (hint requests, levels, rating), `schemas.py`, `deps.py` (session, `current_user`)
 - `src/codetutor/tutor/`: `guardrail.py` (`check_hint`, `solution_lines`: does a hint leak code or the solution?), `notes.py` (`load_notes`, `sync_notes`), `rag.py` (`search`: keyword / vector / hybrid), `retrieval_eval.py`, `context.py` (`HintRequest`, what the model sees), `prompt.py` (pinned, `TUTOR_PROMPT_VERSION`), `service.py` (`give_hint`, `save_hint`), `safety.py` (the safety run), `jobs.py` (the hint queue: the `hints` row is the job), `loop.py` (`process_hint_job`, `run_tutor_worker`)
 - `src/codetutor/sim/`: the simulated class (Week 5): `personas.py` (`CohortConfig`), `pools.py`, `transforms.py` (rename / reformat), `editor.py` (synthetic editor summaries), `cohort.py` (`generate`, labels), `load.py` (`load_rows`, `graded_rows`, `summary`)
 - `src/codetutor/integrity/`: the integrity checks (Week 5 Step 2b, batch job): `normalize.py` (`canonical`, rename-proof; `fingerprints`, `similarity`), `signals.py` (`IntegrityConfig`, `FlagKind`, `detect`, `needs_review`; no labels), `known_ai.py` (7B seeds 0-4), `store.py` (`load_submissions`, `replace_flags`), `evaluate.py` (Step 2c: labels join, `f_beta`, grid `search` via `FastFlags`, bootstrap over students), `report.py` (`render_report`)
@@ -132,7 +132,7 @@ every line in an interview.
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
   `prod-build` / `prod-up` / `prod-down` / `prod-ps` / `prod-logs` / `prod-e2e` (Deploy: the
   containerized app from compose.prod.yaml, needs `.env.prod`; web 127.0.0.1:3200, API 8010;
-  `prod-e2e` skips the tutor steps), `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
+  `prod-e2e` skips the tutor steps; `prod-demo-data` / `prod-demo-up` / `prod-demo-down` / `prod-web-e2e`: the public demo, `DEMO_LIMIT=60` for a tiny class), `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
   neither is in `make all`). `make all` stays Python-only. `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
@@ -634,6 +634,19 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
   `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
   `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
+- **Done (2026-11-09): Deploy Step 2c = Deploy Step 2 done** (public demo; plan approved).
+  `api/demo.py` (+14 tests), `apply_demo_role` (+19 role tests), 3 one-shot seed containers,
+  `make prod-demo-data` / `prod-demo-up`, `/demo` pages + banner + `/demo-api` rewrite, `sim_cohort
+  load --limit`, CI demo smoke (60 rows). **Real run in the containers:** the whole held-out class
+  built, graded by 4 workers in **15 min 50 s** (3,076/3,076 done: accepted 1,827, wrong 951,
+  runtime 217, timeout 35, compile 46), then `demo-flags`: 3,007 flags, **221 submissions need
+  review** (= the Week 5 held-out number), 13 students. First `demo-flags` failed: the image lacked the
+  7B results file (known AI answers), now copied (only that file). Demo API: 60 students, 0.37 s
+  first call, 0.017 s cached; POST /api/guest -> 404; as `codetutor_demo`: SELECT code / DELETE /
+  problem_versions all `permission denied`; via the web proxy 200 with `Cache-Control`. Found by the
+  first web call: the `/demo-api` rewrite is baked at build time, so `web.Dockerfile` needs the
+  build arg (500 until then). `make all` on battery: {int("896")} collected, 893 passed, 33 valid,
+  136 s; test-docker 36 passed. **Browser check of /demo: only in CI** (WSL Chrome still blocked).
 - **Done (2026-11-09): Deploy Step 2b** (web guest login; plan approved). `lib/user.tsx` asks
   `GET /api/me` (nothing stored; old `codetutor.user` key removed), `startGuest` / `logout` /
   `forget`, `apiFetch` without `userId` (`credentials: same-origin`), "Start as a guest" button,
@@ -793,8 +806,12 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   Deploy Step 2a: Q1 why the database stores the token's sha256 and not the token; Q2 why
   per-user limits needed site-wide limits next to them; Q3 what a visitor could do with
   `TRUSTED_PROXY_HOPS=1` and no proxy that replaces `X-Forwarded-For`.
-  (162 in total; answer key in Claude's memory.)
-- **Next action:** **Deploy Step 2c** (public read-only demo dashboard on the held-out simulated class, no token, sim-database only; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+  Deploy Step 2b: Q1 why the page calls `GET /api/me` on load instead of reading storage; Q2 what the
+  reload after logout proves. Deploy Step 2c: Q1 why the public demo is a separate process with its
+  own database and role instead of the token turned off; Q2 why `codetutor_demo` gets five columns of
+  `submissions`, not the table; Q3 why a module-level router shared between two app instances was a bug.
+  (169 in total; answer key in Claude's memory.)
+- **Next action:** **Deploy Step 3** (gVisor / runsc for the grading containers; measure the cost; plan first). Najeeb: Oracle Cloud sign-up in parallel. Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
@@ -1401,6 +1418,17 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `X-Forwarded-For` (`base-server.js:612` sets it only if missing): 6 guests via the web with
   spoofed headers all passed. Compose keeps `TRUSTED_PROXY_HOPS=1`, correct only once Caddy
   (Step 5) replaces the header; Step 5 must test with a spoofed header.
+
+- 2026-11-09: Deploy Step 2c (plan approved). The public demo = **a separate process, database
+  and read-only role**, not "the token turned off": `api/demo.py` mounts only the 4 teacher GETs
+  (own router per app: a module-level router shared handlers across app instances, found by a
+  test), role `codetutor_demo` has SELECT on users(id,name), problems, integrity_flags and 5
+  `submissions` columns (no code), name guard "sim", 5-min cache, `Cache-Control: public,
+  max-age=60`. The class (seed 1, `codetutor_sim_s1`) is built inside the stack by 3 one-shot
+  containers (`demo-seed`, `demo-grade` x4 workers, `demo-flags`); `lab/sim` is now in the app
+  image; `sim_cohort.py load --limit N` for a tiny CI class. Web: shared `DashboardView` /
+  `StudentDetailView` with a `View` (api base, page base, needsToken), `/demo` + banner,
+  `/demo-api` rewrite. The real `/api/instructor` keeps its shared token (one private owner).
 
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)

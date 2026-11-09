@@ -765,3 +765,17 @@ that overwrites it; I wrote that down instead of assuming.
 The page can't read an HttpOnly cookie, so on load it asks `GET /api/me` and stores nothing about the user; a browser test proves a reload keeps the guest and a logout kills the old cookie.
 *How I'd say it:* "Hash the session token, make the database enforce what the API may read, cap
 the whole site, and never trust X-Forwarded-For from a hop you haven't measured."
+
+## A public demo that can't leak: separate database, read-only role, separate process (Deploy, Step 2c)
+I wanted visitors to see the teacher dashboard without a token. The safe way is not "turn the
+token off", it is to make the open thing a different thing: a second API process that mounts only
+the four read routes, connected as a database role that can select five columns of `submissions`
+(no code, no output) and nothing else, on a simulation database whose name the code checks.
+Even if every line of the demo API were wrong, Postgres would still refuse writes and refuse the
+real tables, and the real database is not even the one it is connected to. A test caught a real
+bug on the way: I declared the router at module level but registered handlers inside the factory,
+so a second app instance served the first one's cache; the fix is a router per app. The class is
+built inside the stack with the same grader (a one-shot job), so the demo is the real system on
+invented data, and a tiny class (60 rows) lets CI run the whole path in a minute.
+*How I'd say it:* "Open endpoints get their own process, database and read-only role, so the
+safety doesn't depend on my code being right."

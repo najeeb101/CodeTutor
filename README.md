@@ -32,13 +32,13 @@ Everything marked simulated has not been tried on real students.
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 863 pytest tests, plus 36 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 896 pytest tests, plus 36 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
 | App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 student endpoints + 4 teacher endpoints), a Next.js UI with the Monaco editor and an instructor dashboard; checked end to end over HTTP and in a headless browser |
 | AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
 | Simulated class | 2 classes of 60 students (seed 0: 3,145 submissions, seed 1: 3,076), each graded by the real workers in its own database; every row has a label (honest, copy, AI paste, how it was entered) that is kept out of the database |
 | RL training | GRPO with LoRA on Qwen2.5-Coder 0.5B, reward = the grader's share of tests passed (hidden tests included); 4 module folds + a second seed, 5 trained adapters, each measured on 30 answers per problem |
-| Instructor dashboard | Teacher token, class overview, students (skill, early-warning risk, marks to look at), problems (declared vs measured difficulty); no code is ever shown |
+| Instructor dashboard | **Public demo at `/demo`** (a simulated class, read-only, no token) and, behind a token, the real teacher view: class overview, students (skill, early-warning risk, marks to look at), problems (declared vs measured difficulty); no code is ever shown |
 | Integrity + skill | 4 signals (paste, fast typing, same as another student, same as a known AI answer), thresholds chosen on seed 0 and measured on seed 1; Rasch difficulty and skill estimates scored against the simulation's true values |
 
 A validator checks every problem: the reference solution passes all tests, the starter code does

@@ -280,6 +280,11 @@ curl -s -X PUT http://127.0.0.1:8000/api/hints/<hint id>/rating -H 'X-User-Id: 1
 
 ## 8. The instructor routes (Week 8 Step 1; dev token, NOT real authentication)
 
+*Deploy Step 2c:* the same four routes are also served, without a token, by the separate
+**demo API** (`api/demo.py`, docs/deploy.md §7) from a *simulated* class on its own database,
+through a read-only role. There the student API does not exist, every non-GET is 405, and the
+answers are cached for 5 minutes. The token below protects only the real API's routes.
+
 For the dashboard (Step 2). Read-only. A teacher sends `X-Instructor-Token`, a shared secret from
 the `INSTRUCTOR_TOKEN` environment variable (16+ characters; a shorter or missing value switches
 the routes **off**: 503). Wrong token: 403. No token (a student's `X-User-Id` is not enough): 401.
