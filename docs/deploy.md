@@ -74,7 +74,7 @@ user-space kernel, so a kernel bug is much harder to reach.
 
 | Gap | Status |
 |---|---|
-| Login | **Done (2a):** guest sessions (random token in an HttpOnly, Secure, SameSite=Lax cookie; only its sha256 stored). Dev login (`X-User-Id`) is off unless `CODETUTOR_DEV_LOGIN=1`, which compose never sets. The web UI still uses the old login: **2b** |
+| Login | **Done (2a):** guest sessions (random token in an HttpOnly, Secure, SameSite=Lax cookie; only its sha256 stored). Dev login (`X-User-Id`) is off unless `CODETUTOR_DEV_LOGIN=1`, which compose never sets. The web UI uses the guest button + `GET /api/me` (2b); CI drives it in Chrome against the containers |
 | The API's database user could read the hidden tests | **Done (2a):** role `codetutor_api`, enforced by Postgres (`db/roles.py`) |
 | Request size, per-IP and site-wide limits | **Done (2a):** 413 over 512 KiB; 5 guests/hour per IP; 200 guests/hour, 50 queued submissions, 10 waiting hints in total (docs/api.md §4) |
 | The visitor's IP behind the proxies | **Open until Step 5:** Next.js passes a visitor's own `X-Forwarded-For` through (measured), so `TRUSTED_PROXY_HOPS=1` is right only behind Caddy replacing that header. Step 5 must test it with a spoofed header |

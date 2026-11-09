@@ -18,7 +18,8 @@ const PROBLEM = "cs1.loops.fizzbuzz";
 const FOLDER = new URL("../../problems/cs1/03_loops/fizzbuzz/", import.meta.url);
 const SOLUTION = readFileSync(new URL("solution.py", FOLDER), "utf8");
 const BUGGY = readFileSync(new URL("buggy/checks_fizz_first.py", FOLDER), "utf8");
-const USER = `e2e-ui-${Date.now()}`;
+// E2E_SKIP_HINTS=1: no tutor is running (the containers have none until Deploy Step 4).
+const HINTS = process.env.E2E_SKIP_HINTS !== "1";
 const ARTIFACTS = new URL("../.e2e/", import.meta.url);
 const WINDOWS_CHROME = "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe";
 
@@ -78,6 +79,7 @@ async function startChrome() {
   const chrome = findChrome();
   const profile = makeProfile(chrome);
   const args = [
+    ...(process.env.CHROME_FLAGS ? process.env.CHROME_FLAGS.split(" ") : []),
     "--headless=new",
     "--disable-gpu",
     "--no-first-run",
@@ -187,20 +189,17 @@ async function submitAndWait(page, code) {
 }
 
 function steps(page) {
+  const guest = { name: "" }; // filled by the "start as a guest" step
   return [
-    ["page hydrates: Monaco editor and login form", async () => {
-      await waitFor(() => page.js("!!document.querySelector('.monaco-editor') && !!document.querySelector('.login input')"), "the editor and the login form");
+    ["page hydrates: Monaco editor and the guest button", async () => {
+      await waitFor(() => page.js("!!document.querySelector('.monaco-editor') && [...document.querySelectorAll('.login button')].some((b) => b.textContent === 'Start as a guest')"), "the editor and the guest button");
       return "ok";
     }],
-    ["log in through the form", async () => {
-      await page.js(`(() => {
-        const input = document.querySelector('.login input');
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(USER)});
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        document.querySelector('.login button[type=submit]').click();
-      })()`);
-      await waitFor(() => page.js(`document.querySelector('.login')?.textContent.includes(${JSON.stringify(USER)})`), "the logged-in header");
-      return USER;
+    ["start as a guest (session cookie)", async () => {
+      await page.js("[...document.querySelectorAll('.login button')].find((b) => b.textContent === 'Start as a guest').click()");
+      const name = await waitFor(() => page.js("/guest-[0-9a-f]{10}/.exec(document.querySelector('.login')?.textContent ?? '')?.[0]"), "the logged-in header");
+      guest.name = name;
+      return name;
     }],
     ["the solution is accepted", async () => {
       const heading = await submitAndWait(page, SOLUTION);
@@ -218,7 +217,7 @@ function steps(page) {
       expect(await page.js("document.body.textContent.includes('A hidden test failed')"), "no hidden-test hint");
       return `${heading}; ${hiddenFailed.length} hidden failures without details`;
     }],
-    ["ask the tutor about it, then rate the hint", async () => {
+    ...(HINTS ? [["ask the tutor about it, then rate the hint", async () => {
       const about = await page.js("document.querySelector('.hints')?.textContent ?? ''");
       expect(about.includes("your submission #"), "the hint panel is not about the graded submission");
       await page.js("[...document.querySelectorAll('.hints button')].find((b) => b.textContent === 'Get a hint').click()");
@@ -228,7 +227,7 @@ function steps(page) {
       await page.js("document.querySelector('.hint button[aria-label=Helpful]').click()");
       await waitFor(() => page.js("document.querySelector('.hint button[aria-label=Helpful]').getAttribute('aria-pressed') === 'true'"), "the 👍 to be saved", 10_000);
       return `${label}: "${text.slice(0, 60)}…" 👍`;
-    }],
+    }]] : []),
     ["fast submits hit the 'waiting' limit", async () => {
       for (let click = 1; click <= 6; click++) {
         await waitFor(() => page.js("!document.querySelector('button.primary').disabled"), "the submit button");
@@ -240,23 +239,27 @@ function steps(page) {
       }
       throw new CheckFailed("no 'waiting to be graded' message after 6 fast submits");
     }],
-    ["reload keeps the draft and the login", async () => {
+    ["reload keeps the draft and the session", async () => {
       await page.send("Page.reload");
       await sleep(500);
       await waitFor(() => page.js("!!window.monaco && monaco.editor.getModels().length > 0 && !!document.querySelector('.login button')"), "the page after reload");
       await sleep(300); // the draft is read right after the editor mounts
       expect((await page.js("monaco.editor.getModels()[0].getValue()")) === BUGGY, "the draft was not kept");
-      expect(await page.js(`document.querySelector('.login').textContent.includes(${JSON.stringify(USER)})`), "logged out by the reload");
+      // The page stores no user: only the cookie can bring the same guest back (GET /api/me).
+      await waitFor(() => page.js(`document.querySelector('.login')?.textContent.includes(${JSON.stringify(guest.name)})`), "the same guest after the reload");
       const history = await waitFor(() => page.js("document.querySelectorAll('.history li').length"), "the submission list");
-      await waitFor(() => page.js("document.querySelector('.hint button[aria-label=Helpful]')?.getAttribute('aria-pressed') === 'true'"), "the rated hint after reload", 10_000);
-      return `draft kept, ${history} submissions listed, the rated hint still shown`;
+      if (HINTS) await waitFor(() => page.js("document.querySelector('.hint button[aria-label=Helpful]')?.getAttribute('aria-pressed') === 'true'"), "the rated hint after reload", 10_000);
+      return `draft kept, ${history} submissions listed${HINTS ? ", the rated hint still shown" : ""}`;
     }],
     ["log out", async () => {
       await page.js("[...document.querySelectorAll('.login button')].find((b) => b.textContent === 'Log out').click()");
-      await waitFor(() => page.js("!!document.querySelector('.login input')"), "the login form");
+      await waitFor(() => page.js("[...document.querySelectorAll('.login button')].some((b) => b.textContent === 'Start as a guest')"), "the guest button");
       expect(await page.js("document.querySelectorAll('.history li').length === 0"), "the old user's submissions are still shown");
       expect(await page.js("document.querySelectorAll('.hint').length === 0"), "the old user's hints are still shown");
-      return "login form back, submissions and hints hidden";
+      await page.send("Page.reload");
+      await sleep(500);
+      await waitFor(() => page.js("[...document.querySelectorAll('.login button')].some((b) => b.textContent === 'Start as a guest')"), "the guest button after a reload (the old cookie must be dead)");
+      return "guest button back, submissions and hints hidden, a reload stays logged out";
     }],
     ["no errors in the browser console", async () => {
       expect(page.consoleErrors.length === 0, JSON.stringify(page.consoleErrors));

@@ -79,6 +79,14 @@ jobs:
       - run: make prod-build
       - run: make prod-up
       - run: make prod-e2e
+      - name: Browser checks (Chrome is preinstalled on the amd64 runner)
+        if: matrix.runner == 'ubuntu-24.04'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Run the browser checks
+        if: matrix.runner == 'ubuntu-24.04'
+        run: CHROME="$(command -v google-chrome)" CHROME_FLAGS="--no-sandbox" make prod-web-e2e
       - name: Container logs (only when something failed)
         if: failure()
         run: |

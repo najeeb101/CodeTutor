@@ -1,57 +1,60 @@
 "use client";
 
-// The logged-in user (dev login: a name only, NOT secure), shared through a React context and
-// remembered in localStorage. Every request that needs a user sends its id as X-User-Id.
+// The logged-in user, shared through a React context. The session lives in an HttpOnly cookie
+// (Deploy Step 2a): the browser sends it with every /api request, but this page can't read it,
+// so on load we ask the server who we are (GET /api/me). Nothing about the user is stored here.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { readStored, writeStored } from "./storage";
+import { ApiError, apiFetch } from "./api";
+import { writeStored } from "./storage";
 import type { User } from "./types";
 
-const STORAGE_KEY = "codetutor.user";
+const OLD_STORAGE_KEY = "codetutor.user"; // the dev login kept {id, name} here before 2b
 
 interface UserState {
   user: User | null;
-  ready: boolean; // false until localStorage was read (the server render knows no user)
-  login: (user: User) => void;
-  logout: () => void;
+  ready: boolean; // false until the server said who we are (the server render knows no user)
+  startGuest: () => Promise<void>; // throws ApiError (e.g. 429 / 503) for the caller to show
+  logout: () => Promise<void>;
+  forget: () => void; // the session ended on the server (a 401): only clear this page's state
 }
 
 const UserContext = createContext<UserState | null>(null);
-
-function parseUser(raw: string | null): User | null {
-  try {
-    const value: unknown = raw === null ? null : JSON.parse(raw);
-    if (value && typeof value === "object" && "id" in value && "name" in value) {
-      const { id, name } = value;
-      if (typeof id === "number" && typeof name === "string") return { id, name };
-    }
-  } catch {
-    // a broken stored value counts as "not logged in"
-  }
-  return null;
-}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
-  // localStorage exists only in the browser, so it is read after the first render.
   useEffect(() => {
-    setUser(parseUser(readStored(STORAGE_KEY)));
-    setReady(true);
+    writeStored(OLD_STORAGE_KEY, null);
+    let active = true;
+    apiFetch<User>("/api/me")
+      .then((me) => active && setUser(me))
+      .catch((error: unknown) => {
+        // 401 = no session; anything else (API down) also shows the guest button
+        if (!(error instanceof ApiError)) throw error;
+      })
+      .finally(() => active && setReady(true));
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const login = useCallback((next: User) => {
-    writeStored(STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
+  const startGuest = useCallback(async () => {
+    setUser(await apiFetch<User>("/api/guest", { method: "POST" }));
   }, []);
 
-  const logout = useCallback(() => {
-    writeStored(STORAGE_KEY, null);
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } finally {
+      setUser(null); // even if the request failed, this page shows "logged out"
+    }
   }, []);
 
-  return <UserContext value={{ user, ready, login, logout }}>{children}</UserContext>;
+  const forget = useCallback(() => setUser(null), []);
+
+  return <UserContext value={{ user, ready, startGuest, logout, forget }}>{children}</UserContext>;
 }
 
 export function useUser(): UserState {

@@ -18,14 +18,12 @@ const UNREACHABLE = "Can't reach the API. Is it running? (make api)";
 
 interface ApiOptions {
   method?: "GET" | "POST" | "PUT";
-  userId?: number; // sent as X-User-Id (dev login, not secure)
   instructorToken?: string; // sent as X-Instructor-Token (dev token, not secure)
   body?: unknown; // sent as JSON
 }
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
-  if (options.userId !== undefined) headers["X-User-Id"] = String(options.userId);
   if (options.instructorToken !== undefined) headers["X-Instructor-Token"] = options.instructorToken;
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   const base = typeof window === "undefined" ? API_URL : "";
@@ -35,6 +33,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     response = await fetch(`${base}${path}`, {
       method: options.method ?? "GET",
       headers,
+      credentials: "same-origin", // the session cookie goes along, and only to our own site
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       cache: "no-store", // problems change with a sync, results change while grading
     });

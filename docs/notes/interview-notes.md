@@ -762,5 +762,6 @@ Third, per-user limits mean nothing if users are free, so there are site-wide ca
 length, new guests per hour) plus a per-IP cap. Measuring the proxy showed that Next.js passes a
 client's own X-Forwarded-For through unchanged, so the IP is only trustworthy behind a proxy
 that overwrites it; I wrote that down instead of assuming.
+The page can't read an HttpOnly cookie, so on load it asks `GET /api/me` and stores nothing about the user; a browser test proves a reload keeps the guest and a logout kills the old cookie.
 *How I'd say it:* "Hash the session token, make the database enforce what the API may read, cap
 the whole site, and never trust X-Forwarded-For from a hop you haven't measured."

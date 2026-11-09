@@ -193,12 +193,12 @@ make tutor    # answers hint requests with the local Qwen 7B (needs Ollama, see 
 make api      # the HTTP API on http://127.0.0.1:8000 (interactive docs at /docs)
 make web      # the web UI on http://localhost:3100 (installs its npm packages the first time)
 ```
-Open http://localhost:3100, log in with any name (a development login: **not secure**), pick a
+Open http://localhost:3100, click **Start as a guest** (a session cookie, no sign-up), pick a
 problem, write code, submit, and ask the tutor for a hint ("Stuck? Ask the tutor"). Then check
 the whole chain:
 ```bash
 make e2e      # 11 checks over HTTP: API, workers, web pages, hidden tests stay hidden, a hint (~19 s)
-make web-e2e  # 9 checks in headless Chrome: log in, submit, results, a hint + 👍, limits, drafts (~27 s)
+make web-e2e  # 9 checks in headless Chrome: start a guest session, submit, results, a hint + 👍, limits, drafts (~27 s)
 ```
 The teacher dashboard is at http://localhost:3100/instructor. It needs a token the API was
 started with (`INSTRUCTOR_TOKEN`, 16+ characters), and it is most interesting on the simulated
@@ -430,7 +430,7 @@ problems, one seed per fold except fold c, and a detector that only sees literal
 - `src/codetutor/evals/`: prompt, code extraction, pass@k, model client, run harness, metrics, report
 - `src/codetutor/db/`: database tables (SQLAlchemy), Alembic migrations, problem sync
 - `src/codetutor/worker/`: the grading queue in Postgres (claim, lease, retries) and the worker loop
-- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, dev login, rate limits, hint requests, the instructor routes (`instructor.py`)
+- `src/codetutor/api/`: the HTTP API (FastAPI): endpoints, guest sessions, rate limits, hint requests, the instructor routes (`instructor.py`)
 - `src/codetutor/tutor/`: the AI tutor: guardrail, course-note search, prompt, `give_hint`, the hint queue and worker
 - `src/codetutor/sim/`: the simulated class: personas, code pools, disguises, editor summaries, loading
 - `src/codetutor/integrity/`: the four integrity signals, rename-proof comparison, threshold search, report

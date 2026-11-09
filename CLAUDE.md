@@ -634,6 +634,14 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
   `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
   `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
+- **Done (2026-11-09): Deploy Step 2b** (web guest login; plan approved). `lib/user.tsx` asks
+  `GET /api/me` (nothing stored; old `codetutor.user` key removed), `startGuest` / `logout` /
+  `forget`, `apiFetch` without `userId` (`credentials: same-origin`), "Start as a guest" button,
+  Workspace/HintPanel drop `userId`; `e2e.mjs` guest + cookie-survives-reload + dead cookie after
+  logout, `E2E_SKIP_HINTS=1`, `CHROME_FLAGS`; `make prod-web-e2e`; CI runs it on amd64 (Chrome
+  preinstalled). Local: `make web-check` OK, `prod-e2e` 9/9, curl guest -> me -> logout -> 401
+  through the web proxy. **Browser run NOT possible locally** (WSL `UtilAcceptVsock` again);
+  CI is the proof (result below). Plan split: demo dashboard = 2c.
 - **Done (2026-11-09): Deploy Step 2a** (backend locks; plan approved). Guest sessions
   (`api/auth.py`, migration 0009 `sessions`, `POST /api/guest`, `GET /api/me`,
   `POST /api/logout`), dev login opt-in, DB role `codetutor_api` (`db/roles.py`,
@@ -780,7 +788,7 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   per-user limits needed site-wide limits next to them; Q3 what a visitor could do with
   `TRUSTED_PROXY_HOPS=1` and no proxy that replaces `X-Forwarded-For`.
   (162 in total; answer key in Claude's memory.)
-- **Next action:** **Deploy Step 2b** (web: "Start as a guest", `/api/me`, logout, no `X-User-Id`, `web-e2e`; public read-only demo dashboard on the simulated class; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+- **Next action:** **Deploy Step 2c** (public read-only demo dashboard on the held-out simulated class, no token, sim-database only; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start

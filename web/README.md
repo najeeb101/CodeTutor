@@ -29,7 +29,7 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
 | `components/InlineCode.tsx` | text with `backticks` shown as code (descriptions, hints) |
 | `components/CodeEditor.tsx` | Monaco: Python, 4-space tabs, loaded from our own server |
 | `components/ResultView.tsx` | one result: status, test table, hidden tests without details |
-| `components/LoginBox.tsx` | dev login (name only, not secure) |
+| `components/LoginBox.tsx` | "Start as a guest" / Log out; the session is an HttpOnly cookie, the page asks `GET /api/me` who it is |
 | `lib/api.ts` | `apiFetch` + `ApiError` (status, detail, Retry-After): the only API caller |
 | `lib/poll.ts` | `pollUntilFinished`: the polling loop shared by submissions and hints |
 | `lib/types.ts` | the API's answers as TypeScript types (written by hand) |
@@ -61,7 +61,7 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
 - **Values look like Python.** The page shows the API's `*_repr` fields (Python's own `repr`),
   never raw JSON values. JavaScript has one number type, so `JSON.parse("32.0")` gives `32`,
   and the student would see the wrong type (and `null` instead of `None`).
-- **Errors.** 401 logs you out and asks you to log in again. 409 says "reload the page". 429
+- **Errors.** 401 clears the page's user and asks you to start again. 409 says "reload the page". 429
   shows the API's message and the `Retry-After` seconds.
 - **Drafts.** Your unsent code is kept per problem in localStorage. "Reset to starter code"
   clears it.
@@ -107,7 +107,7 @@ production. `make web-install` runs `npm ci` (exact versions from `package-lock.
   `make all`, because it needs the four servers, Ollama and Chrome.
 - The problem list has no "solved" marks (it would need the student's submissions).
 - `lib/types.ts` is written by hand and can drift from the API's pydantic models.
-- The dev login: anyone can use any name (docs/api.md §2).
+- Guests are anonymous: a lost cookie is a lost account (docs/api.md §2).
 - `npm audit` reports 2 low-severity advisories: monaco-editor 0.57 bundles DOMPurify 3.4.15
   (an XSS that needs DOMPurify's `IN_PLACE` mode). Monaco never turns that mode on (checked in
   the bundle), so it is not reachable here. Since Monaco is prebuilt, an npm override wouldn't

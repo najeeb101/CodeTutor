@@ -1,4 +1,4 @@
-.PHONY: prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: prod-web-e2e prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -213,3 +213,6 @@ prod-logs: prod-env  ## follow the logs of every container (Ctrl+C stops followi
 prod-e2e:  ## end-to-end checks against the containerized app (no tutor yet: --skip-hints)
 	uv run python scripts/e2e_check.py --api http://127.0.0.1:$(PROD_API_PORT) \
 		--web http://127.0.0.1:$(PROD_WEB_PORT) --skip-hints
+
+prod-web-e2e: web/node_modules  ## drive the containerized web UI in headless Chrome (CHROME=... picks the browser; no tutor yet)
+	WEB_URL=http://127.0.0.1:$(PROD_WEB_PORT) E2E_SKIP_HINTS=1 node web/scripts/e2e.mjs

@@ -40,7 +40,7 @@ function gradedFor(current: Submission | null, code: string, problem: Problem): 
 }
 
 export function Workspace({ problem }: { problem: Problem }) {
-  const { user, logout } = useUser();
+  const { user, forget } = useUser();
   const [code, setCode] = useState(problem.starter_code);
   const [sending, setSending] = useState(false);
   const [current, setCurrent] = useState<Submission | null>(null);
@@ -78,20 +78,20 @@ export function Workspace({ problem }: { problem: Problem }) {
   const handleError = useCallback(
     (error: unknown) => {
       if (error instanceof ApiError && error.status === 401) {
-        logout();
-        setMessage("Please log in again (top right).");
+        forget();
+        setMessage("Your session ended. Start again (top right).");
       } else {
         setMessage(errorText(error));
       }
     },
-    [logout],
+    [forget],
   );
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
     try {
       const query = `problem_id=${encodeURIComponent(problem.id)}&limit=${HISTORY_LIMIT}`;
-      setHistory(await apiFetch<SubmissionSummary[]>(`/api/submissions?${query}`, { userId: user.id }));
+      setHistory(await apiFetch<SubmissionSummary[]>(`/api/submissions?${query}`));
     } catch (error) {
       handleError(error);
     }
@@ -108,12 +108,12 @@ export function Workspace({ problem }: { problem: Problem }) {
 
   // Ask for the result until it is done or failed (lib/poll.ts).
   const poll = useCallback(
-    async (submissionId: number, userId: number) => {
+    async (submissionId: number) => {
       const generation = ++pollGeneration.current;
       const isCurrent = () => pollGeneration.current === generation;
       try {
         const end = await pollUntilFinished(
-          () => apiFetch<Submission>(`/api/submissions/${submissionId}`, { userId }),
+          () => apiFetch<Submission>(`/api/submissions/${submissionId}`),
           setCurrent,
           isCurrent,
           MAX_WAIT_MS,
@@ -131,7 +131,7 @@ export function Workspace({ problem }: { problem: Problem }) {
 
   async function submit() {
     if (!user) {
-      setMessage("Log in first (top right), then submit.");
+      setMessage("Start as a guest first (top right), then submit.");
       return;
     }
     setSending(true);
@@ -139,7 +139,6 @@ export function Workspace({ problem }: { problem: Problem }) {
     try {
       const created = await apiFetch<SubmissionCreated>("/api/submissions", {
         method: "POST",
-        userId: user.id,
         body: {
           problem_id: problem.id,
           problem_version: problem.version,
@@ -150,7 +149,7 @@ export function Workspace({ problem }: { problem: Problem }) {
       tracker.reset(); // the next summary covers only the work after this submit
       setCurrent(null);
       void loadHistory();
-      void poll(created.id, user.id);
+      void poll(created.id);
     } catch (error) {
       handleError(error);
     } finally {
@@ -159,7 +158,7 @@ export function Workspace({ problem }: { problem: Problem }) {
   }
 
   function show(submissionId: number) {
-    if (user) void poll(submissionId, user.id); // a done one is shown after one request
+    if (user) void poll(submissionId); // a done one is shown after one request
   }
 
   return (
@@ -181,7 +180,7 @@ export function Workspace({ problem }: { problem: Problem }) {
         <button type="button" onClick={resetCode}>
           Reset to starter code
         </button>
-        {!user && <span className="muted">Log in to submit.</span>}
+        {!user && <span className="muted">Start as a guest to submit.</span>}
       </div>
       {message && (
         <p className="error" role="alert">

@@ -1,18 +1,28 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
-import { ApiError, apiFetch } from "@/lib/api";
-import type { User } from "@/lib/types";
+import { ApiError } from "@/lib/api";
 import { useUser } from "@/lib/user";
 
 export function LoginBox() {
-  const { user, ready, login, logout } = useUser();
-  const [name, setName] = useState("");
+  const { user, ready, startGuest, logout } = useUser();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!ready) return null; // don't flash the form for a user who is already logged in
+  if (!ready) return null; // don't flash the button for a visitor who already has a session
+
+  async function start() {
+    setBusy(true);
+    setError(null);
+    try {
+      await startGuest();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.detail : "Could not start a session");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (user) {
     return (
@@ -20,50 +30,24 @@ export function LoginBox() {
         <span>
           Logged in as <strong>{user.name}</strong>
         </span>
-        <button type="button" onClick={logout}>
+        <button type="button" onClick={() => void logout()}>
           Log out
         </button>
       </div>
     );
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      login(await apiFetch<User>("/api/login", { method: "POST", body: { name } }));
-      setName("");
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.detail : "Login failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <form className="login" onSubmit={submit}>
-      <label>
-        Name{" "}
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={40}
-          required
-          autoComplete="username"
-        />
-      </label>
-      <button type="submit" disabled={busy}>
-        Log in
+    <div className="login">
+      <button type="button" onClick={() => void start()} disabled={busy}>
+        Start as a guest
       </button>
-      <span className="muted" title="Anyone can use any name. Real login comes before hosting.">
-        dev login, not secure
-      </span>
+      <span className="muted">No sign-up. Your work stays with this browser.</span>
       {error && (
         <span className="error" role="alert">
           {error}
         </span>
       )}
-    </form>
+    </div>
   );
 }

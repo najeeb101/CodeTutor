@@ -45,7 +45,7 @@ interface Props {
 }
 
 export function HintPanel({ problem, code, graded }: Props) {
-  const { user, logout } = useUser();
+  const { user, forget } = useUser();
   const [hints, setHints] = useState<Hint[]>([]);
   const [question, setQuestion] = useState("");
   const [waiting, setWaiting] = useState(false); // a request is queued or being answered
@@ -58,17 +58,17 @@ export function HintPanel({ problem, code, graded }: Props) {
   const handleError = useCallback(
     (error: unknown) => {
       if (error instanceof ApiError && error.status === 401) {
-        logout();
-        setMessage("Please log in again (top right).");
+        forget();
+        setMessage("Your session ended. Start again (top right).");
       } else {
         setMessage(errorText(error));
       }
     },
-    [logout],
+    [forget],
   );
 
   const follow = useCallback(
-    async (hintId: number, userId: number) => {
+    async (hintId: number) => {
       const generation = ++pollGeneration.current;
       const isCurrent = () => pollGeneration.current === generation;
       setWaiting(true);
@@ -76,7 +76,7 @@ export function HintPanel({ problem, code, graded }: Props) {
       const slowTimer = setTimeout(() => isCurrent() && setSlow(true), SLOW_NOTE_AFTER_MS);
       try {
         const end = await pollUntilFinished(
-          () => apiFetch<Hint>(`/api/hints/${hintId}`, { userId }),
+          () => apiFetch<Hint>(`/api/hints/${hintId}`),
           (hint) => setHints((old) => upsert(old, hint)),
           isCurrent,
           MAX_WAIT_MS,
@@ -104,11 +104,11 @@ export function HintPanel({ problem, code, graded }: Props) {
     setMessage(null);
     if (!user) return;
     const query = `problem_id=${encodeURIComponent(problem.id)}&limit=${HINT_LIMIT}`;
-    apiFetch<Hint[]>(`/api/hints?${query}`, { userId: user.id })
+    apiFetch<Hint[]>(`/api/hints?${query}`)
       .then((loaded) => {
         setHints(loaded);
         const open = loaded.find((hint) => hint.job_status === "queued" || hint.job_status === "running");
-        if (open) void follow(open.id, user.id);
+        if (open) void follow(open.id);
       })
       .catch(handleError);
   }, [user, problem.id, follow, handleError]);
@@ -121,7 +121,6 @@ export function HintPanel({ problem, code, graded }: Props) {
     try {
       const created = await apiFetch<HintCreated>("/api/hints", {
         method: "POST",
-        userId: user.id,
         body: {
           problem_id: problem.id,
           problem_version: problem.version,
@@ -131,7 +130,7 @@ export function HintPanel({ problem, code, graded }: Props) {
         },
       });
       setQuestion("");
-      void follow(created.id, user.id);
+      void follow(created.id);
     } catch (error) {
       handleError(error);
     }
@@ -142,7 +141,6 @@ export function HintPanel({ problem, code, graded }: Props) {
     try {
       const rated = await apiFetch<Hint>(`/api/hints/${hint.id}/rating`, {
         method: "PUT",
-        userId: user.id,
         body: { rating },
       });
       setHints((old) => upsert(old, rated));
@@ -158,7 +156,7 @@ export function HintPanel({ problem, code, graded }: Props) {
     <section className="hints" aria-labelledby="hints-heading">
       <h2 id="hints-heading">Stuck? Ask the tutor</h2>
       {!user ? (
-        <p className="muted">Log in to ask for a hint.</p>
+        <p className="muted">Start as a guest (top right) to ask for a hint.</p>
       ) : (
         <>
           <p className="muted">
