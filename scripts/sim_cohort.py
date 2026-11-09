@@ -83,10 +83,19 @@ def main() -> int:
     ):
         command = commands.add_parser(name, help=text)
         command.add_argument("--seed", type=int, default=0)
+        if name == "load":
+            command.add_argument(
+                "--limit",
+                type=int,
+                default=None,
+                help="queue only the first N submissions by time (a small class for a smoke test)",
+            )
     args = parser.parse_args()
     if args.command != "generate":
         cohort_path = OUT_DIR / f"cohort-s{args.seed}.jsonl"
-        return _database_command(args.command, cohort_path, sim_database_url(args.seed))
+        return _database_command(
+            args.command, cohort_path, sim_database_url(args.seed), getattr(args, "limit", None)
+        )
 
     config = CohortConfig(seed=args.seed)
     problems = load_all()
@@ -106,7 +115,7 @@ def main() -> int:
     return 0
 
 
-def _database_command(command: str, cohort_path: Path, url: str) -> int:
+def _database_command(command: str, cohort_path: Path, url: str, limit: int | None = None) -> int:
     if "sim" not in database_name(url):
         print(f"refusing: {database_name(url)!r} is not a sim database", file=sys.stderr)
         return 1
@@ -126,6 +135,8 @@ def _database_command(command: str, cohort_path: Path, url: str) -> int:
                 print(f"{database_name(url)}: migrated, {len(report.added)} problems synced")
             elif command == "load":
                 rows = read_rows(cohort_path)
+                if limit is not None:
+                    rows = sorted(rows, key=lambda r: (r.created_at, r.key))[:limit]
                 count = load_rows(session, rows)
                 session.commit()
                 print(f"queued {count} submissions in {database_name(url)}")

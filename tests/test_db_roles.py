@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from codetutor.api import create_app
 from codetutor.db.engine import make_engine
-from codetutor.db.roles import API_ROLE, apply_api_role
+from codetutor.db.roles import API_ROLE, DEMO_ROLE, apply_api_role, apply_demo_role
 from codetutor.db.sync import sync_problems
 from codetutor.grader import SubprocessSandbox
 from codetutor.settings import database_url_for_tests
@@ -141,3 +141,78 @@ def test_the_role_name_is_checked(db_engine: Engine) -> None:
 
 def test_the_tests_never_touch_the_production_role() -> None:
     assert ROLE != API_ROLE
+
+
+# --- the demo role (Deploy Step 2c): read-only, for the public demo of a simulated class ---
+
+DEMO_TEST_ROLE = "codetutor_demo_test"
+
+
+@pytest.fixture
+def demo_engine(db_engine: Engine, db_session: Session) -> Iterator[Engine]:
+    password = secrets.token_hex(16)
+    with db_engine.begin() as connection:
+        apply_demo_role(connection, DEMO_TEST_ROLE, password)
+    url = make_url(database_url_for_tests()).set(username=DEMO_TEST_ROLE, password=password)
+    engine = make_engine(url.render_as_string(hide_password=False))
+    yield engine
+    engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT id, name FROM users",
+        "SELECT id, user_id, problem_id, created_at, result_status FROM submissions",
+        "SELECT id FROM problems",
+        "SELECT submission_id, kind, reason FROM integrity_flags",
+    ],
+)
+def test_the_demo_role_reads_what_the_teacher_routes_read(demo_engine: Engine, sql: str) -> None:
+    with demo_engine.connect() as connection:
+        connection.execute(text(sql))
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT code FROM submissions",  # no student code, enforced by the database
+        "SELECT stdout FROM submissions",
+        "SELECT editor_stats FROM submissions",
+        "SELECT 1 FROM problem_versions",
+        "SELECT 1 FROM sessions",
+        "SELECT 1 FROM hints",
+        "SELECT 1 FROM test_results",
+        "SELECT 1 FROM note_chunks",
+    ],
+)
+def test_the_demo_role_cannot_read_anything_else(demo_engine: Engine, sql: str) -> None:
+    assert _denied(demo_engine, sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "INSERT INTO users (name) VALUES ('x')",
+        "UPDATE users SET name = 'x'",
+        "DELETE FROM users",
+        "DELETE FROM integrity_flags",
+        "TRUNCATE submissions",
+    ],
+)
+def test_the_demo_role_cannot_change_anything(demo_engine: Engine, sql: str) -> None:
+    assert _denied(demo_engine, sql)
+
+
+def test_the_demo_api_works_as_that_role(
+    demo_engine: Engine, db_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from codetutor.api.demo import create_demo_app
+
+    with TestClient(create_demo_app(engine=demo_engine)) as client:
+        for path in ("overview", "students", "problems"):
+            assert client.get(f"/api/instructor/{path}").status_code == 200, path
+
+
+def test_the_roles_have_different_names() -> None:
+    assert DEMO_ROLE != API_ROLE

@@ -16,6 +16,7 @@ SANDBOX_IMAGE_ENV = "SANDBOX_IMAGE"
 DEV_LOGIN_ENV = "CODETUTOR_DEV_LOGIN"
 TRUSTED_PROXY_HOPS_ENV = "TRUSTED_PROXY_HOPS"
 API_DB_PASSWORD_ENV = "API_DB_PASSWORD"
+DEMO_DB_PASSWORD_ENV = "DEMO_DB_PASSWORD"
 MIN_INSTRUCTOR_TOKEN_CHARS = 16
 # The local dev database from compose.yaml: reachable only from this machine, so its password
 # is not a secret. Never use it for a real deployment.
@@ -101,3 +102,8 @@ def trusted_proxy_hops() -> int:
 def api_db_password() -> str | None:
     """The password of the API's own database role (db/roles.py), or None if not set."""
     return os.environ.get(API_DB_PASSWORD_ENV) or None
+
+
+def demo_db_password() -> str | None:
+    """The password of the read-only demo role (db/roles.py), or None if not set."""
+    return os.environ.get(DEMO_DB_PASSWORD_ENV) or None
