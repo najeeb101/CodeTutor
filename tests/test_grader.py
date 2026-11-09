@@ -447,7 +447,7 @@ def test_process_limit_stops_fork_bombs(sum_problem: Problem, sandbox: Sandbox) 
     if isinstance(sandbox, SubprocessSandbox):
         pytest.skip("no process limit in the subprocess sandbox (decision Q6)")
     result = grade(sum_problem, submission("many_processes"), limits=FAST, sandbox=sandbox)
-    assert result.status == GradeStatus.ACCEPTED
+    assert result.status == GradeStatus.ACCEPTED, (result.status, result.error, result.stdout)
     match = re.search(r"STARTED=(\d+)", result.stdout)
     assert match, result.stdout
     assert 0 < int(match.group(1)) < DOCKER_PIDS_LIMIT

@@ -76,6 +76,30 @@ jobs:
         run: docker pull "$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
       - name: The hostile-code suite under gVisor
         run: TEST_SANDBOX_RUNTIME=runsc REQUIRE_RUNSC=1 make test-docker
+      - name: Diagnose the fork bomb under gVisor (only when something failed)
+        if: failure()
+        run: |
+          img="$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
+          for runtime in runc runsc; do
+            echo "=== $runtime: a bounded fork bomb with --pids-limit 64"
+            docker run --rm --init --runtime "$runtime" --network none --pids-limit 64 "$img" \
+              python -c "
+          import os, time
+          started = 0
+          for _ in range(200):
+              try:
+                  pid = os.fork()
+              except OSError as exc:
+                  print('fork failed:', exc)
+                  break
+              if pid == 0:
+                  time.sleep(5)
+                  os._exit(0)
+              started += 1
+          print('STARTED', started)
+          " 2>&1 | tail -5 || true
+            echo "exit status of docker run: ${PIPESTATUS[0]}"
+          done
       - name: What gVisor costs (CI runner, not a laptop)
         run: uv run python scripts/bench_sandbox.py --runtime runsc
 
