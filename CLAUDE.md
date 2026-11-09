@@ -641,7 +641,13 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   logout, `E2E_SKIP_HINTS=1`, `CHROME_FLAGS`; `make prod-web-e2e`; CI runs it on amd64 (Chrome
   preinstalled). Local: `make web-check` OK, `prod-e2e` 9/9, curl guest -> me -> logout -> 401
   through the web proxy. **Browser run NOT possible locally** (WSL `UtilAcceptVsock` again);
-  CI is the proof (result below). Plan split: demo dashboard = 2c.
+  CI is the proof. **CI (run 42674495112): the browser checks passed in real Chrome against the
+  containers (amd64): guest start, 10/10 and 6/10, waiting limit, reload keeps the session, logout
+  kills the cookie, no console errors**; `make all` and containers amd64 + arm64 green. BUT the
+  run is marked failed: the `web` and `docker-sandbox` jobs did not appear at all (2 earlier
+  runs also lost jobs at random, e.g. only `web` ran in the first). `gh run rerun` says "its
+  workflow file may be broken"; ci.yml parses with 4 jobs. Not understood: looks like GitHub
+  dispatch flakiness, to be confirmed by the next push. Plan split: demo dashboard = 2c.
 - **Done (2026-11-09): Deploy Step 2a** (backend locks; plan approved). Guest sessions
   (`api/auth.py`, migration 0009 `sessions`, `POST /api/guest`, `GET /api/me`,
   `POST /api/logout`), dev login opt-in, DB role `codetutor_api` (`db/roles.py`,
