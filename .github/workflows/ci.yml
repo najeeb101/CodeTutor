@@ -52,6 +52,42 @@ jobs:
         run: docker pull "$(uv run python -c 'from codetutor.grader.sandbox import DOCKER_IMAGE; print(DOCKER_IMAGE)')"
       - run: make test-docker
 
+  prod-images:
+    # Build the 3 images and run the whole containerized app, on both CPU types. The server is
+    # ARM (Oracle Always Free), so arm64 must work before we rent it.
+    name: containers on ${{ matrix.runner }} (build, start, end-to-end)
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked # for the end-to-end checker
+      - name: Throw-away secrets for this run only
+        run: |
+          umask 077
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env.prod
+          echo "INSTRUCTOR_TOKEN=$(openssl rand -hex 24)" >> .env.prod
+      - run: make prod-build
+      - run: make prod-up
+      - run: make prod-e2e
+      - name: Container logs (only when something failed)
+        if: failure()
+        run: |
+          DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
+            docker compose -f compose.prod.yaml --env-file .env.prod ps -a
+          DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
+            docker compose -f compose.prod.yaml --env-file .env.prod logs --no-color --tail 200
+      - run: make prod-down
+        if: always()
+
   web:
     name: make web-check (type check + production build)
     runs-on: ubuntu-24.04

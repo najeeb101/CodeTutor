@@ -345,8 +345,13 @@ def run_checks(
     web_url: str | None = None,
     result_timeout_s: float = RESULT_TIMEOUT_S,
     hint_timeout_s: float = HINT_TIMEOUT_S,
+    hints: bool = True,
 ) -> list[Check]:
-    """Run every step in order, stopping at the first failure. Returns the checks done."""
+    """Run every step in order, stopping at the first failure. Returns the checks done.
+
+    `hints=False` leaves out the two tutor steps, for a stack without a tutor worker (the
+    containers before Deploy Step 4, or a server whose tutor is down).
+    """
     run = _Run(
         api_url.rstrip("/"),
         web_url.rstrip("/") if web_url else None,
@@ -369,9 +374,12 @@ def run_checks(
         ("reference solution is accepted", run.solution_accepted),
         ("buggy solution fails, hidden tests stay hidden", run.buggy_fails_and_hidden_stays_hidden),
         ("my submissions", run.my_submissions),
-        ("a hint about the buggy submission", run.hint),
-        ("rate the hint", run.rating),
     ]
+    if hints:
+        steps += [
+            ("a hint about the buggy submission", run.hint),
+            ("rate the hint", run.rating),
+        ]
     checks: list[Check] = []
     for name, step in steps:
         start = time.monotonic()

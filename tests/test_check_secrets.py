@@ -73,8 +73,9 @@ def test_a_staged_env_file_is_blocked(repo: Path, name: str) -> None:
     assert f"{name} is in the staged changes" in result.stdout
 
 
-def test_the_env_example_template_is_allowed(repo: Path) -> None:
-    _stage(repo, ".env.example", "GEMINI_API_KEY=\n")
+@pytest.mark.parametrize("name", [".env.example", ".env.prod.example"])
+def test_env_example_templates_are_allowed(repo: Path, name: str) -> None:
+    _stage(repo, name, "GEMINI_API_KEY=\n")
     assert _check(repo).returncode == 0
 
 

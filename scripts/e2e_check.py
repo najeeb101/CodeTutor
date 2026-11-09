@@ -24,6 +24,9 @@ def main() -> int:
     parser.add_argument("--api", default="http://127.0.0.1:8000", help="API address")
     parser.add_argument("--web", default="http://127.0.0.1:3100", help="web UI address")
     parser.add_argument("--no-web", action="store_true", help="check the API and worker only")
+    parser.add_argument(
+        "--skip-hints", action="store_true", help="leave out the tutor steps (no tutor running)"
+    )
     parser.add_argument("--problem", default="cs1.loops.fizzbuzz", help="problem id")
     parser.add_argument(
         "--timeout", type=float, default=RESULT_TIMEOUT_S, help="seconds to wait for a result"
@@ -44,10 +47,13 @@ def main() -> int:
         web_url=None if args.no_web else args.web,
         result_timeout_s=args.timeout,
         hint_timeout_s=args.hint_timeout,
+        hints=not args.skip_hints,
     )
     for check in checks:
         mark = "✅" if check.ok else "❌"
         print(f"{mark} {check.name:<48} {check.seconds:5.1f} s  {check.detail}")
+    if args.skip_hints:
+        print("(the 2 tutor steps were skipped: --skip-hints)")
     if all(check.ok for check in checks):
         print(f"All {len(checks)} checks passed.")
         return 0

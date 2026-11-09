@@ -58,7 +58,7 @@ def env_values(path: Path) -> list[str]:
 
 def _is_env_file(name: str) -> bool:
     file_name = Path(name).name
-    return file_name.startswith(".env") and file_name != ".env.example"
+    return file_name.startswith(".env") and not file_name.endswith(".example")  # templates
 
 
 def secret_values(root: Path) -> list[str]:

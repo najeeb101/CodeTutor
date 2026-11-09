@@ -1,4 +1,4 @@
-.PHONY: early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -184,3 +184,32 @@ build:  ## build dist/problems.jsonl (Week 1, Step 3)
 	else echo "build: not implemented yet (Step 3)"; fi
 
 all: lint test validate
+
+# Deploy: the whole app in containers (compose.prod.yaml, docs/deploy.md). Needs .env.prod
+# (copy .env.prod.example). Ports on 127.0.0.1: API 8010, web 3200 (PROD_API_PORT / PROD_WEB_PORT).
+PROD_API_PORT ?= 8010
+PROD_WEB_PORT ?= 3200
+PROD = DOCKER_GID=$$(stat -c %g /var/run/docker.sock) API_PORT=$(PROD_API_PORT) \
+	WEB_PORT=$(PROD_WEB_PORT) docker compose -f compose.prod.yaml --env-file .env.prod
+
+prod-env:
+	@test -f .env.prod || { echo "Missing .env.prod: copy .env.prod.example and fill it in (docs/deploy.md)"; exit 1; }
+
+prod-build: prod-env  ## build the 3 images (app, web, sandbox)
+	$(PROD) --profile build build
+
+prod-up: prod-env  ## start the containerized app and wait until it is healthy
+	$(PROD) up -d --wait
+
+prod-down: prod-env  ## stop the containerized app (the database volume is kept)
+	$(PROD) down
+
+prod-ps: prod-env  ## show the containers and their health
+	$(PROD) ps -a
+
+prod-logs: prod-env  ## follow the logs of every container (Ctrl+C stops following)
+	$(PROD) logs -f --tail 100
+
+prod-e2e:  ## end-to-end checks against the containerized app (no tutor yet: --skip-hints)
+	uv run python scripts/e2e_check.py --api http://127.0.0.1:$(PROD_API_PORT) \
+		--web http://127.0.0.1:$(PROD_WEB_PORT) --skip-hints

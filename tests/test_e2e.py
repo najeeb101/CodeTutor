@@ -121,6 +121,16 @@ def test_without_a_tutor_the_hint_check_fails_and_says_why(
     assert "is `make tutor` running?" in checks[-1].detail
 
 
+def test_without_hints_the_checks_end_after_my_submissions(
+    api_url: str, worker: None, problem: Problem
+) -> None:
+    checks = run_checks(api_url, problem, hints=False)  # no tutor running, and none needed
+
+    assert all(check.ok for check in checks), _report(checks)
+    assert checks[-1].name == "my submissions"
+    assert not any("hint" in check.name for check in checks)
+
+
 def test_without_a_worker_the_check_fails_and_says_why(api_url: str, problem: Problem) -> None:
     checks = run_checks(api_url, problem, result_timeout_s=1.0)
 
