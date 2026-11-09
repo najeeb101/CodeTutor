@@ -79,6 +79,40 @@ jobs:
       - name: What gVisor costs (CI runner, not a laptop)
         run: uv run python scripts/bench_sandbox.py --runtime runsc
 
+  tutor-cpu:
+    # The tutor without a GPU (Deploy Step 4): time three model sizes on the CPU, on the ARM runner
+    # (closest free proxy of the Oracle server) and on amd64, then print the size rule's verdict.
+    name: tutor on a CPU, ${{ matrix.runner }} (which model size?)
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: make db-up
+      - name: Ollama on the CPU (pinned image)
+        run: |
+          docker run -d --name ollama -p 127.0.0.1:11434:11434 ollama/ollama:0.40.9@sha256:5c6707fcf2e1a30cffe2ecb7e315584fc87747c389327e4bc711c4959aa1eecc
+          for _ in $(seq 60); do docker exec ollama ollama list >/dev/null 2>&1 && break; sleep 2; done
+          for model in qwen2.5-coder:1.5b qwen2.5-coder:3b qwen2.5-coder:7b nomic-embed-text; do
+            docker exec ollama ollama pull "$model"
+          done
+          lscpu | grep -E "Model name|^CPU\(s\)"; free -g | head -2
+      - run: uv run alembic upgrade head && uv run python scripts/sync_problems.py
+      - run: uv run python scripts/sync_notes.py
+      - name: Time the models (smallest first)
+        run: |
+          uv run python scripts/bench_tutor_cpu.py --hints 12 \
+            --model ollama/qwen2.5-coder:1.5b --model ollama/qwen2.5-coder:3b --model ollama/qwen2.5-coder:7b
+
   prod-images:
     # Build the 3 images and run the whole containerized app, on both CPU types. The server is
     # ARM (Oracle Always Free), so arm64 must work before we rent it.
@@ -110,6 +144,11 @@ jobs:
       - run: make prod-build
       - run: make prod-up
       - run: make prod-e2e
+      - name: The tutor in the stack (a small model on the CPU)
+        run: |
+          echo "TUTOR_MODEL=ollama/qwen2.5-coder:1.5b" >> .env.prod
+          make prod-tutor-up
+          make prod-e2e-hints
       - name: Public demo (a tiny simulated class, graded in the stack)
         run: |
           make prod-demo-data DEMO_LIMIT=60
@@ -123,7 +162,7 @@ jobs:
           node-version: "24"
       - name: Run the browser checks
         if: matrix.runner == 'ubuntu-24.04'
-        run: CHROME="$(command -v google-chrome)" CHROME_FLAGS="--no-sandbox" E2E_DEMO=1 make prod-web-e2e
+        run: CHROME="$(command -v google-chrome)" CHROME_FLAGS="--no-sandbox" E2E_DEMO=1 E2E_SKIP_HINTS=0 make prod-web-e2e
       - name: Container logs (only when something failed)
         if: failure()
         run: |

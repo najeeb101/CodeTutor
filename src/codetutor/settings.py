@@ -14,6 +14,7 @@ SIM_DATABASE_URL_ENV = "SIM_DATABASE_URL"
 INSTRUCTOR_TOKEN_ENV = "INSTRUCTOR_TOKEN"
 SANDBOX_IMAGE_ENV = "SANDBOX_IMAGE"
 SANDBOX_RUNTIME_ENV = "SANDBOX_RUNTIME"
+TUTOR_MODEL_ENV = "TUTOR_MODEL"
 DEV_LOGIN_ENV = "CODETUTOR_DEV_LOGIN"
 TRUSTED_PROXY_HOPS_ENV = "TRUSTED_PROXY_HOPS"
 API_DB_PASSWORD_ENV = "API_DB_PASSWORD"
@@ -117,3 +118,13 @@ def sandbox_runtime() -> str | None:
     refuse to start instead of falling back to plain Docker (grader/sandbox.py).
     """
     return os.environ.get(SANDBOX_RUNTIME_ENV) or None
+
+
+def tutor_model() -> str:
+    """The hint model, as an `ollama/<model>` spec: $TUTOR_MODEL, else the laptop default.
+
+    On the server it names a small model that runs on the CPU (docs/tutor.md §6).
+    """
+    from codetutor.tutor.service import TutorConfig  # here, so settings stays import-light
+
+    return os.environ.get(TUTOR_MODEL_ENV) or TutorConfig().model

@@ -1,4 +1,4 @@
-.PHONY: prod-demo-data prod-demo-up prod-demo-down prod-web-e2e prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
+.PHONY: prod-tutor-up prod-tutor-down prod-e2e-hints prod-demo-data prod-demo-up prod-demo-down prod-web-e2e prod-env prod-build prod-up prod-down prod-ps prod-logs prod-e2e early early-export rl-train rl-train-c rl-after-run rl-after-report rl-folds-report rl-noise-run rl-noise-report rl-pool-run rl-pool-report rl-seed-run rl-seed-report rl-hacking rl-smoke rl-baseline-run rl-baseline-report rl-reward-bench rl-data rl-install rl-env skill install lint format db-up db-down db-reset db-migrate db-sync notes-sync worker tutor api api-sim web-install web web-check e2e web-e2e sim-db sim-load sim-grade sim-summary sim integrity test test-docker validate build all
 
 install:  ## install deps + editable package (uv sync installs the project in editable mode)
 	uv sync
@@ -214,8 +214,9 @@ prod-e2e:  ## end-to-end checks against the containerized app (no tutor yet: --s
 	uv run python scripts/e2e_check.py --api http://127.0.0.1:$(PROD_API_PORT) \
 		--web http://127.0.0.1:$(PROD_WEB_PORT) --skip-hints
 
+E2E_SKIP_HINTS ?= 1  # 0 once the tutor is up (make prod-tutor-up)
 prod-web-e2e: web/node_modules  ## drive the containerized web UI in headless Chrome (CHROME=... picks the browser; no tutor yet)
-	WEB_URL=http://127.0.0.1:$(PROD_WEB_PORT) E2E_SKIP_HINTS=1 E2E_DEMO=$(E2E_DEMO) node web/scripts/e2e.mjs
+	WEB_URL=http://127.0.0.1:$(PROD_WEB_PORT) E2E_SKIP_HINTS=$(E2E_SKIP_HINTS) E2E_DEMO=$(E2E_DEMO) node web/scripts/e2e.mjs
 
 # The public demo: the teacher view of a simulated class, on its own database (docs/deploy.md).
 # DEMO_LIMIT=60 builds a tiny class (CI); empty = the whole held-out class (~13 min, once).
@@ -230,3 +231,17 @@ prod-demo-up: prod-env  ## start the demo API (after prod-demo-data)
 
 prod-demo-down: prod-env  ## stop the demo API (its database is kept)
 	$(PROD) --profile demo stop demo-api
+
+# The AI tutor in the stack (Deploy Step 4): Ollama on the CPU, no GPU, no data leaves the machine.
+prod-tutor-up: prod-env  ## pull the models (first time: 1-5 GB), embed the course notes, start the tutor
+	$(PROD) --profile tutor up -d --wait ollama
+	$(PROD) --profile tutor-data run --rm tutor-models
+	$(PROD) --profile tutor-data run --rm tutor-notes
+	$(PROD) --profile tutor up -d tutor
+
+prod-tutor-down: prod-env  ## stop the tutor and Ollama (the downloaded models are kept)
+	$(PROD) --profile tutor stop tutor ollama
+
+prod-e2e-hints:  ## the full end-to-end checks incl. a real hint (needs prod-tutor-up; a CPU hint can take a minute)
+	uv run python scripts/e2e_check.py --api http://127.0.0.1:$(PROD_API_PORT) \
+		--web http://127.0.0.1:$(PROD_WEB_PORT) --hint-timeout 300

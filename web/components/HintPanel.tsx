@@ -163,6 +163,10 @@ export function HintPanel({ problem, code, graded }: Props) {
             The tutor gives hints, not answers. It looks at{" "}
             {graded ? `your submission #${graded.id} and its test results` : "the code in the editor (not tested yet)"}.
           </p>
+          <p className="muted">
+            Hints are made by a small AI model running on this server. Your code is not sent to
+            any other service.
+          </p>
           <label className="question">
             Your question (optional)
             <textarea
