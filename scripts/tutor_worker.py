@@ -21,8 +21,8 @@ from sqlalchemy.exc import OperationalError
 
 from codetutor.db.engine import make_engine
 from codetutor.evals.clients import ModelError, make_client, make_embedder
-from codetutor.tutor.loop import Tutor, run_tutor_worker
 from codetutor.settings import tutor_model
+from codetutor.tutor.loop import Tutor, run_tutor_worker
 from codetutor.tutor.notes import DEFAULT_EMBEDDER
 from codetutor.tutor.service import TutorConfig
 from codetutor.worker.loop import WorkerStoppedError
@@ -34,7 +34,9 @@ log = logging.getLogger("tutor")
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--drain", action="store_true", help="exit when the queue is empty")
-    parser.add_argument("--model", default=tutor_model(), help="an ollama/<model> spec ($TUTOR_MODEL)")
+    parser.add_argument(
+        "--model", default=tutor_model(), help="an ollama/<model> spec (default: $TUTOR_MODEL)"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
