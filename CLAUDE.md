@@ -739,7 +739,9 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   same fold is useful; Q7 what two equal seeds would show; Q8 the fair sentence for the pooled
   interval [-0.02, +0.06]; Q9 why "no second seed" limits comparing fold b with fold c; Q10 why
   the interval is "too narrow".
-  (153 in total; answer key in Claude's memory.)
+  Deploy Step 0: Q1 why pin CI actions by SHA, not `@v7`; Q2 whether a key is safe after a later
+  commit deletes it and you push; Q3 why CI runs `make rl-data` before `make all`.
+  (156 in total; answer key in Claude's memory.)
 - **Next action:** **Deploy Step 1** (containers: Dockerfiles for api / worker / tutor / web + `compose.prod.yaml`; plan first). Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
