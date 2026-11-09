@@ -235,8 +235,8 @@ prod-demo-down: prod-env  ## stop the demo API (its database is kept)
 # The AI tutor in the stack (Deploy Step 4): Ollama on the CPU, no GPU, no data leaves the machine.
 prod-tutor-up: prod-env  ## pull the models (first time: 1-5 GB), embed the course notes, start the tutor
 	$(PROD) --profile tutor up -d --wait ollama
-	$(PROD) --profile tutor-data run --rm tutor-models
-	$(PROD) --profile tutor-data run --rm tutor-notes
+	$(PROD) --profile tutor --profile tutor-data run --rm tutor-models
+	$(PROD) --profile tutor --profile tutor-data run --rm tutor-notes
 	$(PROD) --profile tutor up -d tutor
 
 prod-tutor-down: prod-env  ## stop the tutor and Ollama (the downloaded models are kept)
