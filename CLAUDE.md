@@ -97,8 +97,11 @@ every line in an interview.
 - `web/`: Next.js 16 app (Week 3 Step 4; `app/` pages, `components/`, `components/HintPanel.tsx` (Week 4), `lib/` incl. `api.ts`, `poll.ts` (shared polling), `editorStats.ts` (Week 5 editor summary) + hand-written `types.ts`, `scripts/copy-monaco.mjs`, `scripts/e2e.mjs`; see web/README.md)
 - `api/`, `tutor/`: READMEs pointing to `src/codetutor/api/` + docs/api.md and `src/codetutor/tutor/` + docs/tutor.md
 - `dist/`: generated output (gitignored)
-- `.github/workflows/ci.yml`: CI (3 jobs: `make rl-data` + `make all`, `make test-docker`,
-  `make web-check`; actions pinned by SHA); `LICENSE` (MIT)
+- `.github/workflows/ci.yml`: CI (4 jobs: `make rl-data` + `make all`, `make test-docker`,
+  `make web-check`, `prod-images` on amd64 + arm64; actions pinned by SHA); `LICENSE` (MIT)
+- `deploy/`: `app.Dockerfile` (one Python image: migrate / api / worker / tutor),
+  `web.Dockerfile`, `sandbox.Dockerfile` (pinned Python + runner.py); `compose.prod.yaml`;
+  `.env.prod.example` (real `.env.prod` git-ignored); `.dockerignore`; `docs/deploy.md`
 
 ## Conventions
 - Linux via **WSL2 (Ubuntu 24.04)**, Python 3.12 (project requires >=3.11), **uv** (`uv sync`, `uv run`).
@@ -127,7 +130,9 @@ every line in an interview.
   `sim-grade` runs `SIM_WORKERS`=4 Docker workers; `make sim` ~13 min), `integrity` (the integrity checks on both graded sim classes, ~4 s each, then the held-out report), `skill` (difficulty + skill report, ~25 s), `web-install` (`npm ci` in web/), `web` (Next.js dev server on 127.0.0.1:3100; `WEB_PORT`
   overrides; port 3000 is taken by another dev server on this laptop) and `web-check` (type
   check + production build), `e2e` (end-to-end checks over HTTP against the running stack) and
-  `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
+  `prod-build` / `prod-up` / `prod-down` / `prod-ps` / `prod-logs` / `prod-e2e` (Deploy: the
+  containerized app from compose.prod.yaml, needs `.env.prod`; web 127.0.0.1:3200, API 8010;
+  `prod-e2e` skips the tutor steps), `web-e2e` (headless Chrome via the DevTools protocol; both need worker + tutor + api + web running,
   neither is in `make all`). `make all` stays Python-only. `test` and `test-docker` depend
   on `db-up`, so `make test` / `make all` need Docker running (since Week 3 Step 0).
   `test-docker` runs the hostile tests and the worker's Docker test (opt-in, marker `docker`,
@@ -629,13 +634,25 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   CI now prevents (`make rl-data` first). **First CI run (42659497188) green, all 3 jobs:**
   `make all` 819 passed, 2 skipped, 1 xfailed (pytest 53 s), 33 valid, no generated-file diff;
   `make test-docker` 33 passed (25 s); `make web-check` compiled (27 s job). Wall time 1 min 23 s.
+- **Done (2026-11-09): Deploy Step 1** (containers; plan approved). 3 images (app 421 MB, web
+  996 MB, sandbox 177 MB; build 2 min 34 s), `compose.prod.yaml` (db, migrate, api, worker, web;
+  tutor behind profile `tutor`), `make prod-*`, `docs/deploy.md`, README "Where the code is" +
+  containers block. Local: `make prod-up` healthy in 26 s, migrate synced 33, **`make prod-e2e`
+  9/9** (graded 10/10 and 6/10 via the containerized worker, hidden tests stay hidden), non-root
+  users, read-only filesystems, no `.env*` in any image, real worker refuses a stale sandbox
+  image. Tutor container untested (Ollama not running; a container could not reach
+  `host.docker.internal:11434`). Tests: +6 (unit `docker_command`, 2 docker grading-equality,
+  docker stale refusal, e2e `hints=False`, `.env.prod.example` allowed); 1 `TODO(najeeb)`
+  (`test_the_image_command_has_no_mount_but_keeps_every_guard`). `make all` **on battery**:
+  821 passed, 1 failed = Q14 again (memory_bomb_growing), rerun green, 33 valid, 111 s;
+  `make test-docker` 36 passed (78 s).
 - **Session check (2026-10-31):** `make all` 814 passed, 1 failed in 160 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 10.5 s); rerun green (2 passed),
   `make validate` 33 valid. Header fix 321c4ce (tutor_safety column).
 - **Session check (2026-10-24, on battery):** `make all` 767 passed, 1 failed in 96 s: **Q14 again**
   (`test_memory_bomb[subprocess-memory_bomb_growing]`, timeout 4.4 s despite the 3 s `MEMORY_TEST`
   timer); rerun green (2 passed), `make validate` 33 valid.
-- **Open:** `TODO(najeeb)` GitHub-token test in `tests/test_check_secrets.py`; `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
+- **Open:** `TODO(najeeb)` image-command test in `tests/test_sandbox_image.py`; `TODO(najeeb)` GitHub-token test in `tests/test_check_secrets.py`; `TODO(najeeb)` rank-formula test in `tests/test_early.py`; `TODO(najeeb)` `compareValues` in `web/components/instructor/StudentTable.tsx`; browser checks of the dashboard (`E2E_ONLY=instructor node web/scripts/e2e.mjs`) once WSL interop works; (the TODOs `prefer_mode` and `fizzbuzz/buggy/stops_before_n.py` were written by Claude at Najeeb's request on 2026-10-15; none open) `docs/notes/week5.md` text; `docs/notes/week3.md`, `week2.md` text;
   `docs/notes/week1.md` text (its
   numbers table is from grader 0.2.0 / 179 tests: re-check at review); Q14 (rare memory-bomb
   flake, recommendation A: leave it).
@@ -741,8 +758,11 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   the interval is "too narrow".
   Deploy Step 0: Q1 why pin CI actions by SHA, not `@v7`; Q2 whether a key is safe after a later
   commit deletes it and you push; Q3 why CI runs `make rl-data` before `make all`.
-  (156 in total; answer key in Claude's memory.)
-- **Next action:** **Deploy Step 1** (containers: Dockerfiles for api / worker / tutor / web + `compose.prod.yaml`; plan first). Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
+  Deploy Step 1: Q1 why the containerized worker needs the runner inside the grading image; Q2
+  what happens when runner.py changes but nobody rebuilds codetutor-sandbox; Q3 why
+  `CODETUTOR_API_URL` is a build argument but `POSTGRES_PASSWORD` is not.
+  (159 in total; answer key in Claude's memory.)
+- **Next action:** **Deploy Step 2** (safety before strangers: guest login with a signed cookie, instructor password, DB role for the API without `problem_versions`, request-size / per-IP / global limits, the sim class for the dashboard; plan first). Najeeb: Oracle Cloud sign-up in parallel. Earlier: the project code is done (Week 8 wrap-up committed). For Najeeb: record the demo
   video with `docs/demo-script.md`; write `docs/notes/week1-8.md` texts ("review" when ready: weeks 1-8);
   answer the check questions; the two open TODOs (`compareValues`, rank-formula AUC test); review the
   8 course notes. Optional: DPO on hint ratings, browser checks of the dashboard once WSL can start
@@ -1320,6 +1340,20 @@ Week 1 steps: 0 skeleton → 1 problem format (schema + loader + 3 examples) →
   `test_rl_train` test skips without the git-ignored `dist/rl/` (3 skipped vs 2), so CI runs
   `make rl-data` first and then `git diff --exit-code`. `gh` 2.45 from Ubuntu's apt, logged in by
   Najeeb as `najeeb101` (token in `~/.config/gh/hosts.yml`, plain text).
+
+- 2026-11-09: Deploy Step 1 (plan approved). The worker in a container can't bind-mount
+  `runner.py` (the host's daemon resolves the path on the host), so `DockerSandbox(image,
+  runner_in_image=True)` uses `codetutor-sandbox` (pinned python + runner) and checks at start
+  that its runner is byte-identical (`docker run … cat`), else `SandboxUnavailableError`; argv
+  moved to `docker_command()` (testable without Docker). No GRADER_VERSION bump (same Python,
+  bytes and options; a docker test compares grading both ways). `SANDBOX_IMAGE` in settings.
+  Build pins (>= 2 weeks old, amd64 + arm64): uv 0.12.19, `docker:29.9.1-cli`,
+  `node:24.22.0-slim` (`node:24-slim` was 4 days old). Socket gid inside a Docker Desktop
+  container = 1001 (same as WSL). Next.js rewrites are build-time: web image built with
+  `CODETUTOR_API_URL=http://api:8000`; `next.config.ts` needs `lib/` in the run stage (found
+  when the first web container crashed). `.env*.example` files are templates: allowed by
+  `.gitignore` and `check_secrets.py`. `e2e_check.py --skip-hints` / `run_checks(hints=False)`.
+  Web image 996 MB (standalone output idea in ideas.md).
 
 ## Open questions
 (none open; Q16 and Q17 closed 2026-10-10, option A each: keep `httpx`, keep monaco-editor 0.57; both are in ideas.md to re-check.)

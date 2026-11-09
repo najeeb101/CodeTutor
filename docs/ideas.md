@@ -23,7 +23,8 @@ Ideas that come up during a week but belong to a later week. Add them here inste
 - **(Week 3+, if sync runs automatically) Guard against two syncs at once.** Sync is run by
   hand today. If a deploy step ever runs it on several machines at the same time, take
   `pg_advisory_xact_lock(<fixed number>)` at the start of the sync transaction, so the second
-  sync waits for the first.
+  sync waits for the first. (Deploy Step 1: in containers only the one-shot `migrate`
+  service syncs, and the others wait for it, so this matters again only with several servers.)
 
 - **(If version bumps get annoying) Split `content_hash` into "affects grading" and "doesn't".**
   Today any change to a problem folder (even a hint typo or a new buggy file) needs a version
@@ -151,4 +152,8 @@ Ideas that come up during a week but belong to a later week. Add them here inste
 - **(Week 8 or later) Rasch beyond first tries.** Partial credit (the reward from `grade()`),
   a practice effect per attempt, or Elo for live updates. Worth it only where answers are
   missing in a biased way; on the complete simulated data counting was nearly as good.
-
+- **(Deploy, if disk or pull time matters) Next.js `output: "standalone"` for the web image.**
+  The image is 996 MB: `next` 203 MB, its platform build 93 MB, `monaco-editor` 105 MB that only
+  the browser needs (it is served from `public/monaco`). Standalone output copies only the
+  files the server really loads (typically a few hundred MB less) and runs with
+  `node server.js`. Measure the size before and after, and check that `make web-e2e` still passes.

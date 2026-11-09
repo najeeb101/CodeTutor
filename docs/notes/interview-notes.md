@@ -731,3 +731,19 @@ file differs from the committed one. Before going public, every commit was scann
 because deleting a file does not remove it from history.
 *How I'd say it:* "I pin CI actions by SHA, give the job a read-only token, and check that no
 test skips in CI that runs on my laptop, because a green badge is only worth what it runs."
+
+## Containers: one image many roles, build vs run config, and the socket (Deploy, Step 1)
+The Python code is built once into `codetutor-app`, and compose picks the role by command
+(migrate, api, worker, tutor), so the API and the worker can never run different code versions.
+A one-shot `migrate` container runs the schema upgrade and the problem sync, and the others start
+only after it exits 0: one sync at a time, by construction. Settings come in two kinds: Next.js
+bakes its `/api` rewrite in at build time, but secrets are read only at run time from an
+ignored env file, and `.dockerignore` keeps every `.env*` file out of the build, so a secret can
+never be published inside an image. The hard part was the grader: the worker bind-mounted
+`runner.py` from its own path, but a worker in a container talks to the host's Docker daemon,
+which resolves that path on the host. So the runner is baked into a grading image, and the
+worker refuses to start if that image's runner is not byte-identical to its own (a stale image
+would grade with old code silently). The worker holds the Docker socket, which is root-equivalent:
+I wrote that down, kept the socket out of every other container, and the next step adds gVisor.
+*How I'd say it:* "One image, many roles; secrets only at run time; and the grading image is
+checked byte for byte against the worker's runner, because a stale grader is a silent bug."

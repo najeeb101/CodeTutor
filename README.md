@@ -32,7 +32,7 @@ Everything marked simulated has not been tried on real students.
 | Problems | 33, in 8 CS1 modules (variables → recursion): 17 easy, 15 medium, 1 hard |
 | Tests | 374, of which 242 are hidden |
 | Buggy solutions | 97 known-wrong solutions; every problem has at least one bug that only hidden tests catch |
-| Test suite | 818 pytest tests, plus 33 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
+| Test suite | 825 pytest tests, plus 36 that run in Docker and 1 slow one (the whole-bank check that `make validate` also runs); 31 test submissions, most of them hostile (infinite loops, memory bombs, `os._exit`, fake results, output floods, reading host files) |
 | Model evals | 2 official runs (Qwen2.5-Coder 1.5B and 7B), 330 graded answers each |
 | App | Postgres (8 tables), a grading queue in Postgres, a FastAPI service (11 student endpoints + 4 teacher endpoints), a Next.js UI with the Monaco editor and an instructor dashboard; checked end to end over HTTP and in a headless browser |
 | AI tutor | Qwen2.5-Coder 7B (local, Ollama), hybrid search over 8 course notes (41 sections, pgvector), a guardrail against code and solution lines, a hint queue + worker, 👍/👎; measured: a safety run (97 buggy files) and an offline eval (54 situations × 6 conditions × 5 answers) |
@@ -43,6 +43,25 @@ Everything marked simulated has not been tried on real students.
 
 A validator checks every problem: the reference solution passes all tests, the starter code does
 not, and every buggy solution fails at least one test (a simple form of mutation testing).
+
+## Where the code is
+
+Python code lives in [`src/codetutor/`](src/codetutor/) (the usual "src layout"). The top-level
+`api/` and `tutor/` folders only hold a README that points there.
+
+| Part | Folder |
+|---|---|
+| Grader: runner, sandboxes (subprocess, Docker), comparison | [src/codetutor/grader/](src/codetutor/grader/) |
+| Problem format + loader; the 33 problems | [src/codetutor/problems/](src/codetutor/problems/), [problems/cs1/](problems/cs1/) |
+| HTTP API (FastAPI) | [src/codetutor/api/](src/codetutor/api/) |
+| Grading queue in Postgres + worker | [src/codetutor/worker/](src/codetutor/worker/), [src/codetutor/db/](src/codetutor/db/) |
+| AI tutor: guardrail, search, prompt, hint worker | [src/codetutor/tutor/](src/codetutor/tutor/) |
+| Model evals (pass@k) | [src/codetutor/evals/](src/codetutor/evals/) |
+| GRPO training with the grader as reward | [src/codetutor/rl/](src/codetutor/rl/) |
+| Simulated class, integrity checks, skill, early warning | [sim/](src/codetutor/sim/), [integrity/](src/codetutor/integrity/), [skill/](src/codetutor/skill/), [early/](src/codetutor/early/) |
+| Web UI (Next.js + Monaco) | [web/](web/) |
+| Containers and CI | [deploy/](deploy/), [compose.prod.yaml](compose.prod.yaml), [.github/workflows/ci.yml](.github/workflows/ci.yml) |
+| Tests (incl. hostile submissions) | [tests/](tests/) |
 
 ## How grading works
 
@@ -195,6 +214,17 @@ another one). Without the UI, `scripts/submit.py` sends a file to the queue:
 `uv run python scripts/submit.py cs1.loops.fizzbuzz problems/cs1/03_loops/fizzbuzz/solution.py --wait`.
 How it works: [docs/worker.md](docs/worker.md) (queue), [docs/api.md](docs/api.md) (API),
 [docs/tutor.md](docs/tutor.md) (the tutor), [web/README.md](web/README.md) (UI).
+
+### Run it in containers
+The same app from Docker images (the way it will run on a server; [docs/deploy.md](docs/deploy.md)):
+```bash
+cp .env.prod.example .env.prod   # fill in the two values: openssl rand -hex 24
+make prod-build                  # 3 images: app, web, grading sandbox (~2.5 min the first time)
+make prod-up                     # web on http://127.0.0.1:3200, API on 127.0.0.1:8010
+make prod-e2e                    # 9 end-to-end checks (the tutor is not containerized yet)
+make prod-down
+```
+Not ready for strangers yet (dev login, no limits): see docs/deploy.md §5.
 
 ### Architecture (as built)
 The product: a student's submit is one row in Postgres, which is also the job.
